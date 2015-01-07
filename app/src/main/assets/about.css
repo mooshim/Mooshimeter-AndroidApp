@@ -1,0 +1,39 @@
+/* ------------------------------------------------------------
+ *
+ * File        : about.css
+ *
+ * Description : Styles for About Dialog
+ *
+ * ----------------------------------------------------------- */
+body 
+{
+padding:0;
+background-color:white;
+}
+
+div.main 
+{
+margin:0 auto;
+padding:0;
+color:black;
+text-align:justify;
+}
+
+p
+{
+font-size:16px;
+}
+
+p.info
+{
+text-align:center;
+color:red;
+}
+
+p.copy
+{
+text-align:center;
+color:red;
+}
+
+

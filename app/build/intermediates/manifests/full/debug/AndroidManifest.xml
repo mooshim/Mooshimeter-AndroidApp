@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.ti.ble.sensortag"
+    android:versionCode="2"
+    android:versionName="1.01" >
+
+    <uses-sdk
+        android:minSdkVersion="18"
+        android:targetSdkVersion="19" />
+
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/tible"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.Holo.Light" >
+        <service
+            android:name="com.example.ti.ble.common.BluetoothLeService"
+            android:enabled="true" />
+
+        <activity
+            android:name="com.example.ti.ble.sensortag.MainActivity"
+            android:label="@string/app_name"
+            android:screenOrientation="portrait" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.example.ti.ble.sensortag.DeviceActivity"
+            android:parentActivityName="com.example.ti.ble.sensortag.MainActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.example.ti.ble.sensortag.ServiceActivity"
+            android:parentActivityName="com.example.ti.ble.sensortag.DeviceActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.example.ti.ble.sensortag.FwUpdateActivity"
+            android:parentActivityName="com.example.ti.ble.sensortag.DeviceActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.example.ti.ble.sensortag.FileActivity"
+            android:parentActivityName="com.example.ti.ble.sensortag.FwUpdateActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name="com.example.ti.ble.sensortag.PreferencesActivity"
+            android:label="Preferences"
+            android:parentActivityName="com.example.ti.ble.sensortag.DeviceActivity"
+            android:screenOrientation="portrait" />
+    </application>
+
+</manifest>

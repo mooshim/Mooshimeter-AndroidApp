@@ -1,0 +1,37 @@
+/* ------------------------------------------------------------
+ *
+ * File        : license.css
+ *
+ * Description : Styles for License Dialog
+ *
+ * ----------------------------------------------------------- */
+body 
+{
+	padding:0;
+	background-color:white;
+}
+
+div.main 
+{
+	margin:0 auto;
+	padding:0;
+	color:black;
+	text-align:justify;
+}
+
+h2
+{
+	font-size:16px;
+	color:red;
+}
+
+h2
+{
+	font-size:15px;
+}
+
+p
+{
+	font-size:14px;
+}
+

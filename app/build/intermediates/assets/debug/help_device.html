@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!-- *********************************************************
+**   File    : help_device.html
+**   Descr.  : Help for device view
+**** ****************************************************** -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+<meta HTTP-EQUIV="Cache-Control" CONTENT="no-cache" />
+<meta HTTP-EQUIV="expires" CONTENT="0">
+<meta name="Author" content="Texas Instruments" />
+<title>BLE Device Monitor</title>
+<link rel="stylesheet" type="text/css" href="help.css">
+</head>
+
+<body>
+	<div class="main">
+		<h1>Sensor View Help</h1>
+		<p>When the view is started a <b>Service Discovery</b> is initiated. On <b>Service Discovery</b> completion (may take a few seconds),
+		sensor images appear and data is displayed next to them. The <b>Preferences</b> tab in the options menu can be used to select <i>which</i> sensors
+		to show. Note that a maximum of four sensors may be activated per connection instance due to a limitation in Android's Bluetooth low energy stack on the number of 
+		notifications.</p>
+		<p>Note that magnetometer, gyroscope and height measurement (barometer) are calibrated by tapping on the respective entry in the sensor list. The measured height shown
+		is calculated based on the difference in air pressure between the current measurement and the pressure at the moment of calibration. Measurements are always calibrated
+		on connection (but may be re-calibrated any time).</p>
+		<p>The SensorTag firmware can be upgraded OTA (Over The Air) via <b>Firmware Update</b> in the Options Menu. The application will contain images for the latest firmware, 
+		but it is also possible to download custom images from Android's 'Download' directory. There are 
+		two FW images for each FW revision. These are labeled <q>A</q> and <q>B</q> and differ only by the destination address in the 
+		SensorTag flash. Alternative images must always be used; if the current image in flash is of type <q>A</q> the new one must of type 
+		<q>B</q> and vice versa.<hr />
+    <p class="copy">&copy; 2013-2014 Texas Instruments</p>
+  </div>
+</body>
+</html>
+

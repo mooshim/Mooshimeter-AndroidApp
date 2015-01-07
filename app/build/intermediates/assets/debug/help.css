@@ -1,0 +1,54 @@
+/* ------------------------------------------------------------
+ *
+ * File        : help.css
+ *
+ * Description : Styles for the BLE Device Monitor Help pages
+ *
+ * ----------------------------------------------------------- */
+body 
+{
+	background-color:#eee; 
+	padding:0;
+	color:black;
+}
+
+h1 
+{
+	font-size:20px;
+	text-align:center;
+}
+
+h2
+{
+	font-size:18px;
+	text-align:center;
+}
+
+div.main 
+{
+	margin:0 auto;
+	text-align:justify;
+}
+
+p
+{
+	font-size:16px;
+}
+
+p.info
+{
+	text-align:center;
+	color:red;
+}
+
+p.copy
+{
+	text-align:center;
+	color:red;
+}
+
+b
+{
+	color:#003;
+}
+

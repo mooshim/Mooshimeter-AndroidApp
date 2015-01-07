@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+        Base application theme, dependent on API level. This theme is replaced
+        by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
+    -->
+    <style name="AppBaseTheme" parent="android:Theme.Light">
+        <!--
+            Theme customizations available in newer API levels can go in
+            res/values-vXX/styles.xml, while customizations related to
+            backward-compatibility can go here.
+        -->
+    </style>
+
+    <!-- Application theme. -->
+    <style name="AppTheme" parent="AppBaseTheme">
+        <!-- All customizations that are NOT specific to a particular API-level can go here. -->
+    </style>
+
+    <style name="aboutStyle">
+        <item name="android:background">@android:color/black</item>
+        <item name="android:textColor">#ff0</item>
+        <item name="android:textSize">14dp</item>
+    </style>
+
+    <style name="logStyle">
+        <item name="android:background">#dde</item>
+        <item name="android:textColor">@android:color/black</item>
+        <item name="android:textSize">18dp</item>
+    </style>
+
+    <style name="tabwidgetStyle">
+        <item name="android:background">#336</item>
+    </style>
+
+    <style name="devlistStyle">
+        <item name="android:dividerHeight">5dp</item>
+    </style>
+
+    <style name="listItemStyle">
+        <item name="android:background">#abc</item>
+        <item name="android:padding">18dp</item>
+    </style>
+
+    <style name="nameStyle">
+        <item name="android:textColor">#000</item>
+        <item name="android:textSize">18dp</item>
+    </style>
+
+    <style name="nameStyle.inactive">
+        <item name="android:textColor">#ccc</item>
+    </style>
+
+    <style name="nameStyleSelected">
+        <item name="android:textColor">#c33</item>
+    </style>
+
+    <style name="dirStyle">
+        <item name="android:textColor">#003</item>
+				<item name="android:textSize">20dp</item>
+				<item name="android:layout_margin">10dp</item>
+				<item name="android:gravity">center_horizontal</item>
+    </style>
+    
+    <style name="dataStyle">
+        <item name="android:background">#fff</item>
+        <item name="android:textSize">16dp</item>
+        <item name="android:textColor">#030</item>
+        <item name="android:textColorHint">#fff</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:padding">8dp</item>
+    </style>
+
+    <style name="dataStyle1">
+        <item name="android:textColor">#060</item>
+        <item name="android:textSize">16dp</item>
+    </style>
+
+    <style name="dataStyle2">
+        <item name="android:textColor">#f33</item>
+        <item name="android:textSize">16dp</item>
+    </style>
+
+    <style name="infoStyle">
+        <item name="android:textColor">#3f3</item>
+        <item name="android:textSize">14dp</item>
+    </style>
+
+    <style name="statusStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">5dp</item>
+        <item name="android:layout_marginBottom">5dp</item>
+        <item name="android:gravity">right</item>
+        <item name="android:textSize">18dp</item>
+        <item name="android:background">#ccc</item>
+    </style>
+
+    <style name="statusStyleSmall">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">10dp</item>
+        <item name="android:textSize">14dp</item>
+    </style>
+
+    <style name="statusStyle.Success" parent="statusStyle">
+        <item name="android:textColor">#336633</item>
+    </style>
+
+    <style name="statusStyle.Busy" parent="statusStyle">
+        <item name="android:textColor">#EEEEEE</item>
+    </style>
+
+    <style name="statusStyle.Failure" parent="statusStyle">
+        <item name="android:textColor">#FF0000</item>
+    </style>
+
+    <style name="statusStyle.Disabled" parent="statusStyle">
+        <item name="android:textColor">#999999</item>
+        <item name="android:gravity">right</item>
+    </style>
+
+    <style name="tbStartStyle">
+        <item name="android:textSize">16dp</item>
+    </style>
+
+    
+    <style name="ServiceHeaderRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center</item>
+        <item name="android:typeface">serif</item>
+    </style>
+
+    <style name="ServiceHeaderItem">
+        <item name="android:layout_span">4</item>
+        <item name="android:textSize">20dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="ServiceRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">#def</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="ServiceItem">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:typeface">monospace</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:textSize">18dp</item>
+    </style>
+    
+    <style name="ServiceItemValue">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:typeface">monospace</item>
+        <item name="android:gravity">right</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:layout_marginRight">30dp</item>
+        <item name="android:textSize">18dp</item>
+    </style>
+</resources>

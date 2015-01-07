@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!-- **********************************************************
+**   File    : help_scan.html
+**   Descr.  : Help view for scan activity
+**** ****************************************************** -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta HTTP-EQUIV="Pragma" CONTENT="no-cache">
+<meta HTTP-EQUIV="Cache-Control" CONTENT="no-cache">
+<meta HTTP-EQUIV="expires" CONTENT="0">
+<meta name="Author" content="Texas Instruments">
+<title>BLE SensorTag</title>
+<link rel=stylesheet type="text/css" href="help.css">
+</head>
+
+<body>
+	<div class="main">
+	  <h1>Scan View Help</h1>
+		<p>Provided that the <b>Bluetooth Adapter</b> is available and turned on and Bluetooth low energy supported on the device 
+		(the application will request to turn the adapter on if detected off at start-up), the <b>BLE SensorTag App</b> 
+	  will start device discovery (scanning) automatically. Scanning will stop when any of the following conditions is met:</p>
+	  <ul>
+	  <li><b>Stop</b> button tapped</b>
+	  <li>A <b>device</b> in the list tapped</li>
+	  <li><b>Ten seconds</b> elapsed since scanning started</li>
+	  </ul>
+		<p>Scanning can be restarted any time by tapping the <b>Scan</b> button. During scanning Received Signal Strength Indicator (RSSI) values are continuously updated. Note that
+		some devices do not provide continuous scan results (Nexus 4, Nexus 7 2013), on these devices the RSSI value will appear only once. 
+		When a device in the list is selected by the user, the application will attempt to connect to it. If the connection succeeds, 
+		the <u>Device View</u> will be launched, and this is where data from the enabled sensors are displayed. If connection times out an error message
+		is displayed. This will happen when the SensorTag doesn't advertise, so always make sure it is advertising by pushing the side button on the SensorTag
+		(this button toggles advertising).</p>
+		<p>The options menu gives direct access to the SensorTag web page, and to TI's e2e forum. The Bluetooth settings dialog can also
+		be accessed from here. There is also a brief About dialog with information about the SensorTag, the Android device name and the Android build.
+		</p>
+    <p class="copy"<hr>&copy; 2013-2014 Texas Instruments</p>
+</div>
+
+</body>
+</html>
+

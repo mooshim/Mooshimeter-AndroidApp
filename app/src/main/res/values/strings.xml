@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Main activity -->
+    <string name="app_name">BLE SensorTag</string>
+    <string name="button_scan">Scan</string>
+    <string name="connect">Connect</string>
+    <string name="title_device_list">Device List</string>
+    <string name="device">Device</string>
+    <string name="header">Available BLE Devices</string>
+    <string name="disconnected">Device is not connected</string>
+    <string name="control">Done</string>
+    <string name="bt_not_supported">Bluetooth is not supported</string>
+    <string name="ble_not_supported">BLE is not supported</string>
+    <string name="bt_on">Bluetooth was turned  on</string>
+    <string name="bt_not_on">Bluetooth was not turned on</string>
+    <string name="app_closing">Exiting BLE SensorTag app</string>
+    <string-array name="device_filter"><item>SensorTag</item><item>SensorTag2</item></string-array>    
+    <string name="nodevice">There are no SensorTags advertising within range. Please push the side button on the SensorTag to start advertising.</string>
+    <string name="scan_advice">The Android device is not scanning. Please tap \'Scan\' to scan for SensorTags.</string>
+    <string name="bt_adapter_disable">Disable Bluetooth adapter</string>
+    <string name="bt_adapter_reset">Reset Bluetooth adapter</string>
+    
+    <!-- Options menu -->
+    <string name="prefs">Preferences</string>
+    <string name="progress"></string>
+    <string name="agree">I agree</string>
+    <string name="fwupdate">Firmware update</string>
+    <string name="bt">Bluetooth Adapter</string>
+    <string name="sthome">SensorTag Home</string>
+    <string name="tie2e">TI E2E Community</string>
+    <string name="license">License</string>
+    <string name="about">About</string>
+    <string name="exit">Exit</string>
+
+    <!-- Device activity -->
+    <string name="dev_addr">Device address</string>
+    <string name="image">Image</string>
+    
+    <!-- Sensor names-->
+    <string name="keys">Keys</string>
+    <string name="acc">Accelerometer</string>
+    <string name="mag">Magnetometer</string>
+    <string name="lux">Luxometer</string>
+    <string name="gyro">Gyroscope</string>
+    <string name="hum">Humidity</string>
+    <string name="bar">Barometer</string>
+    <string name="tAmb">Ambience Temperature</string>
+    <string name="tObj">Object Temperature</string>
+    
+    <!-- Sensor misc. -->
+    <string name="xyz3">x:\ny:\nz:\n</string>
+    <string name="empty3">*\n*\n*\n</string>
+    <string name="unitDegSec3">deg/s\ndeg/s\ndeg/s\n</string>
+    <string name="unitG3">g\ng\ng\n</string>
+    <string name="unitT3">uT\nuT\nuT\n</string>
+    
+    <string name="empty1">*\n</string>
+    <string name="unitDeg">deg/C\n</string>
+    <string name="unitRH">%rH\n</string>
+    <string name="unitPA_Meter">nPA\nmeter</string>
+    <string name="unitLux">Lux\n</string>
+    
+    <!-- FWUpdate activity -->
+    <string name="title_oad">Firmware Update (OAD)</string>
+    <string name="start_prog">Start Programming</string>
+    <string name="cancel">Cancel</string>
+    <string name="prog_ogoing">NB! Not permitted to close this view during OAD transfer</string>
+    <string name="load_image_a">Image A</string>
+    <string name="load_image_b">Image B</string>
+    <string name="load_image_c">Custom</string>
+    <string name="no_image">Not an OAD image</string>
+    <string name="no_image_sel">No image selected</string>
+    <string name="new_image">New image:</string>
+    <string name="cur_image">Current image:</string>
+    <string name="idle">idle</string>
+    <string name="btn_txt_confirm">Confirm</string>
+
+</resources>
