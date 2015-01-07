@@ -14,19 +14,6 @@
         android:title="@string/bt" 
         />
     <item
-        android:id="@+id/opt_e2e"
-        android:title="@string/tie2e"/>
-    <item
-        android:id="@+id/opt_sthome"
-        android:title="@string/sthome"/>
-    <item
-        android:id="@+id/opt_license"
-        android:title="@string/license"/>
-    <item
-        android:id="@+id/opt_about"
-        android:icon="@drawable/ic_action_about"
-        android:title="@string/about"/>
-    <item
         android:id="@+id/opt_exit"
         android:title="@string/exit"/>
 

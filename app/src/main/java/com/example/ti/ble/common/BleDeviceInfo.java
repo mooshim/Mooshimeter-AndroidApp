@@ -60,10 +60,12 @@ public class BleDeviceInfo {
   // Data
   private BluetoothDevice mBtDevice;
   private int mRssi;
+  public int mBuildTime;
 
-  public BleDeviceInfo(BluetoothDevice device, int rssi) {
+  public BleDeviceInfo(BluetoothDevice device, int rssi, int build_time) {
     mBtDevice = device;
     mRssi = rssi;
+    mBuildTime = build_time;
   }
 
   public BluetoothDevice getBluetoothDevice() {

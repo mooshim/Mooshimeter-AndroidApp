@@ -136,10 +136,6 @@ public class DeviceActivity extends ViewPagerActivity {
 
         final ChannelView test_view = new ChannelView(this);
 
-        //ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(this,null);
-        //lp.width = getWindow().getDecorView().getWidth();
-        //lp.height = getWindow().getDecorView().getHeight();
-
         int x = getWindow().getDecorView().getWidth();
         int y = getWindow().getDecorView().getHeight();
         ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(x,y);

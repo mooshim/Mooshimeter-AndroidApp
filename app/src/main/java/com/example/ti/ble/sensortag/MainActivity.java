@@ -215,12 +215,6 @@ public class MainActivity extends ViewPagerActivity {
 		case R.id.opt_bt:
 			onBluetooth();
 			break;
-		case R.id.opt_e2e:
-			onUrl(URL_FORUM);
-			break;
-		case R.id.opt_sthome:
-			onUrl(URL_STHOME);
-			break;
 		case R.id.opt_about:
 			//onAbout();
 			break;
@@ -241,11 +235,6 @@ public class MainActivity extends ViewPagerActivity {
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.main_activity_actions, menu);
 		return super.onCreateOptionsMenu(menu);
-	}
-
-	private void onUrl(final Uri uri) {
-		Intent web = new Intent(Intent.ACTION_VIEW, uri);
-		startActivity(web);
 	}
 
 	private void onBluetooth() {
@@ -415,28 +404,6 @@ public class MainActivity extends ViewPagerActivity {
 	void setError(String txt) {
 		mScanView.setError(txt);
 		CustomToast.middleBottom(this, "Turning BT adapter off and on again may fix Android BLE stack problems");
-	}
-
-	private BleDeviceInfo createDeviceInfo(BluetoothDevice device, int rssi) {
-		BleDeviceInfo deviceInfo = new BleDeviceInfo(device, rssi);
-
-		return deviceInfo;
-	}
-
-	boolean checkDeviceFilter(String deviceName) {
-		if (deviceName == null)
-			return false;
-
-		int n = mDeviceFilter.length;
-		if (n > 0) {
-			boolean found = false;
-			for (int i = 0; i < n && !found; i++) {
-				found = deviceName.equals(mDeviceFilter[i]);
-			}
-			return found;
-		} else
-			// Allow all devices if the device filter is empty
-			return true;
 	}
 
 	private void addDevice(BleDeviceInfo device) {
@@ -682,7 +649,7 @@ public class MainActivity extends ViewPagerActivity {
                     if(is_meter) {
                         if (!deviceInfoExists(device.getAddress())) {
                             // New device
-                            BleDeviceInfo deviceInfo = createDeviceInfo(device, rssi);
+                            BleDeviceInfo deviceInfo = new BleDeviceInfo(device, rssi, build_time);
                             addDevice(deviceInfo);
                         } else {
                             // Already in list, update RSSI info
