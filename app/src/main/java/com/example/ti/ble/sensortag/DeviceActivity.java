@@ -67,29 +67,23 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.content.res.Resources;
-import android.content.res.XmlResourceParser;
 import android.os.Build;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
-// import android.util.Log;
+import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
-import android.widget.RelativeLayout;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.ti.ble.common.BluetoothLeService;
 import com.example.ti.ble.common.GattInfo;
-import com.example.ti.util.Point3D;
 
-public class DeviceActivity extends ViewPagerActivity {
+public class DeviceActivity extends FragmentActivity {
 	// Activity
 	public static final String EXTRA_DEVICE = "EXTRA_DEVICE";
 	private static final int PREF_ACT_REQ = 0;
@@ -111,17 +105,27 @@ public class DeviceActivity extends ViewPagerActivity {
 	private String mFwRev;
 
     // GUI
-    private DeviceView mDeviceView;
+    private TextView ch1_value_label;
+    private TextView ch2_value_label;
 
-	public DeviceActivity() {
-		mResourceFragmentPager = R.layout.fragment_pager;
-		mResourceIdPager = R.id.pager;
-		mFwRev = new String("1.5"); // Assuming all SensorTags are up to date until actual FW revision is read
-	}
+    private Button ch1_display_set_button;
+    private Button ch1_input_set_button;
+    private Button ch1_range_auto_button;
+    private Button ch1_range_button;
+    private Button ch1_units_button;
 
-	public static DeviceActivity getInstance() {
-		return (DeviceActivity) mThis;
-}
+    private Button ch2_display_set_button;
+    private Button ch2_input_set_button;
+    private Button ch2_range_auto_button;
+    private Button ch2_range_button;
+    private Button ch2_units_button;
+
+    private Button rate_auto_button;
+    private Button rate_button;
+    private Button logging_button;
+    private Button depth_auto_button;
+    private Button depth_button;
+    private Button settings_button;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -139,8 +143,30 @@ public class DeviceActivity extends ViewPagerActivity {
 		//PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
 		// GUI
-		mDeviceView = new DeviceView();
-		mSectionsPagerAdapter.addSection(mDeviceView, "Meter View");
+        setContentView(R.layout.meter_view);
+
+        // Bind the GUI elements
+        ch1_value_label = (TextView) findViewById(R.id.ch1_value_label);
+        ch2_value_label = (TextView) findViewById(R.id.ch2_value_label);
+
+        ch1_display_set_button = (Button) findViewById(R.id.ch1_display_set_button);
+        ch1_input_set_button   = (Button) findViewById(R.id.ch1_input_set_button);
+        ch1_range_auto_button  = (Button) findViewById(R.id.ch1_range_auto_button);
+        ch1_range_button       = (Button) findViewById(R.id.ch1_range_button);
+        ch1_units_button       = (Button) findViewById(R.id.ch1_units_button);
+
+        ch2_display_set_button = (Button) findViewById(R.id.ch2_display_set_button);
+        ch2_input_set_button   = (Button) findViewById(R.id.ch2_input_set_button);
+        ch2_range_auto_button  = (Button) findViewById(R.id.ch2_range_auto_button);
+        ch2_range_button       = (Button) findViewById(R.id.ch2_range_button);
+        ch2_units_button       = (Button) findViewById(R.id.ch2_units_button);
+
+        rate_auto_button  = (Button) findViewById(R.id.rate_auto_button);
+        rate_button       = (Button) findViewById(R.id.rate_button);
+        logging_button    = (Button) findViewById(R.id.logging_button);
+        depth_auto_button = (Button) findViewById(R.id.depth_auto_button);
+        depth_button      = (Button) findViewById(R.id.depth_button);
+        settings_button   = (Button) findViewById(R.id.settings_button);
 
 		// GATT database
 		//Resources res = getResources();
@@ -157,7 +183,7 @@ public class DeviceActivity extends ViewPagerActivity {
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		this.optionsMenu = menu;
+		//this.optionsMenu = menu;
 		// Inflate the menu items for use in the action bar
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.device_activity_actions, menu);

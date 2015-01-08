@@ -92,9 +92,6 @@ import com.example.ti.ble.common.BluetoothLeService;
 import com.example.ti.util.CustomToast;
 
 public class MainActivity extends ViewPagerActivity {
-	// Log
-	// private static final String TAG = "MainActivity";
-
 	// URLs
 	private static final Uri URL_FORUM = Uri
 	    .parse("http://e2e.ti.com/support/low_power_rf/default.aspx?DCMP=hpa_hpa_community&HQS=NotApplicable+OT+lprf-forum");
@@ -123,7 +120,6 @@ public class MainActivity extends ViewPagerActivity {
 	private BluetoothDevice mBluetoothDevice = null;
 	private BluetoothLeService mBluetoothLeService = null;
 	private IntentFilter mFilter;
-	private String[] mDeviceFilter = null;
 
 	// Housekeeping
 	private static final int NO_DEVICE = -1;
@@ -167,7 +163,6 @@ public class MainActivity extends ViewPagerActivity {
 		// Initialize device list container and device filter
 		mDeviceInfoList = new ArrayList<BleDeviceInfo>();
 		Resources res = getResources();
-		mDeviceFilter = res.getStringArray(R.array.device_filter);
 
 		// Create the fragments and add them to the view pager and tabs
 		mScanView = new ScanView();
@@ -439,6 +434,8 @@ public class MainActivity extends ViewPagerActivity {
 	private boolean scanLeDevice(boolean enable) {
 		if (enable) {
             /*
+            // FIXME: jwhong: I've had no luck getting the filtered scan to work.
+            // I'm leaving this code here in case it starts working in a future android release.
             UUID[] service_uuids = new UUID[1];
             service_uuids[0] = UUID.fromString("1bc5ffa0-0200-62ab-e411-f254e005dbd4");
 			mScanning = mBtAdapter.startLeScan(service_uuids, mLeScanCallback);

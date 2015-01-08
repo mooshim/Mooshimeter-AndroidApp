@@ -125,7 +125,7 @@ public enum Sensor {
   		 * The z value is multiplied with -1 to coincide with how we have arbitrarily defined the positive y direction. (illustrated by the apps accelerometer
   		 * image)
   		 */
-			DeviceActivity da = DeviceActivity.getInstance();
+			//DeviceActivity da = DeviceActivity.getInstance();
 
         return new Point3D(0,0,0);
   	}

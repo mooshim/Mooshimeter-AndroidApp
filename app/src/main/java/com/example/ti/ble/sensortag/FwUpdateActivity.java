@@ -151,7 +151,7 @@ public class FwUpdateActivity extends Activity {
 
 
   public FwUpdateActivity() {
-    mDeviceActivity = DeviceActivity.getInstance();
+    //mDeviceActivity = DeviceActivity.getInstance();
 
     // BLE Gatt Service
     mLeService = BluetoothLeService.getInstance();
