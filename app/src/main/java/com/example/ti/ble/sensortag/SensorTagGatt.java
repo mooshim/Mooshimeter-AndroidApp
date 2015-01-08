@@ -60,8 +60,6 @@ import java.util.UUID;
 
 public class SensorTagGatt {
 
-  private static final String uuid_base = "1bc50000-0200-62ab-e411-f254e005dbd4";
-
   public final static UUID 
 
   	  UUID_DEVINFO_SERV = fromString("0000180a-0000-1000-8000-00805f9b34fb"),
@@ -105,4 +103,24 @@ public class SensorTagGatt {
 
       UUID_KEY_SERV = fromString("0000ffe0-0000-1000-8000-00805f9b34fb"), 
       UUID_KEY_DATA = fromString("0000ffe1-0000-1000-8000-00805f9b34fb");
+
+  public final static UUID
+       METER_SERVICE       = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
+       METER_INFO          = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),
+       METER_NAME          = fromString("1BC5FFA2-0200-62AB-E411-F254E005DBD4"),
+       METER_SETTINGS      = fromString("1BC5FFA3-0200-62AB-E411-F254E005DBD4"),
+       METER_LOG_SETTINGS  = fromString("1BC5FFA4-0200-62AB-E411-F254E005DBD4"),
+       METER_UTC_TIME      = fromString("1BC5FFA5-0200-62AB-E411-F254E005DBD4"),
+       METER_SAMPLE        = fromString("1BC5FFA6-0200-62AB-E411-F254E005DBD4"),
+       METER_CH1BUF        = fromString("1BC5FFA7-0200-62AB-E411-F254E005DBD4"),
+       METER_CH2BUF        = fromString("1BC5FFA8-0200-62AB-E411-F254E005DBD4"),
+       METER_CAL           = fromString("1BC5FFA9-0200-62AB-E411-F254E005DBD4"),
+       METER_LOG_DATA      = fromString("1BC5FFAA-0200-62AB-E411-F254E005DBD4"),
+       METER_TEMP          = fromString("1BC5FFAB-0200-62AB-E411-F254E005DBD4"),
+       METER_BAT           = fromString("1BC5FFAC-0200-62AB-E411-F254E005DBD4"),
+
+       OAD_SERVICE_UUID    = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4"),
+       OAD_IMAGE_NOTIFY    = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
+       OAD_IMAGE_BLOCK_REQ = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
+       OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
 }
