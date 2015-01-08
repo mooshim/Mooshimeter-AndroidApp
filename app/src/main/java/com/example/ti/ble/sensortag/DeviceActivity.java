@@ -111,7 +111,7 @@ public class DeviceActivity extends ViewPagerActivity {
 	private String mFwRev;
 
     // GUI
-    ViewGroup base_view;
+    private DeviceView mDeviceView;
 
 	public DeviceActivity() {
 		mResourceFragmentPager = R.layout.fragment_pager;
@@ -134,76 +134,18 @@ public class DeviceActivity extends ViewPagerActivity {
 		mBluetoothDevice = intent.getParcelableExtra(EXTRA_DEVICE);
 		mServiceList = new ArrayList<BluetoothGattService>();
 
-        final ChannelView test_view = new ChannelView(this);
-
-        int x = getWindow().getDecorView().getWidth();
-        int y = getWindow().getDecorView().getHeight();
-        ViewGroup.LayoutParams lp = new ViewGroup.LayoutParams(x,y);
-
-        base_view = new ViewGroup(this) {
-            @Override
-            protected void onLayout(boolean b, int i, int i2, int i3, int i4) {
-                int w = (i3-i )/4;
-                int h = (i4-i2)/6;
-                test_view.layout(i,i2,i3,i4);
-                Log.i(null, "Layout!");
-            }
-        };
-        setContentView(base_view,lp);
-        base_view.addView(test_view);
-
-        return;
-        /*
-        mSectionsPagerAdapter.addSection(mDeviceView, "Meter View");
-
-        // Creating a new RelativeLayout
-        RelativeLayout relativeLayout = new RelativeLayout(this);
-
-        // Defining the RelativeLayout layout parameters.
-        // In this case I want to fill its parent
-        RelativeLayout.LayoutParams rlp = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.FILL_PARENT,
-                RelativeLayout.LayoutParams.FILL_PARENT);
-
-        // Creating a new TextView
-        TextView tv = new TextView(this);
-        tv.setText("Test");
-
-        // Defining the layout parameters of the TextView
-        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
-                RelativeLayout.LayoutParams.WRAP_CONTENT,
-                RelativeLayout.LayoutParams.WRAP_CONTENT);
-        lp.addRule(RelativeLayout.CENTER_IN_PARENT);
-
-        // Setting the parameters on the TextView
-        tv.setLayoutParams(lp);
-
-        // Adding the TextView to the RelativeLayout as a child
-        relativeLayout.addView(tv);
-
-        // Setting the RelativeLayout as our content view
-        setContentView(relativeLayout, rlp);*/
-/*
 		// Determine type of SensorTagGatt
-		String deviceName = mBluetoothDevice.getName();
-		mIsSensorTag2 = deviceName.equals("SensorTag2");
-		if (mIsSensorTag2)
-			PreferenceManager.setDefaultValues(this, R.xml.preferences2, false);
-		else
-			PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-		// Log.i(TAG, "Preferences for: " + deviceName);
+		//String deviceName = mBluetoothDevice.getName();
+		//PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
 
 		// GUI
 		mDeviceView = new DeviceView();
-		mSectionsPagerAdapter.addSection(mDeviceView, "Sensors");
+		mSectionsPagerAdapter.addSection(mDeviceView, "Meter View");
 
 		// GATT database
-		Resources res = getResources();
-		XmlResourceParser xpp = res.getXml(R.xml.gatt_uuid);
-		new GattInfo(xpp);
-
-		// Initialize sensor list
-		updateSensorList();*/
+		//Resources res = getResources();
+		//XmlResourceParser xpp = res.getXml(R.xml.gatt_uuid);
+		//new GattInfo(xpp);
 	}
 
 	@Override
@@ -289,35 +231,6 @@ public class DeviceActivity extends ViewPagerActivity {
 				enableDataCollection(true);
 			}
 		}
-	}
-
-	//
-	// Application implementation
-	//
-	private void updateSensorList() {
-		mEnabledSensors.clear();
-
-		for (int i = 0; i < Sensor.SENSOR_LIST.length; i++) {
-			Sensor sensor = Sensor.SENSOR_LIST[i];
-			if (isEnabledByPrefs(sensor)) {
-				mEnabledSensors.add(sensor);
-			}
-		}
-	}
-
-	String firmwareRevision() {
-		return mFwRev;
-	}
-
-	boolean isEnabledByPrefs(final Sensor sensor) {
-		String preferenceKeyString = "pref_"
-		    + sensor.name().toLowerCase(Locale.ENGLISH) + "_on";
-
-		SharedPreferences prefs = PreferenceManager
-		    .getDefaultSharedPreferences(this);
-
-		Boolean defaultValue = true;
-		return prefs.getBoolean(preferenceKeyString, defaultValue);
 	}
 
 	BluetoothGattService getOadService() {
@@ -523,7 +436,6 @@ public class DeviceActivity extends ViewPagerActivity {
 				registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 			}
 
-			updateSensorList();
 			enableDataCollection(true);
 			break;
 		case FWUPDATE_ACT_REQ:
@@ -596,5 +508,73 @@ public class DeviceActivity extends ViewPagerActivity {
 		}
 
 	}
+
+    /////////////////////////
+    // Button Click Handlers
+    ////////////////////////
+
+    public void onCh1DisplaySetClick(View v) {
+        Log.i(null,"onCh1DisplaySetClick");
+    }
+
+    public void onCh1InputSetClick(View v) {
+        Log.i(null,"onCh1InputSetClick");
+    }
+
+    public void onCh1RangeAutoClick(View v) {
+        Log.i(null,"onCh1RangeAutoClick");
+    }
+
+    public void onCh1RangeClick(View v) {
+        Log.i(null,"onCh1RangeClick");
+    }
+
+    public void onCh1UnitsClick(View v) {
+        Log.i(null,"onCh1UnitsClick");
+    }
+
+    public void onCh2DisplaySetClick(View v) {
+        Log.i(null,"onCh2DisplaySetClick");
+    }
+
+    public void onCh2InputSetClick(View v) {
+        Log.i(null,"onCh2InputSetClick");
+    }
+
+    public void onCh2RangeAutoClick(View v) {
+        Log.i(null,"onCh2RangeAutoClick");
+    }
+
+    public void onCh2RangeClick(View v) {
+        Log.i(null,"onCh2RangeClick");
+    }
+
+    public void onCh2UnitsClick(View v) {
+        Log.i(null,"onCh2UnitsClick");
+    }
+
+    public void onRateAutoClick(View v) {
+        Log.i(null,"onRateAutoClick");
+    }
+
+    public void onRateClick(View v) {
+        Log.i(null,"onRateClick");
+    }
+
+    public void onLoggingClick(View v) {
+        Log.i(null,"onLoggingClick");
+    }
+
+    public void onDepthAutoClick(View v) {
+        Log.i(null,"onDepthAutoClick");
+    }
+
+    public void onDepthClick(View v) {
+        Log.i(null,"onDepthClick");
+    }
+    
+    public void onSettingsClick(View v) {
+        Log.i(null,"onSettingsClick");
+    }
 
 }

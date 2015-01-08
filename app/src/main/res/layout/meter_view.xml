@@ -16,14 +16,16 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_height="wrap_content"
             android:text="CH1 LABEL"
             android:id="@+id/ch1_display_set_button"
-            android:layout_weight="2" />
+            android:layout_weight="2"
+            android:onClick="onCh1DisplaySetClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="INP"
             android:id="@+id/ch1_input_set_button"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:onClick="onCh1InputSetClick" />
 
     </LinearLayout>
 
@@ -52,21 +54,24 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_height="wrap_content"
             android:text="A"
             android:id="@+id/ch1_range_auto_button"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:onClick="onCh1RangeAutoClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="RANGE"
             android:id="@+id/ch1_range_button"
-            android:layout_weight="2" />
+            android:layout_weight="2"
+            android:onClick="onCh1RangeClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="UNITS"
             android:id="@+id/ch1_units_button"
-            android:layout_weight="3" />
+            android:layout_weight="3"
+            android:onClick="onCh1UnitsClick" />
     </LinearLayout>
 
     <LinearLayout
@@ -79,14 +84,16 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_height="wrap_content"
             android:text="CH2 LABEL"
             android:id="@+id/ch2_display_set_button"
-            android:layout_weight="2" />
+            android:layout_weight="2"
+            android:onClick="onCh2DisplaySetClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="INP"
             android:id="@+id/ch2_input_set_button"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:onClick="onCh2InputSetClick" />
 
     </LinearLayout>
 
@@ -114,21 +121,24 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_height="wrap_content"
             android:text="A"
             android:id="@+id/ch2_range_auto_button"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:onClick="onCh2RangeAutoClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="RANGE"
             android:id="@+id/ch2_range_button"
-            android:layout_weight="2" />
+            android:layout_weight="2"
+            android:onClick="onCh2RangeClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="UNITS"
             android:id="@+id/ch2_units_button"
-            android:layout_weight="3" />
+            android:layout_weight="3"
+            android:onClick="onCh2UnitsClick" />
     </LinearLayout>
 
     <LinearLayout
@@ -141,21 +151,24 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_height="wrap_content"
             android:text="A"
             android:id="@+id/rate_auto_button"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:onClick="onRateAutoClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="125Hz"
             android:id="@+id/rate_button"
-            android:layout_weight="2" />
+            android:layout_weight="2"
+            android:onClick="onRateClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Logging:OFF"
             android:id="@+id/logging_button"
-            android:layout_weight="3" />
+            android:layout_weight="3"
+            android:onClick="onLoggingClick" />
     </LinearLayout>
 
     <LinearLayout
@@ -168,21 +181,24 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_height="wrap_content"
             android:text="A"
             android:id="@+id/depth_auto_button"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:onClick="onDepthAutoClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="32smpl"
             android:id="@+id/depth_button"
-            android:layout_weight="2" />
+            android:layout_weight="2"
+            android:onClick="onDepthClick" />
 
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="\u2699"
             android:id="@+id/settings_button"
-            android:layout_weight="3" />
+            android:layout_weight="3"
+            android:onClick="onSettingsClick" />
     </LinearLayout>
 
 </LinearLayout>

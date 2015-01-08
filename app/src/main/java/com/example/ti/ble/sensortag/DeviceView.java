@@ -62,6 +62,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TableLayout;
 import android.widget.TableRow;
@@ -74,37 +75,36 @@ public class DeviceView extends Fragment {
 
 	// Sensor table; the iD corresponds to row number
 	private static final int ID_OFFSET = 0;
-	private static final int ID_ACC = 1;
-	private static final int ID_MAG = 2;
-	private static final int ID_OPT = 2;
-	private static final int ID_GYR = 3;
-	private static final int ID_OBJ = 4;
-	private static final int ID_AMB = 5;
-	private static final int ID_HUM = 6;
-	private static final int ID_BAR = 7;
 
 	public static DeviceView mInstance = null;
 
 	// GUI
-	private TableLayout table;
-	private TextView mAccValue;
-	private TextView mMagValue;
-	private TextView mLuxValue;
-	private TextView mGyrValue;
-	private TextView mObjValue;
-	private TextView mAmbValue;
-	private TextView mHumValue;
-	private TextView mBarValue;
-	private ImageView mButton;
-	private ImageView mRelay;
-	private TableRow mMagPanel;
-	private TableRow mBarPanel;
+    private TextView ch1_value_label;
+    private TextView ch2_value_label;
+
+    private Button ch1_display_set_button;
+    private Button ch1_input_set_button;
+    private Button ch1_range_auto_button;
+    private Button ch1_range_button;
+    private Button ch1_units_button;
+
+    private Button ch2_display_set_button;
+    private Button ch2_input_set_button;
+    private Button ch2_range_auto_button;
+    private Button ch2_range_button;
+    private Button ch2_units_button;
+
+    private Button rate_auto_button;
+    private Button rate_button;
+    private Button logging_button;
+    private Button depth_auto_button;
+    private Button depth_button;
+    private Button settings_button;
+
 
 	// House-keeping
 	private DecimalFormat decimal = new DecimalFormat("+0.00;-0.00");
 	private DeviceActivity mActivity;
-	private static final double PA_PER_METER = 12.0;
-	private boolean mIsSensorTag2;
 	private boolean mBusy;
 
 	@Override
@@ -116,34 +116,33 @@ public class DeviceView extends Fragment {
 		// The last two arguments ensure LayoutParams are inflated properly.
 		View view;
 
-		if (mIsSensorTag2) {
-			view = inflater.inflate(R.layout.services_browser2, container, false);
-			table = (TableLayout) view.findViewById(R.id.services_browser_layout2);
-			mLuxValue = (TextView) view.findViewById(R.id.luxometerTxt);
-			mMagPanel = null;
-			mRelay = (ImageView) view.findViewById(R.id.relay);
-		} else {
-			view = inflater.inflate(R.layout.services_browser, container, false);
-			table = (TableLayout) view.findViewById(R.id.services_browser_layout);
-			mMagValue = (TextView) view.findViewById(R.id.magnetometerTxt);
-			mMagPanel = (TableRow) view.findViewById(R.id.magPanel);
-			mRelay = null;
-		}
-
-		// UI widgets
-		mAccValue = (TextView) view.findViewById(R.id.accelerometerTxt);
-		mGyrValue = (TextView) view.findViewById(R.id.gyroscopeTxt);
-		mObjValue = (TextView) view.findViewById(R.id.objTemperatureText);
-		mAmbValue = (TextView) view.findViewById(R.id.ambientTemperatureTxt);
-		mHumValue = (TextView) view.findViewById(R.id.humidityTxt);
-		mBarValue = (TextView) view.findViewById(R.id.barometerTxt);
-		mButton = (ImageView) view.findViewById(R.id.buttons);
-
-		// Support for calibration
-		mBarPanel = (TableRow) view.findViewById(R.id.barPanel);
+        view = inflater.inflate(R.layout.meter_view, container, false);
 
 		// Notify activity that UI has been inflated
 		mActivity.onViewInflated(view);
+
+        // Bind the GUI elements
+        ch1_value_label = (TextView) view.findViewById(R.id.ch1_value_label);
+        ch2_value_label = (TextView) view.findViewById(R.id.ch2_value_label);
+
+        ch1_display_set_button = (Button) view.findViewById(R.id.ch1_display_set_button);
+        ch1_input_set_button   = (Button) view.findViewById(R.id.ch1_input_set_button);
+        ch1_range_auto_button  = (Button) view.findViewById(R.id.ch1_range_auto_button);
+        ch1_range_button       = (Button) view.findViewById(R.id.ch1_range_button);
+        ch1_units_button       = (Button) view.findViewById(R.id.ch1_units_button);
+
+        ch2_display_set_button = (Button) view.findViewById(R.id.ch2_display_set_button);
+        ch2_input_set_button   = (Button) view.findViewById(R.id.ch2_input_set_button);
+        ch2_range_auto_button  = (Button) view.findViewById(R.id.ch2_range_auto_button);
+        ch2_range_button       = (Button) view.findViewById(R.id.ch2_range_button);
+        ch2_units_button       = (Button) view.findViewById(R.id.ch2_units_button);
+
+        rate_auto_button  = (Button) view.findViewById(R.id.rate_auto_button);
+        rate_button       = (Button) view.findViewById(R.id.rate_button);
+        logging_button    = (Button) view.findViewById(R.id.logging_button);
+        depth_auto_button = (Button) view.findViewById(R.id.depth_auto_button);
+        depth_button      = (Button) view.findViewById(R.id.depth_button);
+        settings_button   = (Button) view.findViewById(R.id.settings_button);
 
 		return view;
 	}
@@ -151,7 +150,6 @@ public class DeviceView extends Fragment {
 	@Override
 	public void onResume() {
 		super.onResume();
-		updateVisibility();
 	}
 
 	@Override
@@ -165,70 +163,13 @@ public class DeviceView extends Fragment {
 	public void onCharacteristicChanged(String uuidStr, byte[] rawValue) {
 		Point3D v;
 		String msg;
-
-		if (uuidStr.equals(SensorTagGatt.UUID_ACC_DATA.toString())) {
-			v = Sensor.ACCELEROMETER.convert(rawValue);
-			msg = decimal.format(v.x) + "\n" + decimal.format(v.y) + "\n"
-			    + decimal.format(v.z) + "\n";
-			mAccValue.setText(msg);
-		}
-
-		if (uuidStr.equals(SensorTagGatt.UUID_MAG_DATA.toString())) {
-			v = Sensor.MAGNETOMETER.convert(rawValue);
-			msg = decimal.format(v.x) + "\n" + decimal.format(v.y) + "\n"
-			    + decimal.format(v.z) + "\n";
-			mMagValue.setText(msg);
-		}
-
-		if (uuidStr.equals(SensorTagGatt.UUID_OPT_DATA.toString())) {
-			v = Sensor.LUXOMETER.convert(rawValue);
-			msg = decimal.format(v.x) + "\n";
-			mLuxValue.setText(msg);
-		}
-
-		if (uuidStr.equals(SensorTagGatt.UUID_GYR_DATA.toString())) {
-			v = Sensor.GYROSCOPE.convert(rawValue);
-			msg = decimal.format(v.x) + "\n" + decimal.format(v.y) + "\n"
-			    + decimal.format(v.z) + "\n";
-			mGyrValue.setText(msg);
-		}
-
-		if (uuidStr.equals(SensorTagGatt.UUID_IRT_DATA.toString())) {
-			v = Sensor.IR_TEMPERATURE.convert(rawValue);
-			msg = decimal.format(v.x) + "\n";
-			mAmbValue.setText(msg);
-			msg = decimal.format(v.y) + "\n";
-			mObjValue.setText(msg);
-		}
-
+/*
 		if (uuidStr.equals(SensorTagGatt.UUID_HUM_DATA.toString())) {
 			v = Sensor.HUMIDITY.convert(rawValue);
 			msg = decimal.format(v.x) + "\n";
 			mHumValue.setText(msg);
-		}
+		}*/
 	}
-
-	void updateVisibility() {
-		showItem(ID_ACC, mActivity.isEnabledByPrefs(Sensor.ACCELEROMETER));
-		if (mIsSensorTag2)
-			showItem(ID_OPT, mActivity.isEnabledByPrefs(Sensor.LUXOMETER));
-		else
-			showItem(ID_MAG, mActivity.isEnabledByPrefs(Sensor.MAGNETOMETER));
-		showItem(ID_GYR, mActivity.isEnabledByPrefs(Sensor.GYROSCOPE));
-		showItem(ID_OBJ, mActivity.isEnabledByPrefs(Sensor.IR_TEMPERATURE));
-		showItem(ID_AMB, mActivity.isEnabledByPrefs(Sensor.IR_TEMPERATURE));
-		showItem(ID_HUM, mActivity.isEnabledByPrefs(Sensor.HUMIDITY));
-		showItem(ID_BAR, mActivity.isEnabledByPrefs(Sensor.BAROMETER));
-	}
-
-	private void showItem(int id, boolean visible) {
-		View hdr = table.getChildAt(id * 2 + ID_OFFSET);
-		View txt = table.getChildAt(id * 2 + ID_OFFSET + 1);
-		int vc = visible ? View.VISIBLE : View.GONE;
-		hdr.setVisibility(vc);
-		txt.setVisibility(vc);
-	}
-
 
 	void setBusy(boolean f) {
 		if (f != mBusy)
