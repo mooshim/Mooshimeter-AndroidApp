@@ -643,6 +643,9 @@ public class MainActivity extends ViewPagerActivity {
                             field_id = 0;
                         }
                     }
+
+                    // TODO: Check the firmware version against the bundled binary and prompt for upload if meter is out of date
+                    // TODO: Display the firmware version in the scan result
                     if(is_meter) {
                         if (!deviceInfoExists(device.getAddress())) {
                             // New device

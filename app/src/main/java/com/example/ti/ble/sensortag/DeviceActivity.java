@@ -56,7 +56,6 @@ package com.example.ti.ble.sensortag;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import android.bluetooth.BluetoothDevice;
@@ -437,7 +436,7 @@ public class DeviceActivity extends FragmentActivity {
 		mBtLeService.waitIdle(GATT_TIMEOUT);
 	}
 
-	private void getFirmwareRevison() {
+	private void getFirmwareRevision() {
 		UUID servUuid = SensorTagGatt.UUID_DEVINFO_SERV;
 		UUID charUuid = SensorTagGatt.UUID_DEVINFO_FWREV;
 		BluetoothGattService serv = mBtGatt.getService(servUuid);
@@ -487,7 +486,7 @@ public class DeviceActivity extends FragmentActivity {
 					displayServices();
 					checkOad();
 					enableDataCollection(true);
-					getFirmwareRevison();
+					getFirmwareRevision();
 				} else {
 					Toast.makeText(getApplication(), "Service discovery failed",
 					    Toast.LENGTH_LONG).show();
@@ -516,7 +515,7 @@ public class DeviceActivity extends FragmentActivity {
 	};
 
 	private void onCharacteristicWrite(String uuidStr, int status) {
-		// Log.d(TAG, "onCharacteristicWrite: " + uuidStr);
+		 Log.d(null, "onCharacteristicWrite: " + uuidStr);
 	}
 
 	private void onCharacteristicChanged(String uuidStr, byte[] value) {
@@ -526,7 +525,7 @@ public class DeviceActivity extends FragmentActivity {
 	}
 
 	private void onCharacteristicsRead(String uuidStr, byte[] value, int status) {
-		// Log.i(TAG, "onCharacteristicsRead: " + uuidStr);
+		 Log.i(null, "onCharacteristicsRead: " + uuidStr);
 
 		if (uuidStr.equals(SensorTagGatt.UUID_DEVINFO_FWREV.toString())) {
 			mFwRev = new String(value, 0, 3);
