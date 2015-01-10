@@ -569,13 +569,13 @@ public class MainActivity extends ViewPagerActivity {
 				});
 			} else {
 				startScan();
-				// Log.i(TAG, "BluetoothLeService connected");
+				Log.i(null, "BluetoothLeService connected");
 			}
 		}
 
 		public void onServiceDisconnected(ComponentName componentName) {
 			mBluetoothLeService = null;
-			// Log.i(TAG, "BluetoothLeService disconnected");
+			Log.i(null, "BluetoothLeService disconnected");
 		}
 	};
 

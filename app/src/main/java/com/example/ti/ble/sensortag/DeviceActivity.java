@@ -79,8 +79,10 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.ti.ble.common.Block;
 import com.example.ti.ble.common.BluetoothLeService;
 import com.example.ti.ble.common.GattInfo;
+import com.example.ti.ble.common.MooshimeterDevice;
 
 public class DeviceActivity extends FragmentActivity {
 	// Activity
@@ -96,6 +98,7 @@ public class DeviceActivity extends FragmentActivity {
 	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
 	private boolean mIsReceiving = false;
+    private MooshimeterDevice mMeter = null;
 
 	// SensorTagGatt
 	private List<Sensor> mEnabledSensors = new ArrayList<Sensor>();
@@ -137,11 +140,25 @@ public class DeviceActivity extends FragmentActivity {
 		mBluetoothDevice = intent.getParcelableExtra(EXTRA_DEVICE);
 		mServiceList = new ArrayList<BluetoothGattService>();
 
-		// Determine type of SensorTagGatt
-		//String deviceName = mBluetoothDevice.getName();
-		//PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+        mMeter = new MooshimeterDevice(this);
+        mMeter.reqMeterSettings( new Block() {
+            @Override
+            public void run() {
+                mMeter.reqMeterLogSettings( new Block() {
+                    @Override
+                    public void run() {
+                        mMeter.reqMeterInfo( new Block() {
+                            @Override
+                            public void run() {
+                                mMeter.reqMeterSample(null);
+                            }
+                        });
+                    }
+                });
+            }
+        });
 
-		// GUI
+        // GUI
         setContentView(R.layout.meter_view);
 
         // Bind the GUI elements
@@ -237,27 +254,6 @@ public class DeviceActivity extends FragmentActivity {
 		return fi;
 	}
 
-	void onViewInflated(View view) {
-		// Log.d(TAG, "Gatt view ready");
-		setBusy(true);
-
-		// Set title bar to device name
-		setTitle(mBluetoothDevice.getName());
-
-		// Create GATT object
-		mBtGatt = BluetoothLeService.getBtGatt();
-
-		// Start service discovery
-		if (!mServicesRdy && mBtGatt != null) {
-			if (mBtLeService.getNumServices() == 0)
-				discoverServices();
-			else {
-				displayServices();
-				enableDataCollection(true);
-			}
-		}
-	}
-
 	BluetoothGattService getOadService() {
 		return mOadService;
 	}
@@ -276,7 +272,7 @@ public class DeviceActivity extends FragmentActivity {
     	
 		if (mOadService != null && mConnControlService != null) {
 			// Disable sensors and notifications when the OAD dialog is open
-			enableDataCollection(false);
+			//enableDataCollection(false);
 			// Launch OAD
 			final Intent i = new Intent(this, FwUpdateActivity.class);
 			startActivityForResult(i, FWUPDATE_ACT_REQ);
@@ -288,7 +284,7 @@ public class DeviceActivity extends FragmentActivity {
 
 	private void startPreferenceActivity() {
 		// Disable sensors and notifications when the settings dialog is open
-		enableDataCollection(false);
+		//enableDataCollection(false);
 		// Launch preferences
 		final Intent i = new Intent(this, PreferencesActivity.class);
 		i.putExtra(PreferencesActivity.EXTRA_SHOW_FRAGMENT,
@@ -353,7 +349,7 @@ public class DeviceActivity extends FragmentActivity {
 	private void setStatus(String txt) {
 		Toast.makeText(this, txt, Toast.LENGTH_SHORT).show();
 	}
-
+/*
 	private void enableSensors(boolean f) {
 		final boolean enable = f;
 
@@ -412,14 +408,14 @@ public class DeviceActivity extends FragmentActivity {
 		enableNotifications(enable);
 		setBusy(false);
 	}
-
+*/
 	/*
 	 * Calibrating the barometer includes
 	 *
 	 * 1. Write calibration code to configuration characteristic. 2. Read
 	 * calibration values from sensor, either with notifications or a normal read.
 	 * 3. Use calibration values in formulas when interpreting sensor values.
-	 */
+	 *//*
 	private void calibrateBarometer() {
 
 		UUID servUuid = Sensor.BAROMETER.getService();
@@ -446,7 +442,7 @@ public class DeviceActivity extends FragmentActivity {
 		mBtLeService.readCharacteristic(charFwrev);
 		mBtLeService.waitIdle(GATT_TIMEOUT);
 
-	}
+	}*/
 
 	// Activity result handling
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -461,11 +457,11 @@ public class DeviceActivity extends FragmentActivity {
 				registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 			}
 
-			enableDataCollection(true);
+			//enableDataCollection(true);
 			break;
 		case FWUPDATE_ACT_REQ:
 			// FW update cancelled so resume
-			enableDataCollection(true);
+			//enableDataCollection(true);
 			break;
 		default:
 			setError("Unknown request code");
@@ -484,28 +480,24 @@ public class DeviceActivity extends FragmentActivity {
 				if (status == BluetoothGatt.GATT_SUCCESS) {
 					setStatus("Service discovery complete");
 					displayServices();
-					checkOad();
-					enableDataCollection(true);
-					getFirmwareRevision();
+					//checkOad();
+					//enableDataCollection(true);
 				} else {
 					Toast.makeText(getApplication(), "Service discovery failed",
 					    Toast.LENGTH_LONG).show();
 					return;
 				}
 			} else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
-				// Notification
+                Log.d(null, "onCharacteristicNotify");
+                String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
 				byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
-				String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-				onCharacteristicChanged(uuidStr, value);
 			} else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
-				// Data written
+                Log.d(null, "onCharacteristicWrite");
 				String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-				onCharacteristicWrite(uuidStr, status);
 			} else if (BluetoothLeService.ACTION_DATA_READ.equals(action)) {
-				// Data read
+                Log.d(null, "onCharacteristicRead");
 				String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
 				byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
-				onCharacteristicsRead(uuidStr, value, status);
 			}
 
 			if (status != BluetoothGatt.GATT_SUCCESS) {
@@ -513,26 +505,6 @@ public class DeviceActivity extends FragmentActivity {
 			}
 		}
 	};
-
-	private void onCharacteristicWrite(String uuidStr, int status) {
-		 Log.d(null, "onCharacteristicWrite: " + uuidStr);
-	}
-
-	private void onCharacteristicChanged(String uuidStr, byte[] value) {
-		//if (mDeviceView != null) {
-		//	mDeviceView.onCharacteristicChanged(uuidStr, value);
-		//}
-	}
-
-	private void onCharacteristicsRead(String uuidStr, byte[] value, int status) {
-		 Log.i(null, "onCharacteristicsRead: " + uuidStr);
-
-		if (uuidStr.equals(SensorTagGatt.UUID_DEVINFO_FWREV.toString())) {
-			mFwRev = new String(value, 0, 3);
-			Toast.makeText(this, "Firmware revision: " + mFwRev,Toast.LENGTH_LONG).show();
-		}
-
-	}
 
     /////////////////////////
     // Button Click Handlers
