@@ -159,6 +159,7 @@ public class DeviceActivity extends FragmentActivity {
                     @Override
                     public void run() {
                         Log.i(null,"Sample received!");
+                        onMeterValueUpdate();
                     }
                 });
             }
@@ -249,9 +250,6 @@ public class DeviceActivity extends FragmentActivity {
 	private static IntentFilter makeGattUpdateIntentFilter() {
 		final IntentFilter fi = new IntentFilter();
 		fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
-		fi.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
-		fi.addAction(BluetoothLeService.ACTION_DATA_WRITE);
-		fi.addAction(BluetoothLeService.ACTION_DATA_READ);
 		return fi;
 	}
 
@@ -309,16 +307,6 @@ public class DeviceActivity extends FragmentActivity {
 			if (srv.getUuid().equals(GattInfo.CC_SERVICE_UUID)) {
 				mConnControlService = srv;
 			}
-		}
-	}
-
-	private void discoverServices() {
-		if (mBtGatt.discoverServices()) {
-			mServiceList.clear();
-			setBusy(true);
-			setStatus("Service discovery started");
-		} else {
-			setError("Service discovery start failed");
 		}
 	}
 
@@ -451,14 +439,11 @@ public class DeviceActivity extends FragmentActivity {
 
 		switch (requestCode) {
 		case PREF_ACT_REQ:
-			//mDeviceView.updateVisibility();
 			Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
 			if (!mIsReceiving) {
 				mIsReceiving = true;
 				registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 			}
-
-			//enableDataCollection(true);
 			break;
 		case FWUPDATE_ACT_REQ:
 			// FW update cancelled so resume
@@ -481,24 +466,11 @@ public class DeviceActivity extends FragmentActivity {
 				if (status == BluetoothGatt.GATT_SUCCESS) {
 					setStatus("Service discovery complete");
 					displayServices();
-					//checkOad();
-					//enableDataCollection(true);
 				} else {
 					Toast.makeText(getApplication(), "Service discovery failed",
 					    Toast.LENGTH_LONG).show();
 					return;
 				}
-			} else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
-                Log.d(null, "onCharacteristicNotify");
-                String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-				byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
-			} else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
-                Log.d(null, "onCharacteristicWrite");
-				String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-			} else if (BluetoothLeService.ACTION_DATA_READ.equals(action)) {
-                Log.d(null, "onCharacteristicRead");
-				String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-				byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
 			}
 
 			if (status != BluetoothGatt.GATT_SUCCESS) {
@@ -506,6 +478,11 @@ public class DeviceActivity extends FragmentActivity {
 			}
 		}
 	};
+
+    private void onMeterValueUpdate() {
+        //
+        Log.d(null,"Value update");
+    }
 
     /////////////////////////
     // Button Click Handlers

@@ -14,6 +14,7 @@ import android.widget.Toast;
 import com.example.ti.ble.sensortag.SensorTagGatt;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.UUID;
 
 /**
@@ -50,6 +51,7 @@ public class MooshimeterDevice {
         if(tb[2] < 0) {tb[3] = (byte)0xFF;}// Sign extend
         else          {tb[3] = (byte)0x00;}
         ByteBuffer tmp = ByteBuffer.wrap(tb);
+        tmp.order(ByteOrder.LITTLE_ENDIAN);
         return tmp.getInt();
     }
 
@@ -91,7 +93,7 @@ public class MooshimeterDevice {
         @Override
         void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
-
+            b.order(ByteOrder.LITTLE_ENDIAN);
             present_meter_state = b.get();
             target_meter_state  = b.get();
             trigger_setting     = b.get();
@@ -134,7 +136,7 @@ public class MooshimeterDevice {
         @Override
         void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
-
+            b.order(ByteOrder.LITTLE_ENDIAN);
             sd_present              = b.get();
             present_logging_state   = b.get();
             logging_error           = b.get();
@@ -167,7 +169,7 @@ public class MooshimeterDevice {
         @Override
         void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
-
+            b.order(ByteOrder.LITTLE_ENDIAN);
             pcb_version      = b.get();
             assembly_variant = b.get();
             lot_number       = b.getShort();
@@ -196,6 +198,7 @@ public class MooshimeterDevice {
         @Override
         void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
+            b.order(ByteOrder.LITTLE_ENDIAN);
 
             ch1_reading_lsb = getInt24(b);
             ch2_reading_lsb = getInt24(b);
