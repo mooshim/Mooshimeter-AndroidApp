@@ -140,19 +140,25 @@ public class DeviceActivity extends FragmentActivity {
 		mBluetoothDevice = intent.getParcelableExtra(EXTRA_DEVICE);
 		mServiceList = new ArrayList<BluetoothGattService>();
 
-        mMeter = new MooshimeterDevice(this);
-        mMeter.reqMeterSettings( new Block() {
+        mMeter = new MooshimeterDevice(this, new Block() {
             @Override
             public void run() {
-                mMeter.reqMeterLogSettings( new Block() {
+                mMeter.enableMeterStreamSample(true, new Block() {
                     @Override
                     public void run() {
-                        mMeter.reqMeterInfo( new Block() {
+                        mMeter.meter_settings.target_meter_state = 3;
+                        mMeter.sendMeterSettings(new Block() {
                             @Override
                             public void run() {
-                                mMeter.reqMeterSample(null);
+                                Log.i(null,"Mode set");
                             }
                         });
+                        Log.i(null,"Stream requested");
+                    }
+                }, new Block() {
+                    @Override
+                    public void run() {
+                        Log.i(null,"Sample received!");
                     }
                 });
             }
@@ -183,11 +189,6 @@ public class DeviceActivity extends FragmentActivity {
         depth_auto_button = (Button) findViewById(R.id.depth_auto_button);
         depth_button      = (Button) findViewById(R.id.depth_button);
         settings_button   = (Button) findViewById(R.id.settings_button);
-
-		// GATT database
-		//Resources res = getResources();
-		//XmlResourceParser xpp = res.getXml(R.xml.gatt_uuid);
-		//new GattInfo(xpp);
 	}
 
 	@Override

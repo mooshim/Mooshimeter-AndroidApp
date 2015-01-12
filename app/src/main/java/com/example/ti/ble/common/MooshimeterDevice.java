@@ -19,6 +19,11 @@ import java.util.UUID;
 /**
  * Created by First on 1/7/2015.
  */
+
+enum METER_STATES {
+
+}
+
 public class MooshimeterDevice {
     private BluetoothLeService bt_service;
     private BluetoothGattService bt_gatt_service;
@@ -26,6 +31,7 @@ public class MooshimeterDevice {
     public int adv_build_time;
 
     private Block cb = null;
+    private Block stream_cb = null;
 
     private void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b
@@ -52,16 +58,16 @@ public class MooshimeterDevice {
         abstract void unpack(byte[] in);
     }
     public class MeterSettings    extends Serializable {
-        byte present_meter_state;
-        byte target_meter_state;
-        byte trigger_setting;
-        short trigger_x_offset;
-        int trigger_crossing;
-        byte measure_settings;
-        byte calc_settings;
-        byte ch1set;
-        byte ch2set;
-        byte adc_settings;
+        public byte present_meter_state;
+        public byte target_meter_state;
+        public byte trigger_setting;
+        public short trigger_x_offset;
+        public int trigger_crossing;
+        public byte measure_settings;
+        public byte calc_settings;
+        public byte ch1set;
+        public byte ch2set;
+        public byte adc_settings;
 
         @Override
         byte[] pack() {
@@ -203,7 +209,7 @@ public class MooshimeterDevice {
     public MeterInfo        meter_info;
     public MeterSample      meter_sample;
 
-    public MooshimeterDevice(Context context) {
+    public MooshimeterDevice(Context context, final Block on_init) {
         // Initialize internal structures
         meter_settings      = new MeterSettings();
         meter_log_settings  = new MeterLogSettings();
@@ -229,11 +235,30 @@ public class MooshimeterDevice {
         // There are a lot of interdependencies that make them complicated to work with.
         // But I don't want to change too many things at once.
         final IntentFilter fi = new IntentFilter();
-        fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
         fi.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
         fi.addAction(BluetoothLeService.ACTION_DATA_WRITE);
+        fi.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
         fi.addAction(BluetoothLeService.ACTION_DATA_READ);
         context.registerReceiver(mGattUpdateReceiver, fi);
+
+        // Grab the initial settings
+        reqMeterSettings( new Block() {
+            @Override
+            public void run() {
+                reqMeterLogSettings( new Block() {
+                    @Override
+                    public void run() {
+                        reqMeterInfo( new Block() {
+                            @Override
+                            public void run() {
+                                reqMeterSample( on_init );
+                                Log.i(null,"Meter initialization complete");
+                            }
+                        });
+                    }
+                });
+            }
+        });
     }
 
     ////////////////////////////////
@@ -270,6 +295,13 @@ public class MooshimeterDevice {
     public void sendMeterInfo       ( Block new_cb ) { send(SensorTagGatt.METER_INFO, meter_info.pack(), new_cb); }
     public void sendMeterSample     ( Block new_cb ) { send(SensorTagGatt.METER_SAMPLE, meter_sample.pack(), new_cb); }
 
+    public void enableMeterStreamSample( boolean enable, Block new_cb, Block new_stream_cb ) {
+        stream_cb = new_stream_cb;
+        BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_SAMPLE);
+        cb = new_cb;
+        bt_service.setCharacteristicNotification(c,enable);
+    }
+
     ////////////////////////////////
     // GATT Callbacks
     ////////////////////////////////
@@ -294,22 +326,22 @@ public class MooshimeterDevice {
             int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
                     BluetoothGatt.GATT_SUCCESS);
 
-            if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.d(null,"Service discovery complete");
-                } else {
-                    Log.d(null,"Service discovery failed");
-                    return;
-                }
-            } else if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)
-                    || BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
-                Log.d(null, "onCharacteristicReadNotify");
-                String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-                UUID uuid = UUID.fromString(uuidStr);
-                byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
+            String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
+            UUID uuid = UUID.fromString(uuidStr);
+            byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
+
+            if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
+                Log.d(null, "onCharacteristicRead");
                 handleValueUpdate(uuid,value);
+            } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
+                Log.d(null, "onCharacteristicNotify");
+                handleValueUpdate(uuid,value);
+                stream_cb.run();
             } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
                 Log.d(null, "onCharacteristicWrite");
+                callCB();
+            } else if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
+                Log.d(null, "onDescriptorWrite");
                 callCB();
             }
             if (status != BluetoothGatt.GATT_SUCCESS) {

@@ -86,6 +86,7 @@ public class BluetoothLeService extends Service {
 	public final static String ACTION_DATA_READ                 = "com.example.ti.ble.common.ACTION_DATA_READ";
 	public final static String ACTION_DATA_NOTIFY               = "com.example.ti.ble.common.ACTION_DATA_NOTIFY";
 	public final static String ACTION_DATA_WRITE                = "com.example.ti.ble.common.ACTION_DATA_WRITE";
+    public final static String ACTION_DESCRIPTOR_WRITE          = "com.example.ti.ble.common.ACTION_DESCRIPTOR_WRITE";
 	public final static String EXTRA_DATA                       = "com.example.ti.ble.common.EXTRA_DATA";
 	public final static String EXTRA_UUID                       = "com.example.ti.ble.common.EXTRA_UUID";
 	public final static String EXTRA_STATUS                     = "com.example.ti.ble.common.EXTRA_STATUS";
@@ -171,7 +172,8 @@ public class BluetoothLeService extends Service {
 		public void onDescriptorWrite(BluetoothGatt gatt,
 		    BluetoothGattDescriptor descriptor, int status) {
 			// Log.i(TAG, "onDescriptorWrite: " + descriptor.getUuid().toString());
-			mBusy = false;
+            mBusy = false;
+            broadcastUpdate(ACTION_DESCRIPTOR_WRITE, descriptor.getCharacteristic(), status);
 		}
 	};
 
