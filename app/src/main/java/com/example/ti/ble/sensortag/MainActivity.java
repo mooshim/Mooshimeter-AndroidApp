@@ -172,6 +172,7 @@ public class MainActivity extends ViewPagerActivity {
 		mFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
 		mFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
 		mFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
+        mFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
 	}
 
 	@Override
@@ -521,15 +522,20 @@ public class MainActivity extends ViewPagerActivity {
 					break;
 				}
 				updateGuiState();
+            } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                // We have discovered the services for a connected device
+                // BluetoothLeService automatically does the service discovery process upon
+                // connecting, so we should just wait for it to finish before trying to open a
+                // DeviceActivity
+                int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
+                        BluetoothGatt.GATT_FAILURE);
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    setBusy(false);
+                    startDeviceActivity();
+                } else	{setError("Connect failed. Status: " + status);}
 			} else if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
 				// GATT connect
-				int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
-				    BluetoothGatt.GATT_FAILURE);
-				if (status == BluetoothGatt.GATT_SUCCESS) {
-					setBusy(false);
-					startDeviceActivity();
-				} else
-					setError("Connect failed. Status: " + status);
+				Log.d(null,"Gatt connect");
 			} else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
 				// GATT disconnect
 				int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
