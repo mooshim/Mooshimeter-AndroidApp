@@ -21,15 +21,30 @@ import java.util.UUID;
  * Created by First on 1/7/2015.
  */
 
-enum METER_STATES {
-
-}
-
 public class MooshimeterDevice {
+    public final byte METER_SHUTDOWN  = 0;
+    public final byte METER_STANDBY   = 1;
+    public final byte METER_PAUSED    = 2;
+    public final byte METER_RUNNING   = 3;
+    public final byte METER_HIBERNATE = 4;
+
     private BluetoothLeService bt_service;
     private BluetoothGattService bt_gatt_service;
     private int rssi;
     public int adv_build_time;
+
+    public enum CH3_MODES {
+        VOLTAGE,
+        RESISTANCE,
+        DIODE
+    };
+
+    // Display control settings
+    public final boolean[] disp_ac  = new boolean[]{false,false};
+    public final boolean[] disp_hex = new boolean[]{false,false};
+    public CH3_MODES disp_ch3_mode;
+
+    public final int[] offsets = new int[]{0,0};
 
     private Block cb = null;
     private Block stream_cb = null;
@@ -107,14 +122,14 @@ public class MooshimeterDevice {
         }
     }
     public class MeterLogSettings extends Serializable {
-        byte  sd_present;
-        byte  present_logging_state;
-        byte  logging_error;
-        short file_number;
-        int   file_offset;
-        byte  target_logging_state;
-        short logging_period_ms;
-        int   logging_n_cycles;
+        public byte  sd_present;
+        public byte  present_logging_state;
+        public byte  logging_error;
+        public short file_number;
+        public int   file_offset;
+        public byte  target_logging_state;
+        public short logging_period_ms;
+        public int   logging_n_cycles;
 
         @Override
         byte[] pack() {
@@ -177,20 +192,18 @@ public class MooshimeterDevice {
         }
     }
     public class MeterSample      extends Serializable {
-        int   ch1_reading_lsb;
-        int   ch2_reading_lsb;
-        float ch1_ms;
-        float ch2_ms;
+        public final int   reading_lsb[] = new int[2];
+        public final float reading_ms[]  = new float[2];
 
         @Override
         byte[] pack() {
             byte[] retval = new byte[16];
             ByteBuffer b = ByteBuffer.wrap(retval);
 
-            putInt24(b, ch1_reading_lsb);
-            putInt24(b, ch2_reading_lsb);
-            b.putFloat( ch1_ms);
-            b.putFloat( ch2_ms);
+            putInt24(b, reading_lsb[0]);
+            putInt24(b, reading_lsb[1]);
+            b.putFloat( reading_ms[0]);
+            b.putFloat( reading_ms[1]);
 
             return retval;
         }
@@ -200,10 +213,10 @@ public class MooshimeterDevice {
             ByteBuffer b = ByteBuffer.wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
 
-            ch1_reading_lsb = getInt24(b);
-            ch2_reading_lsb = getInt24(b);
-            ch1_ms          = b.getFloat();
-            ch2_ms          = b.getFloat();
+            reading_lsb[0] = getInt24(b);
+            reading_lsb[1] = getInt24(b);
+            reading_ms[0]          = b.getFloat();
+            reading_ms[1]          = b.getFloat();
         }
     }
 
@@ -238,6 +251,7 @@ public class MooshimeterDevice {
         // There are a lot of interdependencies that make them complicated to work with.
         // But I don't want to change too many things at once.
         final IntentFilter fi = new IntentFilter();
+        fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
         fi.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
         fi.addAction(BluetoothLeService.ACTION_DATA_WRITE);
         fi.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
@@ -333,7 +347,10 @@ public class MooshimeterDevice {
             UUID uuid = UUID.fromString(uuidStr);
             byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
 
-            if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
+            if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+                Log.d(null, "onServiceDiscovery");
+                callCB();
+            } else if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
                 Log.d(null, "onCharacteristicRead");
                 handleValueUpdate(uuid,value);
             } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
@@ -352,4 +369,265 @@ public class MooshimeterDevice {
             }
         }
     };
+
+    //////////////////////////////////////
+    // Data conversion
+    //////////////////////////////////////
+
+    private final int METER_MEASURE_SETTINGS_ISRC_ON         = 0x01;
+    private final int METER_MEASURE_SETTINGS_ISRC_LVL        = 0x02;
+    private final int METER_MEASURE_SETTINGS_ACTIVE_PULLDOWN = 0x04;
+
+    private final int METER_CALC_SETTINGS_DEPTH_LOG2 = 0x0F;
+    private final int METER_CALC_SETTINGS_MEAN       = 0x10;
+    private final int METER_CALC_SETTINGS_ONESHOT    = 0x20;
+    private final int METER_CALC_SETTINGS_MS         = 0x40;
+
+    private final int ADC_SETTINGS_SAMPLERATE_MASK = 0x07;
+    private final int ADC_SETTINGS_GPIO_MASK = 0x30;
+
+    private final int METER_CH_SETTINGS_PGA_MASK = 0x70;
+    private final int METER_CH_SETTINGS_INPUT_MASK = 0x0F;
+
+    public class SignificantDigits {
+        public int high;
+        public int n_digits;
+    }
+
+    private double getEnob(final int channel) {
+        // Return a rough appoximation of the ENOB of the channel
+        // For the purposes of figuring out how many digits to display
+        // Based on ADS1292 datasheet and some special sauce.
+        // And empirical measurement of CH1 (which is super noisy due to chopper)
+        final double base_enob_table[] = {
+                20.10,
+                19.58,
+                19.11,
+                18.49,
+                17.36,
+                14.91,
+                12.53};
+        final int pga_gain_table[] = {6,1,2,3,4,8,12};
+        final int samplerate_setting =meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK;
+        final int buffer_depth_log2 = meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2;
+        double enob = base_enob_table[ samplerate_setting ];
+        int pga_setting = channel==1? meter_settings.ch1set:meter_settings.ch2set;
+        pga_setting &= METER_CH_SETTINGS_PGA_MASK;
+        pga_setting >>= 4;
+        int pga_gain = pga_gain_table[pga_setting];
+        // At lower sample frequencies, pga gain affects noise
+        // At higher frequencies it has no effect
+        double pga_degradation = (1.5/12) * pga_gain * ((6-samplerate_setting)/6.0);
+        enob -= pga_degradation;
+        // Oversampling adds 1 ENOB per factor of 4
+        enob += ((double)buffer_depth_log2)/2.0;
+        //
+        if(channel == 1 && (meter_settings.ch1set & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
+            // This is compensation for a bug in RevH, where current sense chopper noise dominates
+            enob -= 2;
+        }
+        return enob;
+    }
+
+    public SignificantDigits getSigDigits(final int channel) {
+        SignificantDigits retval = new SignificantDigits();
+        final double enob = getEnob(channel);
+        final double max = lsbToNativeUnits((1<<22),channel);
+        final double max_dig  = Math.log10(max);
+        final double n_digits = Math.log10(Math.pow(2.0, enob));
+        retval.high = (int)(max_dig+1);
+        retval.n_digits = (int) n_digits;
+        return retval;
+    }
+
+    public double lsbToADCInVoltage(final int reading_lsb, final int channel) {
+        // This returns the input voltage to the ADC,
+        final double Vref = 2.5;
+        final double pga_lookup[] = {6,1,2,3,4,8,12};
+        int pga_setting=0;
+        switch(channel) {
+            case 0:
+                pga_setting = meter_settings.ch1set >> 4;
+                break;
+            case 1:
+                pga_setting = meter_settings.ch2set >> 4;
+                break;
+            default:
+                Log.i(null,"Should not be here");
+                break;
+        }
+        double pga_gain = pga_lookup[pga_setting];
+        return ((double)reading_lsb/(double)(1<<23))*Vref/pga_gain;
+    }
+
+    public double adcVoltageToHV(final double adc_voltage) {
+        switch( (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK) >> 4 ) {
+            case 0x00:
+                // 1.2V range
+                return adc_voltage;
+            case 0x01:
+                // 60V range
+                return ((10e6+160e3)/(160e3)) * adc_voltage;
+            case 0x02:
+                // 1000V range
+                return ((10e6+11e3)/(11e3)) * adc_voltage;
+            default:
+                Log.w(null,"Invalid setting!");
+                return 0.0;
+        }
+    }
+
+    public double adcVoltageToCurrent(final double adc_voltage) {
+        final double rs = 1e-3;
+        final double amp_gain = 80.0;
+        return adc_voltage/(amp_gain*rs);
+    }
+
+    public double adcVoltageToTemp(double adc_voltage) {
+        adc_voltage -= 145.3e-3; // 145.3mV @ 25C
+        adc_voltage /= 490e-6;   // 490uV / C
+        return 25.0 + adc_voltage;
+    }
+
+    public double lsbToNativeUnits(int lsb, final int ch) {
+        double adc_volts = 0;
+        byte channel_setting = ch==0?meter_settings.ch1set:meter_settings.ch2set;
+        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        if(disp_hex[ch]) {
+            return lsb;
+        }
+        switch(channel_setting) {
+            case 0x00:
+                // Regular electrode input
+                switch(ch) {
+                    case 0:
+                        // FIXME: CH1 offset is treated as an extrinsic offset because it's dominated by drift in the isns amp
+                        adc_volts = lsbToADCInVoltage(lsb,ch);
+                        adc_volts -= offsets[0];
+                        return adcVoltageToCurrent(adc_volts);
+                    case 1:
+                        lsb -= offsets[1];
+                        adc_volts = lsbToADCInVoltage(lsb,ch);
+                        return adcVoltageToHV(adc_volts);
+                    default:
+                        Log.w(null,"Invalid channel");
+                        return 0;
+                }
+            case 0x04:
+                adc_volts = lsbToADCInVoltage(lsb,ch);
+                return adcVoltageToTemp(adc_volts);
+            case 0x09:
+                // Apply offset
+                lsb -= offsets[1];
+                adc_volts = lsbToADCInVoltage(lsb,ch);
+                if( disp_ch3_mode == CH3_MODES.RESISTANCE ) {
+                    // Convert to Ohms
+                    double retval = adc_volts;
+                    if( 0 != (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL) ) {
+                        retval /= 100e-6;
+                    } else {
+                        retval /= 100e-9;
+                    }
+                    retval -= 7.9; // Compensate for the PTC
+                    return retval;
+                } else {
+                    return adc_volts;
+                }
+            default:
+                Log.w(null,"Unrecognized channel setting");
+                return adc_volts;
+        }
+    }
+
+    public String getDescriptor(final int channel) {
+        byte channel_setting = channel==0?meter_settings.ch1set:meter_settings.ch2set;
+        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        switch( channel_setting ) {
+            case 0x00:
+                switch (channel) {
+                    case 0:
+                        if(disp_ac[channel]){return "Current AC";}
+                        else {return "Current DC";}
+                    case 1:
+                        if(disp_ac[channel]){return "Voltage AC";}
+                        else {return "Voltage DC";}
+                    default:
+                        return "Invalid";
+                }
+            case 0x04:
+                // Temperature sensor
+                return "Temperature";
+            case 0x09:
+                // Channel 3 in
+                switch( disp_ch3_mode ) {
+                    case VOLTAGE:
+                        if(disp_ac[channel]){return "Aux Voltage AC";}
+                        else {return "Aux Voltage DC";}
+                    case RESISTANCE:
+                        return "Resistance";
+                    case DIODE:
+                        return "Diode Test";
+                }
+                break;
+            default:
+                Log.w(null,"Unrecognized setting");
+        }
+        return "";
+    }
+
+    public String getUnits(final int channel) {
+        byte channel_setting = channel==0?meter_settings.ch1set:meter_settings.ch2set;
+        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        if(disp_hex[channel]) {
+            return "RAW";
+        }
+        switch( channel_setting ) {
+            case 0x00:
+                switch (channel) {
+                    case 0:
+                        return "A";
+                    case 1:
+                        return "V";
+                    default:
+                        return "?";
+                }
+            case 0x04:
+                return "C";
+            case 0x09:
+                switch( disp_ch3_mode ) {
+                    case VOLTAGE:
+                        return "V";
+                    case RESISTANCE:
+                        return "Ω";
+                    case DIODE:
+                        return "V";
+                }
+            default:
+                Log.w(null,"Unrecognized CH1SET setting");
+                return "";
+        }
+    }
+
+    String getInputLabel(final int channel) {
+        byte channel_setting = channel==0?meter_settings.ch1set:meter_settings.ch2set;
+        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        switch( channel_setting ) {
+            case 0x00:
+                switch (channel) {
+                    case 0:
+                        return "A";
+                    case 1:
+                        return "V";
+                    default:
+                        return "?";
+                }
+            case 0x04:
+                return "INT";
+            case 0x09:
+                return "Ω";
+            default:
+                Log.w(null,"Unrecognized setting");
+                return "";
+        }
+    }
 }

@@ -56,11 +56,9 @@ package com.example.ti.ble.sensortag;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -93,7 +91,6 @@ public class DeviceActivity extends FragmentActivity {
 	// BLE
 	private BluetoothLeService mBtLeService = null;
 	private BluetoothDevice mBluetoothDevice = null;
-	private BluetoothGatt mBtGatt = null;
 	private List<BluetoothGattService> mServiceList = null;
 	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
@@ -107,20 +104,13 @@ public class DeviceActivity extends FragmentActivity {
 	private String mFwRev;
 
     // GUI
-    private TextView ch1_value_label;
-    private TextView ch2_value_label;
+    private final TextView[] value_labels = new TextView[2];
 
-    private Button ch1_display_set_button;
-    private Button ch1_input_set_button;
-    private Button ch1_range_auto_button;
-    private Button ch1_range_button;
-    private Button ch1_units_button;
-
-    private Button ch2_display_set_button;
-    private Button ch2_input_set_button;
-    private Button ch2_range_auto_button;
-    private Button ch2_range_button;
-    private Button ch2_units_button;
+    private final Button[] display_set_buttons = new Button[2];
+    private final Button[] input_set_buttons   = new Button[2];
+    private final Button[] range_auto_buttons  = new Button[2];
+    private final Button[] range_buttons       = new Button[2];
+    private final Button[] units_buttons       = new Button[2];
 
     private Button rate_auto_button;
     private Button rate_button;
@@ -146,7 +136,7 @@ public class DeviceActivity extends FragmentActivity {
                 mMeter.enableMeterStreamSample(true, new Block() {
                     @Override
                     public void run() {
-                        mMeter.meter_settings.target_meter_state = 3;
+                        mMeter.meter_settings.target_meter_state = mMeter.METER_RUNNING;
                         mMeter.sendMeterSettings(new Block() {
                             @Override
                             public void run() {
@@ -159,7 +149,19 @@ public class DeviceActivity extends FragmentActivity {
                     @Override
                     public void run() {
                         Log.i(null,"Sample received!");
-                        onMeterValueUpdate();
+                        valueLabelRefresh(0);
+                        valueLabelRefresh(1);
+
+                        // Handle autoranging
+                        // Save a local copy of settings
+                        //MeterSettings_t save = g_meter->meter_settings;
+                        //[g_meter applyAutorange];
+                        // Check if anything changed, and if so apply changes
+                        //if(memcmp(&save, &g_meter->meter_settings, sizeof(MeterSettings_t))) {
+                        //    [g_meter sendMeterSettings:^(NSError *error) {
+                        //        [self refreshAllControls];
+                        //    }];
+                        //}
                     }
                 });
             }
@@ -169,20 +171,20 @@ public class DeviceActivity extends FragmentActivity {
         setContentView(R.layout.meter_view);
 
         // Bind the GUI elements
-        ch1_value_label = (TextView) findViewById(R.id.ch1_value_label);
-        ch2_value_label = (TextView) findViewById(R.id.ch2_value_label);
+        value_labels[0] = (TextView) findViewById(R.id.ch1_value_label);
+        value_labels[1] = (TextView) findViewById(R.id.ch2_value_label);
 
-        ch1_display_set_button = (Button) findViewById(R.id.ch1_display_set_button);
-        ch1_input_set_button   = (Button) findViewById(R.id.ch1_input_set_button);
-        ch1_range_auto_button  = (Button) findViewById(R.id.ch1_range_auto_button);
-        ch1_range_button       = (Button) findViewById(R.id.ch1_range_button);
-        ch1_units_button       = (Button) findViewById(R.id.ch1_units_button);
+        display_set_buttons[0] = (Button) findViewById(R.id.ch1_display_set_button);
+        input_set_buttons  [0] = (Button) findViewById(R.id.ch1_input_set_button);
+        range_auto_buttons [0] = (Button) findViewById(R.id.ch1_range_auto_button);
+        range_buttons      [0] = (Button) findViewById(R.id.ch1_range_button);
+        units_buttons      [0] = (Button) findViewById(R.id.ch1_units_button);
 
-        ch2_display_set_button = (Button) findViewById(R.id.ch2_display_set_button);
-        ch2_input_set_button   = (Button) findViewById(R.id.ch2_input_set_button);
-        ch2_range_auto_button  = (Button) findViewById(R.id.ch2_range_auto_button);
-        ch2_range_button       = (Button) findViewById(R.id.ch2_range_button);
-        ch2_units_button       = (Button) findViewById(R.id.ch2_units_button);
+        display_set_buttons[1] = (Button) findViewById(R.id.ch2_display_set_button);
+        input_set_buttons  [1] = (Button) findViewById(R.id.ch2_input_set_button);
+        range_auto_buttons [1] = (Button) findViewById(R.id.ch2_range_auto_button);
+        range_buttons      [1] = (Button) findViewById(R.id.ch2_range_button);
+        units_buttons      [1] = (Button) findViewById(R.id.ch2_units_button);
 
         rate_auto_button  = (Button) findViewById(R.id.rate_auto_button);
         rate_button       = (Button) findViewById(R.id.rate_button);
@@ -479,9 +481,58 @@ public class DeviceActivity extends FragmentActivity {
 		}
 	};
 
-    private void onMeterValueUpdate() {
-        //
+    public String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {
+        //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
+        // is being applied
+        while(digits.high > 4) {
+            digits.high -= 3;
+            val /= 1000;
+        }
+        while(digits.high <=0) {
+            digits.high += 3;
+            val *= 1000;
+        }
+
+        // TODO: Prefixes for units.  This will fail for wrong values of digits
+        boolean neg = val<0;
+        int left = digits.high;
+        int right = -1*(digits.high-digits.n_digits);
+        String formatstring = String.format("%s%%0%d.%df",neg?"":" ", left+right+(neg?1:0), right); // To live is to suffer
+        String retval = String.format(formatstring, val);
+        //Truncate
+        retval = retval.substring(0, Math.min(retval.length(), 8));
+        return retval;
+    }
+
+    private void valueLabelRefresh(final int c) {
         Log.d(null,"Value update");
+
+        final boolean ac = mMeter.disp_ac[c];
+        final TextView v = value_labels[c];
+        double val;
+        int lsb_int;
+        if(ac) { lsb_int = (int)(Math.sqrt(mMeter.meter_sample.reading_ms[c])); }
+        else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
+
+        if( mMeter.disp_hex[c]) {
+            lsb_int &= 0x00FFFFFF;
+            String s = String.format("%06X", lsb_int);
+            v.setText(s);
+        } else {
+            // If at the edge of your range, say overload
+            // Remember the bounds are asymmetrical
+            final int upper_limit_lsb = (int) (1.3*(1<<22));
+            final int lower_limit_lsb = (int) (-0.9*(1<<22));
+
+            if(   lsb_int > upper_limit_lsb
+                    || lsb_int < lower_limit_lsb ) {
+                v.setText("OVERLOAD");
+            } else {
+                // TODO: implement these methods and revive this segment of code
+                val = mMeter.lsbToNativeUnits(lsb_int, c);
+                v.setText(formatReading(val, mMeter.getSigDigits(c)));
+            }
+        }
     }
 
     /////////////////////////
