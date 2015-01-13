@@ -154,14 +154,19 @@ public class DeviceActivity extends FragmentActivity {
 
                         // Handle autoranging
                         // Save a local copy of settings
-                        //MeterSettings_t save = g_meter->meter_settings;
-                        //[g_meter applyAutorange];
+                        byte[] save = mMeter.meter_settings.pack();
+                        mMeter.applyAutorange();
+                        byte[] compare = mMeter.meter_settings.pack();
+                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
                         // Check if anything changed, and if so apply changes
-                        //if(memcmp(&save, &g_meter->meter_settings, sizeof(MeterSettings_t))) {
-                        //    [g_meter sendMeterSettings:^(NSError *error) {
-                        //        [self refreshAllControls];
-                        //    }];
-                        //}
+                        if(!save.equals(compare)) {
+                            mMeter.sendMeterSettings(new Block() {
+                                @Override
+                                public void run() {
+                                    refreshAllControls();
+                                }
+                            });
+                        }
                     }
                 });
             }
@@ -534,6 +539,14 @@ public class DeviceActivity extends FragmentActivity {
             }
         }
     }
+
+    /////////////////////////
+    // Widget Refreshers
+    /////////////////////////
+
+    private void refreshAllControls() {
+        Log.d(null,"TODO");
+    };
 
     /////////////////////////
     // Button Click Handlers

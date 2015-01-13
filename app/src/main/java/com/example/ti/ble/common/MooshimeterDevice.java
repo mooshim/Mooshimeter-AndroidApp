@@ -40,9 +40,13 @@ public class MooshimeterDevice {
     };
 
     // Display control settings
-    public final boolean[] disp_ac  = new boolean[]{false,false};
-    public final boolean[] disp_hex = new boolean[]{false,false};
-    public CH3_MODES disp_ch3_mode;
+    public final boolean[] disp_ac         = new boolean[]{false,false};
+    public final boolean[] disp_hex        = new boolean[]{false,false};
+    public CH3_MODES       disp_ch3_mode   = CH3_MODES.VOLTAGE;
+    public final boolean[] disp_range_auto = new boolean[]{true,true};
+    public boolean         disp_rate_auto  = true;
+    public boolean         disp_depth_auto = true;
+
 
     public final int[] offsets = new int[]{0,0};
 
@@ -71,8 +75,8 @@ public class MooshimeterDevice {
     }
 
     private abstract class Serializable {
-        abstract byte[] pack();
-        abstract void unpack(byte[] in);
+        public abstract byte[] pack();
+        public abstract void unpack(byte[] in);
     }
     public class MeterSettings    extends Serializable {
         public byte present_meter_state;
@@ -82,12 +86,11 @@ public class MooshimeterDevice {
         public int trigger_crossing;
         public byte measure_settings;
         public byte calc_settings;
-        public byte ch1set;
-        public byte ch2set;
+        public byte[] chset = new byte[2];
         public byte adc_settings;
 
         @Override
-        byte[] pack() {
+        public byte[] pack() {
             byte[] retval = new byte[13];
             ByteBuffer b = ByteBuffer.wrap(retval);
 
@@ -98,15 +101,15 @@ public class MooshimeterDevice {
             putInt24(b, trigger_crossing);
             b.put(      measure_settings);
             b.put(      calc_settings);
-            b.put(      ch1set);
-            b.put(      ch2set);
+            b.put(      chset[0]);
+            b.put(      chset[1]);
             b.put(      adc_settings);
 
             return retval;
         }
 
         @Override
-        void unpack(byte[] in) {
+        public void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             present_meter_state = b.get();
@@ -116,8 +119,8 @@ public class MooshimeterDevice {
             trigger_crossing    = getInt24(b);
             measure_settings    = b.get();
             calc_settings       = b.get();
-            ch1set              = b.get();
-            ch2set              = b.get();
+            chset[0]              = b.get();
+            chset[1]              = b.get();
             adc_settings        = b.get();
         }
     }
@@ -132,7 +135,7 @@ public class MooshimeterDevice {
         public int   logging_n_cycles;
 
         @Override
-        byte[] pack() {
+        public byte[] pack() {
             byte[] retval = new byte[13];
             ByteBuffer b = ByteBuffer.wrap(retval);
 
@@ -149,7 +152,7 @@ public class MooshimeterDevice {
         }
 
         @Override
-        void unpack(byte[] in) {
+        public void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             sd_present              = b.get();
@@ -169,7 +172,7 @@ public class MooshimeterDevice {
         int   build_time;
 
         @Override
-        byte[] pack() {
+        public byte[] pack() {
             byte[] retval = new byte[8];
             ByteBuffer b = ByteBuffer.wrap(retval);
 
@@ -182,7 +185,7 @@ public class MooshimeterDevice {
         }
 
         @Override
-        void unpack(byte[] in) {
+        public void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             pcb_version      = b.get();
@@ -196,7 +199,7 @@ public class MooshimeterDevice {
         public final float reading_ms[]  = new float[2];
 
         @Override
-        byte[] pack() {
+        public byte[] pack() {
             byte[] retval = new byte[16];
             ByteBuffer b = ByteBuffer.wrap(retval);
 
@@ -209,7 +212,7 @@ public class MooshimeterDevice {
         }
 
         @Override
-        void unpack(byte[] in) {
+        public void unpack(byte[] in) {
             ByteBuffer b = ByteBuffer.wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
 
@@ -371,6 +374,209 @@ public class MooshimeterDevice {
     };
 
     //////////////////////////////////////
+    // Autoranging
+    //////////////////////////////////////
+
+    byte pga_cycle(byte chx_set, boolean inc, boolean wrap) {
+        // These are the PGA settings we will entertain
+        final byte ps[] = {0x60,0x40,0x10};
+        byte i;
+        // Find the index of the present PGA setting
+        for(i = 0; i < ps.length; i++) {
+            if(ps[i] == (chx_set & METER_CH_SETTINGS_PGA_MASK)) break;
+        }
+
+        if(i>=ps.length) {
+            // If we didn't find it, default to setting 0
+            i = 0;
+        } else {
+            // Increment or decrement the PGA setting
+            if(inc){
+                if(++i >= ps.length) {
+                    if(wrap){i=0;}
+                    else    {i--;}
+                }
+            }
+            else {
+                if(--i < 0) {
+                    if(wrap){i = (byte)(ps.length-1);}
+                    else    {i++;}
+                }
+            }
+        }
+        // Mask the new setting back in
+        chx_set &=~METER_CH_SETTINGS_PGA_MASK;
+        chx_set |= ps[i];
+        return chx_set;
+    }
+
+    int getLowerRange(int channel) {
+        int tmp;
+        byte channel_setting = channel==0?meter_settings.chset[0]:meter_settings.chset[1];
+        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        final int pga_setting = channel_setting & METER_CH_SETTINGS_PGA_MASK;
+
+        switch(channel_setting & METER_CH_SETTINGS_INPUT_MASK) {
+            case 0x00:
+                // Electrode input
+                switch(channel) {
+                    case 1:
+                        // We are measuring current.  We can boost PGA, but that's all.
+                        switch(pga_setting) {
+                            case 0x60:
+                                return 0;
+                            case 0x40:
+                                return (int)(0.33*(1<<22));
+                            case 0x10:
+                                return (int)(0.25*(1<<22));
+                        }
+                        break;
+                    case 2:
+                        // Switch the ADC GPIO to activate dividers
+                        tmp = (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK)>>4;
+                        switch(tmp) {
+                            case 1:
+                                return 0;
+                            case 2:
+                                return (int)(0.1*(1<<22));
+                        }
+                        break;
+                }
+                break;
+            case 0x04:
+                // Temp input
+                return 0;
+            case 0x09:
+                switch(disp_ch3_mode) {
+                case VOLTAGE:
+                    switch(pga_setting) {
+                        case 0x60:
+                            return 0;
+                        case 0x40:
+                            return (int)(0.33*(1<<22));
+                        case 0x10:
+                            return (int)(0.25*(1<<22));
+                    }
+                    break;
+                case RESISTANCE:
+                case DIODE:
+                    switch(pga_setting) {
+                        case 0x60:
+                            if(0==(meter_settings.measure_settings&METER_MEASURE_SETTINGS_ISRC_LVL))
+                            {return (int)(0.012*(1<<22));}
+                            else {return 0;}
+                        case 0x40:
+                            return (int)(0.33*(1<<22));
+                        case 0x10:
+                            return (int)(0.25*(1<<22));
+                    }
+                    break;
+            }
+            break;
+        }
+        return 0;
+    }
+
+    private void bumpRange(int channel, boolean raise, boolean wrap) {
+        byte channel_setting    = meter_settings.chset[channel];
+        int tmp;
+
+        switch(channel_setting & METER_CH_SETTINGS_INPUT_MASK) {
+            case 0x00:
+                // Electrode input
+                switch(channel) {
+                    case 1:
+                        // We are measuring current.  We can boost PGA, but that's all.
+                        channel_setting = pga_cycle(channel_setting,raise,wrap);
+                        break;
+                    case 2:
+                        // Switch the ADC GPIO to activate dividers
+                        // NOTE: Don't bother with the 1.2V range for now.  Having a floating autoranged input leads to glitchy behavior.
+                        tmp = (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK)>>4;
+                        if(raise) {
+                            if(++tmp >= 3) {
+                                if(wrap){tmp=1;}
+                                else    {tmp--;}
+                            }
+                        } else {
+                            if(--tmp < 1) {
+                                if(wrap){tmp=2;}
+                                else    {tmp++;}
+                            }
+                        }
+                        tmp<<=4;
+                        meter_settings.adc_settings &= ~ADC_SETTINGS_GPIO_MASK;
+                        meter_settings.adc_settings |= tmp;
+                        channel_setting &=~METER_CH_SETTINGS_PGA_MASK;
+                        channel_setting |= 0x10;
+                        break;
+                }
+                break;
+            case 0x04:
+                // Temp input
+                break;
+            case 0x09:
+                switch(disp_ch3_mode) {
+                case VOLTAGE:
+                    channel_setting = pga_cycle(channel_setting,raise,wrap);
+                    break;
+                case RESISTANCE:
+                case DIODE:
+                    // This case is annoying.  We want PGA to always wrap if we are in the low range and going up OR in the high range and going down
+                    if( 0 != ((raise?0:METER_MEASURE_SETTINGS_ISRC_LVL) ^ (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL))) {
+                    wrap = true;
+                }
+                channel_setting = pga_cycle(channel_setting,raise,wrap);
+                tmp = channel_setting & METER_CH_SETTINGS_PGA_MASK;
+                tmp >>=4;
+                if(   ( raise && tmp == 6) || (!raise && tmp == 1) ) {
+                    meter_settings.measure_settings ^= METER_MEASURE_SETTINGS_ISRC_LVL;
+                }
+                break;
+            }
+            break;
+        }
+        meter_settings.chset[channel] = channel_setting;
+    }
+
+    public void applyAutorange() {
+        final boolean ac_used = disp_ac[0] || disp_ac[1];
+        final int upper_limit_lsb = (int)( 0.9*(1<<22));
+        final int lower_limit_lsb = (int)(-0.9*(1<<22));
+
+        // Autorange sample rate and buffer depth.
+        // If anything is doing AC, we need a deep buffer and fast sample
+        if(disp_rate_auto) {
+            meter_settings.adc_settings &= ~ADC_SETTINGS_SAMPLERATE_MASK;
+            if(ac_used) {meter_settings.adc_settings |= 5;} // 4kHz
+            else        {meter_settings.adc_settings |= 0;} // 125Hz
+        }
+        if(disp_depth_auto) {
+            meter_settings.calc_settings &=~METER_CALC_SETTINGS_DEPTH_LOG2;
+            if(ac_used) {meter_settings.calc_settings |= 8;} // 256 samples
+            else        {meter_settings.calc_settings |= 5;} // 32 samples
+        }
+        for(byte i = 0; i < 2; i++) {
+            int inner_limit_lsb = (int)(0.7*(getLowerRange(i)));
+            if(disp_range_auto[i]) {
+                // Note that the ranges are asymmetrical - we have 1.8V of headroom above and 1.2V below
+                int    mean_lsb;
+                double rms_lsb;
+                mean_lsb = meter_sample.reading_lsb[i];
+                rms_lsb  = Math.sqrt(meter_sample.reading_ms[i]);
+                if(   mean_lsb > upper_limit_lsb
+                        || mean_lsb < lower_limit_lsb
+                        || rms_lsb*Math.sqrt(2.) > Math.abs(lower_limit_lsb) ) {
+                    bumpRange(i,true,false);
+                } else if(   Math.abs(mean_lsb)    < inner_limit_lsb
+                        && rms_lsb*Math.sqrt(2.) < inner_limit_lsb ) {
+                    bumpRange(i,false,false);
+                }
+            }
+        }
+    }
+
+    //////////////////////////////////////
     // Data conversion
     //////////////////////////////////////
 
@@ -411,7 +617,7 @@ public class MooshimeterDevice {
         final int samplerate_setting =meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK;
         final int buffer_depth_log2 = meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2;
         double enob = base_enob_table[ samplerate_setting ];
-        int pga_setting = channel==1? meter_settings.ch1set:meter_settings.ch2set;
+        int pga_setting = meter_settings.chset[channel];
         pga_setting &= METER_CH_SETTINGS_PGA_MASK;
         pga_setting >>= 4;
         int pga_gain = pga_gain_table[pga_setting];
@@ -422,7 +628,7 @@ public class MooshimeterDevice {
         // Oversampling adds 1 ENOB per factor of 4
         enob += ((double)buffer_depth_log2)/2.0;
         //
-        if(channel == 1 && (meter_settings.ch1set & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
+        if(channel == 0 && (meter_settings.chset[0] & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
             // This is compensation for a bug in RevH, where current sense chopper noise dominates
             enob -= 2;
         }
@@ -447,10 +653,10 @@ public class MooshimeterDevice {
         int pga_setting=0;
         switch(channel) {
             case 0:
-                pga_setting = meter_settings.ch1set >> 4;
+                pga_setting = meter_settings.chset[0] >> 4;
                 break;
             case 1:
-                pga_setting = meter_settings.ch2set >> 4;
+                pga_setting = meter_settings.chset[1] >> 4;
                 break;
             default:
                 Log.i(null,"Should not be here");
@@ -491,8 +697,7 @@ public class MooshimeterDevice {
 
     public double lsbToNativeUnits(int lsb, final int ch) {
         double adc_volts = 0;
-        byte channel_setting = ch==0?meter_settings.ch1set:meter_settings.ch2set;
-        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        final byte channel_setting = (byte) (meter_settings.chset[ch] & METER_CH_SETTINGS_INPUT_MASK);
         if(disp_hex[ch]) {
             return lsb;
         }
@@ -540,8 +745,7 @@ public class MooshimeterDevice {
     }
 
     public String getDescriptor(final int channel) {
-        byte channel_setting = channel==0?meter_settings.ch1set:meter_settings.ch2set;
-        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
         switch( channel_setting ) {
             case 0x00:
                 switch (channel) {
@@ -576,8 +780,7 @@ public class MooshimeterDevice {
     }
 
     public String getUnits(final int channel) {
-        byte channel_setting = channel==0?meter_settings.ch1set:meter_settings.ch2set;
-        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
         if(disp_hex[channel]) {
             return "RAW";
         }
@@ -603,14 +806,13 @@ public class MooshimeterDevice {
                         return "V";
                 }
             default:
-                Log.w(null,"Unrecognized CH1SET setting");
+                Log.w(null,"Unrecognized chset[0] setting");
                 return "";
         }
     }
 
     String getInputLabel(final int channel) {
-        byte channel_setting = channel==0?meter_settings.ch1set:meter_settings.ch2set;
-        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
+        final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
         switch( channel_setting ) {
             case 0x00:
                 switch (channel) {
