@@ -412,15 +412,13 @@ public class MooshimeterDevice {
 
     int getLowerRange(int channel) {
         int tmp;
-        byte channel_setting = channel==0?meter_settings.chset[0]:meter_settings.chset[1];
-        channel_setting &= METER_CH_SETTINGS_INPUT_MASK;
-        final int pga_setting = channel_setting & METER_CH_SETTINGS_PGA_MASK;
+        final int pga_setting = meter_settings.chset[channel] & METER_CH_SETTINGS_PGA_MASK;
 
-        switch(channel_setting & METER_CH_SETTINGS_INPUT_MASK) {
+        switch(meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK) {
             case 0x00:
                 // Electrode input
                 switch(channel) {
-                    case 1:
+                    case 0:
                         // We are measuring current.  We can boost PGA, but that's all.
                         switch(pga_setting) {
                             case 0x60:
@@ -431,7 +429,7 @@ public class MooshimeterDevice {
                                 return (int)(0.25*(1<<22));
                         }
                         break;
-                    case 2:
+                    case 1:
                         // Switch the ADC GPIO to activate dividers
                         tmp = (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK)>>4;
                         switch(tmp) {
@@ -485,11 +483,11 @@ public class MooshimeterDevice {
             case 0x00:
                 // Electrode input
                 switch(channel) {
-                    case 1:
+                    case 0:
                         // We are measuring current.  We can boost PGA, but that's all.
                         channel_setting = pga_cycle(channel_setting,raise,wrap);
                         break;
-                    case 2:
+                    case 1:
                         // Switch the ADC GPIO to activate dividers
                         // NOTE: Don't bother with the 1.2V range for now.  Having a floating autoranged input leads to glitchy behavior.
                         tmp = (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK)>>4;
@@ -580,20 +578,20 @@ public class MooshimeterDevice {
     // Data conversion
     //////////////////////////////////////
 
-    private final int METER_MEASURE_SETTINGS_ISRC_ON         = 0x01;
-    private final int METER_MEASURE_SETTINGS_ISRC_LVL        = 0x02;
-    private final int METER_MEASURE_SETTINGS_ACTIVE_PULLDOWN = 0x04;
-
-    private final int METER_CALC_SETTINGS_DEPTH_LOG2 = 0x0F;
-    private final int METER_CALC_SETTINGS_MEAN       = 0x10;
-    private final int METER_CALC_SETTINGS_ONESHOT    = 0x20;
-    private final int METER_CALC_SETTINGS_MS         = 0x40;
-
-    private final int ADC_SETTINGS_SAMPLERATE_MASK = 0x07;
-    private final int ADC_SETTINGS_GPIO_MASK = 0x30;
-
-    private final int METER_CH_SETTINGS_PGA_MASK = 0x70;
-    private final int METER_CH_SETTINGS_INPUT_MASK = 0x0F;
+    public static final int METER_MEASURE_SETTINGS_ISRC_ON         = 0x01;
+    public static final int METER_MEASURE_SETTINGS_ISRC_LVL        = 0x02;
+    public static final int METER_MEASURE_SETTINGS_ACTIVE_PULLDOWN = 0x04;
+    
+    public static final int METER_CALC_SETTINGS_DEPTH_LOG2 = 0x0F;
+    public static final int METER_CALC_SETTINGS_MEAN       = 0x10;
+    public static final int METER_CALC_SETTINGS_ONESHOT    = 0x20;
+    public static final int METER_CALC_SETTINGS_MS         = 0x40;
+    
+    public static final int ADC_SETTINGS_SAMPLERATE_MASK = 0x07;
+    public static final int ADC_SETTINGS_GPIO_MASK = 0x30;
+    
+    public static final int METER_CH_SETTINGS_PGA_MASK = 0x70;
+    public static final int METER_CH_SETTINGS_INPUT_MASK = 0x0F;
 
     public class SignificantDigits {
         public int high;
@@ -811,7 +809,7 @@ public class MooshimeterDevice {
         }
     }
 
-    String getInputLabel(final int channel) {
+    public String getInputLabel(final int channel) {
         final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
         switch( channel_setting ) {
             case 0x00:
