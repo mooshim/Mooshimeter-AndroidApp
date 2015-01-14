@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.ti.ble.sensortag"
+    package="com.mooshim.mooshimeter"
     android:versionCode="2"
     android:versionName="1.01" >
 
@@ -23,11 +23,11 @@
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Holo.Light" >
         <service
-            android:name="com.example.ti.ble.common.BluetoothLeService"
+            android:name="com.mooshim.mooshimeter.common.BluetoothLeService"
             android:enabled="true" />
 
         <activity
-            android:name="com.example.ti.ble.sensortag.MainActivity"
+            android:name="com.mooshim.mooshimeter.main.MainActivity"
             android:label="@string/app_name"
             android:screenOrientation="portrait" >
             <intent-filter>
@@ -38,20 +38,20 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.example.ti.ble.sensortag.DeviceActivity"
-            android:parentActivityName="MainActivity"
+            android:name="com.mooshim.mooshimeter.main.DeviceActivity"
+            android:parentActivityName="com.mooshim.mooshimeter.main.MainActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.ti.ble.sensortag.FwUpdateActivity"
-            android:parentActivityName="DeviceActivity"
+            android:name="com.mooshim.mooshimeter.main.FwUpdateActivity"
+            android:parentActivityName="com.mooshim.mooshimeter.main.DeviceActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.ti.ble.sensortag.FileActivity"
-            android:parentActivityName="FwUpdateActivity"
+            android:name="com.mooshim.mooshimeter.main.FileActivity"
+            android:parentActivityName="com.mooshim.mooshimeter.main.FwUpdateActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.ti.ble.sensortag.PreferencesActivity"
-            android:parentActivityName="DeviceActivity"
+            android:name="com.mooshim.mooshimeter.main.PreferencesActivity"
+            android:parentActivityName="com.mooshim.mooshimeter.main.DeviceActivity"
             android:screenOrientation="portrait"
             android:label="Preferences"/>
         

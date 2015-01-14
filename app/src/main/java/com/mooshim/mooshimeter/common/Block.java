@@ -1,4 +1,4 @@
-package com.example.ti.ble.common;
+package com.mooshim.mooshimeter.common;
 
 /**
  * Created by First on 1/9/2015.

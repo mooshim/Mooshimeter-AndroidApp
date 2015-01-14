@@ -1,6 +1,5 @@
-package com.example.ti.ble.common;
+package com.mooshim.mooshimeter.common;
 
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
@@ -9,9 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
-import android.widget.Toast;
 
-import com.example.ti.ble.sensortag.SensorTagGatt;
+import com.mooshim.mooshimeter.main.SensorTagGatt;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
