@@ -19,8 +19,8 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/tible"
-        android:label="@string/app_name" 
+        android:icon="@drawable/mstar"
+        android:label="@string/app_name"
         android:theme="@android:style/Theme.Holo.Light" >
         <service
             android:name="com.example.ti.ble.common.BluetoothLeService"
@@ -40,10 +40,6 @@
         <activity
             android:name="com.example.ti.ble.sensortag.DeviceActivity"
             android:parentActivityName="MainActivity"
-            android:screenOrientation="portrait" />
-        <activity
-            android:name="com.example.ti.ble.sensortag.ServiceActivity"
-            android:parentActivityName="DeviceActivity"
             android:screenOrientation="portrait" />
         <activity
             android:name="com.example.ti.ble.sensortag.FwUpdateActivity"

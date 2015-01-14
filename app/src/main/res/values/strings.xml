@@ -2,7 +2,7 @@
 <resources>
 
     <!-- Main activity -->
-    <string name="app_name">BLE SensorTag</string>
+    <string name="app_name">Mooshimeter</string>
     <string name="button_scan">Scan</string>
     <string name="connect">Connect</string>
     <string name="title_device_list">Device List</string>
@@ -14,10 +14,10 @@
     <string name="ble_not_supported">BLE is not supported</string>
     <string name="bt_on">Bluetooth was turned  on</string>
     <string name="bt_not_on">Bluetooth was not turned on</string>
-    <string name="app_closing">Exiting BLE SensorTag app</string>
+    <string name="app_closing">Exiting</string>
     <string-array name="device_filter"><item>SensorTag</item><item>SensorTag2</item></string-array>    
-    <string name="nodevice">There are no SensorTags advertising within range. Please push the side button on the SensorTag to start advertising.</string>
-    <string name="scan_advice">The Android device is not scanning. Please tap \'Scan\' to scan for SensorTags.</string>
+    <string name="nodevice">No Mooshimeters detected.</string>
+    <string name="scan_advice">The Android device is not scanning. Please tap \'Scan\' to scan for Mooshimeters.</string>
     <string name="bt_adapter_disable">Disable Bluetooth adapter</string>
     <string name="bt_adapter_reset">Reset Bluetooth adapter</string>
     

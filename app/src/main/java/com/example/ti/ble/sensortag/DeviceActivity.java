@@ -240,7 +240,6 @@ public class DeviceActivity extends FragmentActivity {
 		// Log.d(TAG, "onResume");
 		super.onResume();
 		if (!mIsReceiving) {
-			registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 			mIsReceiving = true;
 		}
 	}
@@ -250,15 +249,8 @@ public class DeviceActivity extends FragmentActivity {
 		// Log.d(TAG, "onPause");
 		super.onPause();
 		if (mIsReceiving) {
-			unregisterReceiver(mGattUpdateReceiver);
 			mIsReceiving = false;
 		}
-	}
-
-	private static IntentFilter makeGattUpdateIntentFilter() {
-		final IntentFilter fi = new IntentFilter();
-		fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
-		return fi;
 	}
 
 	BluetoothGattService getOadService() {
@@ -356,7 +348,6 @@ public class DeviceActivity extends FragmentActivity {
 			Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
 			if (!mIsReceiving) {
 				mIsReceiving = true;
-				registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 			}
 			break;
 		case FWUPDATE_ACT_REQ:
@@ -368,30 +359,6 @@ public class DeviceActivity extends FragmentActivity {
 			break;
 		}
 	}
-
-	private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			final String action = intent.getAction();
-			int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
-			    BluetoothGatt.GATT_SUCCESS);
-
-			if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-				if (status == BluetoothGatt.GATT_SUCCESS) {
-					setStatus("Service discovery complete");
-					displayServices();
-				} else {
-					Toast.makeText(getApplication(), "Service discovery failed",
-					    Toast.LENGTH_LONG).show();
-					return;
-				}
-			}
-
-			if (status != BluetoothGatt.GATT_SUCCESS) {
-				setError("GATT error code: " + status);
-			}
-		}
-	};
 
     public String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {
         //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
