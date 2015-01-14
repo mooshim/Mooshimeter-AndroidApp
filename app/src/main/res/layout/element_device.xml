@@ -16,7 +16,7 @@
         android:contentDescription="@string/image"
         android:focusable="false"
         android:paddingRight="5dp"
-        android:src="@drawable/sensortag" />
+        android:src="@drawable/mooshimeter_icon" />
 
     <TextView
         android:id="@+id/descr"

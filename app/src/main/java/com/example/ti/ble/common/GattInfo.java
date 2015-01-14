@@ -68,7 +68,7 @@ public class GattInfo {
   // Bluetooth SIG identifiers
   public static final UUID CLIENT_CHARACTERISTIC_CONFIG = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
   private static final String uuidBtSigBase = "0000****-0000-1000-8000-00805f9b34fb";
-  private static final String uuidTiBase = "f000****-0451-4000-b000-000000000000";
+  private static final String uuidMooshimBase = "1BC5****-0200-62AB-E411-F254E005DBD4";
 
   public static final UUID OAD_SERVICE_UUID = UUID.fromString("f000ffc0-0451-4000-b000-000000000000");
   public static final UUID CC_SERVICE_UUID = UUID.fromString("f000ccc0-0451-4000-b000-000000000000");
@@ -97,11 +97,11 @@ public class GattInfo {
     return mDescrMap.get(str.toUpperCase());
   }
 
-  static public boolean isTiUuid(UUID u) {
+  static public boolean isMooshimUuid(UUID u) {
     String us = u.toString();
     String r = toShortUuidStr(u);
     us = us.replace(r, "****");
-    return us.equals(uuidTiBase);
+    return us.equals(uuidMooshimBase);
   }
 
   static public boolean isBtSigUuid(UUID u) {

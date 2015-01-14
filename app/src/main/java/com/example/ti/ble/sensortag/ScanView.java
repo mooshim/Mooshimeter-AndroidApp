@@ -301,10 +301,6 @@ public class ScanView extends Fragment {
       String descr = name + "\n" + device.getAddress() + "\nRssi: " + rssi + " dBm";
       ((TextView) vg.findViewById(R.id.descr)).setText(descr);
       
-      ImageView iv = (ImageView)vg.findViewById(R.id.devImage);
-      if (name.equals("SensorTag2"))
-      	iv.setImageResource(R.drawable.st2);
-      
       // Disable connect button when connecting or connected
       Button bv = (Button)vg.findViewById(R.id.btnConnect);
       bv.setEnabled(mConnectTimer == null);
