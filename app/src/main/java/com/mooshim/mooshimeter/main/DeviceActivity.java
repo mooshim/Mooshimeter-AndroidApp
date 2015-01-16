@@ -131,40 +131,41 @@ public class DeviceActivity extends FragmentActivity {
         mMeter = new MooshimeterDevice(this, new Block() {
             @Override
             public void run() {
-                mMeter.enableMeterStreamSample(true, new Block() {
+                mMeter.meter_settings.target_meter_state = mMeter.METER_RUNNING;
+                mMeter.meter_settings.calc_settings |= 0x50;
+                mMeter.sendMeterSettings(new Block() {
                     @Override
                     public void run() {
-                        mMeter.meter_settings.target_meter_state = mMeter.METER_RUNNING;
-                        mMeter.sendMeterSettings(new Block() {
+                        Log.i(null,"Mode set");
+                        mMeter.enableMeterStreamSample(true, new Block() {
                             @Override
                             public void run() {
-                                Log.i(null,"Mode set");
+                                Log.i(null,"Stream requested");
+                            }
+                        }, new Block() {
+                            @Override
+                            public void run() {
+                                Log.i(null,"Sample received!");
+                                valueLabelRefresh(0);
+                                valueLabelRefresh(1);
+
+                                // Handle autoranging
+                                // Save a local copy of settings
+                                byte[] save = mMeter.meter_settings.pack();
+                                mMeter.applyAutorange();
+                                byte[] compare = mMeter.meter_settings.pack();
+                                // TODO: There must be a more efficient way to do this.  But I think like a c-person
+                                // Check if anything changed, and if so apply changes
+                                if(!save.equals(compare)) {
+                                    mMeter.sendMeterSettings(new Block() {
+                                        @Override
+                                        public void run() {
+                                            refreshAllControls();
+                                        }
+                                    });
+                                }
                             }
                         });
-                        Log.i(null,"Stream requested");
-                    }
-                }, new Block() {
-                    @Override
-                    public void run() {
-                        Log.i(null,"Sample received!");
-                        valueLabelRefresh(0);
-                        valueLabelRefresh(1);
-
-                        // Handle autoranging
-                        // Save a local copy of settings
-                        byte[] save = mMeter.meter_settings.pack();
-                        mMeter.applyAutorange();
-                        byte[] compare = mMeter.meter_settings.pack();
-                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
-                        // Check if anything changed, and if so apply changes
-                        if(!save.equals(compare)) {
-                            mMeter.sendMeterSettings(new Block() {
-                                @Override
-                                public void run() {
-                                    refreshAllControls();
-                                }
-                            });
-                        }
                     }
                 });
             }
