@@ -115,7 +115,7 @@ public class DeviceActivity extends FragmentActivity {
     private Button logging_button;
     private Button depth_auto_button;
     private Button depth_button;
-    private Button settings_button;
+    private Button zero_button;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -195,7 +195,7 @@ public class DeviceActivity extends FragmentActivity {
         logging_button    = (Button) findViewById(R.id.logging_button);
         depth_auto_button = (Button) findViewById(R.id.depth_auto_button);
         depth_button      = (Button) findViewById(R.id.depth_button);
-        settings_button   = (Button) findViewById(R.id.settings_button);
+        zero_button = (Button) findViewById(R.id.zero_button);
 	}
 
 	@Override
@@ -225,7 +225,6 @@ public class DeviceActivity extends FragmentActivity {
 			startOadActivity();
 			break;
 		case R.id.opt_about:
-			//openAboutDialog();
 			break;
 		default:
 			return super.onOptionsItemSelected(item);
@@ -393,7 +392,7 @@ public class DeviceActivity extends FragmentActivity {
         depth_auto_button_refresh();
         depth_button_refresh();
         logging_button_refresh();
-        settings_button_refresh();
+        zero_button_refresh();
         for(int c = 0; c < 2; c++) {
             autoRangeButtonRefresh(c);
             display_set_button_refresh(c);
@@ -433,8 +432,9 @@ public class DeviceActivity extends FragmentActivity {
         // TODO
     }
 
-    private void settings_button_refresh() {
-        //TODO
+    private void zero_button_refresh() {
+        int color    = mMeter.offset_on?Color.GREEN:Color.RED;
+        zero_button.setBackgroundColor(color);
     }
 
     private void styleAutoButton(Button button, boolean auto) {
@@ -897,9 +897,33 @@ public class DeviceActivity extends FragmentActivity {
         }
     }
     
-    public void onSettingsClick(View v) {
-        Log.i(null,"onSettingsClick");
-        // TODO
+    public void onZeroClick(View v) {
+        Log.i(null,"onZeroClick");
+        // TODO: Update firmware to allow saving of user offsets to flash
+        // FIXME: Annoying special case: Channel 1 offset in current mode is stored as offset at the ADC
+        // because current sense amp drift dominates the offset.  Hardware fix this in Rev2.
+        // Toggle
+        mMeter.offset_on ^= true;
+        if(mMeter.offset_on) {
+            byte channel_setting = (byte) (mMeter.meter_settings.chset[0] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
+            switch(channel_setting) {
+                case 0x00: // Electrode input
+                    mMeter.offsets[0] = mMeter.lsbToADCInVoltage(mMeter.meter_sample.reading_lsb[0],0);
+                    break;
+                case 0x09:
+                    mMeter.offsets[2] = mMeter.meter_sample.reading_lsb[0];
+            }
+            channel_setting = (byte) (mMeter.meter_settings.chset[1] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
+            switch(channel_setting) {
+                case 0x00: // Electrode input
+                    mMeter.offsets[1] = mMeter.meter_sample.reading_lsb[1];
+                    break;
+                case 0x09:
+                    mMeter.offsets[2] = mMeter.meter_sample.reading_lsb[1];
+            }
+        } else {
+            for(int i=0; i<mMeter.offsets.length; i++) {mMeter.offsets[i]=0;}
+        }
     }
 
 }

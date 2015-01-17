@@ -45,13 +45,13 @@ public class MooshimeterDevice {
     public boolean         disp_rate_auto  = true;
     public boolean         disp_depth_auto = true;
 
-
-    public final int[] offsets = new int[]{0,0};
+    public boolean offset_on      = false;
+    public final double[] offsets = new double[]{0,0,0};
 
     private Block cb = null;
     private Block stream_cb = null;
 
-    private void putInt24(ByteBuffer b, int arg) {
+    private static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b
         ByteBuffer tmp = ByteBuffer.allocate(4);
         byte[] tb = new byte[3];
@@ -60,7 +60,7 @@ public class MooshimeterDevice {
         tmp.get(tb);
         b.put( tb );
     }
-    private int  getInt24(ByteBuffer b) {
+    private static int  getInt24(ByteBuffer b) {
         // Pulls out a 3 byte int, expands it to 4 bytes
         // Advances the buffer by 3 bytes
         byte[] tb = new byte[4];
@@ -719,7 +719,7 @@ public class MooshimeterDevice {
                 return adcVoltageToTemp(adc_volts);
             case 0x09:
                 // Apply offset
-                lsb -= offsets[1];
+                lsb -= offsets[2];
                 adc_volts = lsbToADCInVoltage(lsb,ch);
                 if( disp_ch3_mode == CH3_MODES.RESISTANCE ) {
                     // Convert to Ohms
