@@ -54,19 +54,17 @@
 package com.mooshim.mooshimeter.main;
 
 import android.os.Bundle;
-import android.preference.PreferenceActivity;
+import android.support.v4.app.FragmentActivity;
 import android.view.MenuItem;
-import android.widget.ImageView;
 
-public class PreferencesActivity extends PreferenceActivity {
+import com.mooshim.mooshimeter.R;
+
+public class PreferencesActivity extends FragmentActivity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    // Icon padding
-    ImageView view = (ImageView) findViewById(android.R.id.home);
-    view.setPadding(10, 0, 20, 10);
-    
+    setContentView(R.layout.meter_preference_view);
   }
   
   @Override
@@ -80,11 +78,6 @@ public class PreferencesActivity extends PreferenceActivity {
     default:
       return super.onOptionsItemSelected(item);
     }
-  }
-  
-  @Override
-  public boolean isValidFragment(String fragmentName) {
-  	return true;
   }
 
 }

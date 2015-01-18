@@ -283,9 +283,6 @@ public class DeviceActivity extends FragmentActivity {
 		//enableDataCollection(false);
 		// Launch preferences
 		final Intent i = new Intent(this, PreferencesActivity.class);
-		i.putExtra(PreferencesActivity.EXTRA_SHOW_FRAGMENT,
-		    PreferencesFragment.class.getName());
-		i.putExtra(PreferencesActivity.EXTRA_NO_HEADERS, true);
 		i.putExtra(EXTRA_DEVICE, mBluetoothDevice);
 		startActivityForResult(i, PREF_ACT_REQ);
 	}
