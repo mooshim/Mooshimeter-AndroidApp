@@ -61,6 +61,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.graphics.Color;
+import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -68,6 +69,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
@@ -116,6 +118,8 @@ public class DeviceActivity extends FragmentActivity {
     private Button depth_auto_button;
     private Button depth_button;
     private Button zero_button;
+
+    private OrientationEventListener orientation_listener;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -196,7 +200,21 @@ public class DeviceActivity extends FragmentActivity {
         depth_auto_button = (Button) findViewById(R.id.depth_auto_button);
         depth_button      = (Button) findViewById(R.id.depth_button);
         zero_button = (Button) findViewById(R.id.zero_button);
+
+        // Catch orientation change
+        orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
+            @Override
+            public void onOrientationChanged(int i) {
+                if((i > 80 && i < 100) || (i>260 && i < 280)) {
+                    // FIXME: I know there should be a better way to do this.
+                    Log.i(null,"LANDSCAPE!");
+                }
+            }
+        };
+        orientation_listener.enable();
 	}
+
+
 
 	@Override
 	public void onDestroy() {
