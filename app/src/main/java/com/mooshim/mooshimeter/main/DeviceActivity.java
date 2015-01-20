@@ -133,49 +133,6 @@ public class DeviceActivity extends FragmentActivity {
 		mBluetoothDevice = intent.getParcelableExtra(EXTRA_DEVICE);
 		mServiceList = new ArrayList<BluetoothGattService>();
 
-        mMeter = new MooshimeterDevice(this, new Block() {
-            @Override
-            public void run() {
-                mMeter.meter_settings.target_meter_state = mMeter.METER_RUNNING;
-                mMeter.meter_settings.calc_settings |= 0x50;
-                mMeter.sendMeterSettings(new Block() {
-                    @Override
-                    public void run() {
-                        Log.i(null,"Mode set");
-                        mMeter.enableMeterStreamSample(true, new Block() {
-                            @Override
-                            public void run() {
-                                Log.i(null,"Stream requested");
-                            }
-                        }, new Block() {
-                            @Override
-                            public void run() {
-                                Log.i(null,"Sample received!");
-                                valueLabelRefresh(0);
-                                valueLabelRefresh(1);
-
-                                // Handle autoranging
-                                // Save a local copy of settings
-                                byte[] save = mMeter.meter_settings.pack();
-                                mMeter.applyAutorange();
-                                byte[] compare = mMeter.meter_settings.pack();
-                                // TODO: There must be a more efficient way to do this.  But I think like a c-person
-                                // Check if anything changed, and if so apply changes
-                                if(!save.equals(compare)) {
-                                    mMeter.sendMeterSettings(new Block() {
-                                        @Override
-                                        public void run() {
-                                            refreshAllControls();
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-        });
-
         // GUI
         setContentView(R.layout.meter_view);
 
@@ -258,13 +215,72 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onResume() {
 		// Log.d(TAG, "onResume");
 		super.onResume();
+        mMeter = MooshimeterDevice.getInstance();
+        if(mMeter == null) {
+            mMeter = MooshimeterDevice.Initialize(this, new Block() {
+                @Override
+                public void run() {
+                    onMeterInitialized();
+                }
+            });
+        } else {
+            onMeterInitialized();
+        }
         orientation_listener.enable();
 	}
+
+    private void onMeterInitialized() {
+        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
+        mMeter.meter_settings.calc_settings |= 0x50;
+        mMeter.sendMeterSettings(new Block() {
+            @Override
+            public void run() {
+                Log.i(null,"Mode set");
+                mMeter.enableMeterStreamSample(true, new Block() {
+                    @Override
+                    public void run() {
+                        Log.i(null,"Stream requested");
+                    }
+                }, new Block() {
+                    @Override
+                    public void run() {
+                        Log.i(null,"Sample received!");
+                        valueLabelRefresh(0);
+                        valueLabelRefresh(1);
+
+                        // Handle autoranging
+                        // Save a local copy of settings
+                        byte[] save = mMeter.meter_settings.pack();
+                        mMeter.applyAutorange();
+                        byte[] compare = mMeter.meter_settings.pack();
+                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
+                        // Check if anything changed, and if so apply changes
+                        if(!save.equals(compare)) {
+                            mMeter.sendMeterSettings(new Block() {
+                                @Override
+                                public void run() {
+                                    refreshAllControls();
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
 
 	@Override
 	protected void onPause() {
 		// Log.d(TAG, "onPause");
-		super.onPause();
+        super.onPause();
+        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
+        mMeter.sendMeterSettings(new Block() {
+            @Override
+            public void run() {
+                Log.d(null,"Paused");
+            }
+        });
+        mMeter.close();
         orientation_listener.disable();
 	}
 

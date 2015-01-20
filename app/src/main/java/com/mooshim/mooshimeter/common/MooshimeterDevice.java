@@ -26,6 +26,7 @@ public class MooshimeterDevice {
     public static final byte METER_RUNNING   = 3;
     public static final byte METER_HIBERNATE = 4;
 
+    private Context mContext;
     private BluetoothLeService bt_service;
     private BluetoothGattService bt_gatt_service;
     private int rssi;
@@ -227,7 +228,22 @@ public class MooshimeterDevice {
     public MeterSample      meter_sample;
     public String           meter_name;
 
-    public MooshimeterDevice(Context context, final Block on_init) {
+    private static MooshimeterDevice mInstance = null;
+
+    public static MooshimeterDevice getInstance() {
+        return mInstance;
+    }
+
+    public static MooshimeterDevice Initialize(Context context, final Block on_init) {
+        if(mInstance==null) {
+            mInstance = new MooshimeterDevice(context, on_init);
+        } else {
+            Log.e(null, "Already initialized!");
+        }
+        return mInstance;
+    }
+
+    protected MooshimeterDevice(Context context, final Block on_init) {
         // Initialize internal structures
         meter_settings      = new MeterSettings();
         meter_log_settings  = new MeterLogSettings();
@@ -259,6 +275,7 @@ public class MooshimeterDevice {
         fi.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
         fi.addAction(BluetoothLeService.ACTION_DATA_READ);
         context.registerReceiver(mGattUpdateReceiver, fi);
+        mContext = context;
 
         // Grab the initial settings
         reqMeterSettings( new Block() {
@@ -283,6 +300,11 @@ public class MooshimeterDevice {
                 });
             }
         });
+    }
+
+    public void close() {
+        stream_cb = null;
+        //mContext.unregisterReceiver(mGattUpdateReceiver);
     }
 
     ////////////////////////////////
