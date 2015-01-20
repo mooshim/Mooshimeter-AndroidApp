@@ -20,11 +20,11 @@ import java.util.UUID;
  */
 
 public class MooshimeterDevice {
-    public final byte METER_SHUTDOWN  = 0;
-    public final byte METER_STANDBY   = 1;
-    public final byte METER_PAUSED    = 2;
-    public final byte METER_RUNNING   = 3;
-    public final byte METER_HIBERNATE = 4;
+    public static final byte METER_SHUTDOWN  = 0;
+    public static final byte METER_STANDBY   = 1;
+    public static final byte METER_PAUSED    = 2;
+    public static final byte METER_RUNNING   = 3;
+    public static final byte METER_HIBERNATE = 4;
 
     private BluetoothLeService bt_service;
     private BluetoothGattService bt_gatt_service;
@@ -225,6 +225,7 @@ public class MooshimeterDevice {
     public MeterLogSettings meter_log_settings;
     public MeterInfo        meter_info;
     public MeterSample      meter_sample;
+    public String           meter_name;
 
     public MooshimeterDevice(Context context, final Block on_init) {
         // Initialize internal structures
@@ -269,8 +270,13 @@ public class MooshimeterDevice {
                         reqMeterInfo( new Block() {
                             @Override
                             public void run() {
-                                reqMeterSample( on_init );
-                                Log.i(null,"Meter initialization complete");
+                                reqMeterSample( new Block() {
+                                    @Override
+                                    public void run() {
+                                        reqMeterName(on_init);
+                                        Log.i(null,"Meter initialization complete");
+                                    }
+                                } );
                             }
                         });
                     }
@@ -307,11 +313,13 @@ public class MooshimeterDevice {
     public void reqMeterLogSettings( Block new_cb ) { req(SensorTagGatt.METER_LOG_SETTINGS, new_cb); }
     public void reqMeterInfo       ( Block new_cb ) { req(SensorTagGatt.METER_INFO, new_cb); }
     public void reqMeterSample     ( Block new_cb ) { req(SensorTagGatt.METER_SAMPLE, new_cb); }
+    public void reqMeterName       ( Block new_cb ) { req(SensorTagGatt.METER_NAME, new_cb); }
 
     public void sendMeterSettings   ( Block new_cb ) { send(SensorTagGatt.METER_SETTINGS, meter_settings.pack(), new_cb); }
     public void sendMeterLogSettings( Block new_cb ) { send(SensorTagGatt.METER_LOG_SETTINGS, meter_log_settings.pack(), new_cb); }
     public void sendMeterInfo       ( Block new_cb ) { send(SensorTagGatt.METER_INFO, meter_info.pack(), new_cb); }
     public void sendMeterSample     ( Block new_cb ) { send(SensorTagGatt.METER_SAMPLE, meter_sample.pack(), new_cb); }
+    public void sendMeterName       ( Block new_cb ) { send(SensorTagGatt.METER_NAME, meter_name.getBytes(), new_cb); }
 
     public void enableMeterStreamSample( boolean enable, Block new_cb, Block new_stream_cb ) {
         stream_cb = new_stream_cb;
@@ -333,6 +341,8 @@ public class MooshimeterDevice {
             meter_info.unpack(value);
         } else if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
             meter_sample.unpack(value);
+        } else if(uuid.equals(SensorTagGatt.METER_NAME)) {
+            meter_name = new String(value);
         }
         callCB();
     }
