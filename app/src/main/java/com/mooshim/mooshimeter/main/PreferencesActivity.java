@@ -76,7 +76,7 @@ public class PreferencesActivity extends FragmentActivity {
   protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
       final PreferencesActivity mThis = this;
-      mMeter = DeviceActivity.mMeter;
+      mMeter = MooshimeterDevice.getInstance();
       setContentView(R.layout.meter_preference_view);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
       name_editor.setText(mMeter.meter_name);

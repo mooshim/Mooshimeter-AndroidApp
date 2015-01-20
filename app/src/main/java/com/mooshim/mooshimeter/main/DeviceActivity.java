@@ -95,7 +95,7 @@ public class DeviceActivity extends FragmentActivity {
 	private List<BluetoothGattService> mServiceList = null;
 	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
-    public static MooshimeterDevice mMeter = null;
+    private MooshimeterDevice mMeter = null;
 
 	// SensorTagGatt
 	private List<Sensor> mEnabledSensors = new ArrayList<Sensor>();
@@ -182,6 +182,9 @@ public class DeviceActivity extends FragmentActivity {
 		super.onDestroy();
 		finishActivity(PREF_ACT_REQ);
 		finishActivity(FWUPDATE_ACT_REQ);
+        // FIXME: This should be destroyed in onActivityResult in MainActivity, but for some reason the right case is not getting called there
+        MooshimeterDevice.Destroy();
+        setResult(RESULT_OK);
 	}
 
 	@Override

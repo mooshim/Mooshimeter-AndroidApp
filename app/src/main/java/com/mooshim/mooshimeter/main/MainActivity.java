@@ -89,6 +89,7 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.BleDeviceInfo;
 import com.mooshim.mooshimeter.common.BluetoothLeService;
+import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.util.CustomToast;
 
 public class MainActivity extends ViewPagerActivity {

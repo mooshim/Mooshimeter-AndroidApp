@@ -24,29 +24,25 @@ public class TrendActivity extends Activity {
     private GraphView mGraph;
     private final LineGraphSeries[] dataPoints = new LineGraphSeries[2];
     private double start_time;
+    private boolean cleaning_up = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_trend);
         mGraph = (GraphView) findViewById(R.id.graph);
-        LineGraphSeries<DataPoint> series = new LineGraphSeries<DataPoint>(new DataPoint[] {
-                new DataPoint(0, 1),
-                new DataPoint(1, 5),
-                new DataPoint(2, 3),
-                new DataPoint(3, 2),
-                new DataPoint(4, 6)
-        });
-        mGraph.addSeries(series);
         orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
             @Override
             public void onOrientationChanged(int i) {
                 if((i > 170 && i < 190) || (i>0 && i < 10)) {
                     // FIXME: I know there should be a better way to do this.
-                    Log.i(null, "PORTRAIT!");
-                    setResult(RESULT_OK);
-                    finish();
-                    orientation_listener.disable();
+                    if(!cleaning_up) {
+                        cleaning_up = true;
+                        Log.i(null, "PORTRAIT!");
+                        setResult(RESULT_OK);
+                        finish();
+                        orientation_listener.disable();
+                    }
                 }
             }
         };
@@ -150,7 +146,7 @@ public class TrendActivity extends Activity {
         mMeter.sendMeterSettings(new Block() {
             @Override
             public void run() {
-                Log.d(null,"Paused");
+                Log.d(null, "Paused");
             }
         });
         mMeter.close();

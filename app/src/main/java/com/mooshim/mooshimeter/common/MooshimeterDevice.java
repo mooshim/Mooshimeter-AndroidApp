@@ -243,6 +243,14 @@ public class MooshimeterDevice {
         return mInstance;
     }
 
+    public static void Destroy() {
+        // Clear the global instance
+        if(mInstance != null) {
+            mInstance.close();
+            mInstance = null;
+        }
+    }
+
     protected MooshimeterDevice(Context context, final Block on_init) {
         // Initialize internal structures
         meter_settings      = new MeterSettings();
@@ -389,7 +397,7 @@ public class MooshimeterDevice {
             } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
                 Log.d(null, "onCharacteristicNotify");
                 handleValueUpdate(uuid,value);
-                stream_cb.run();
+                if(stream_cb != null) { stream_cb.run(); }
             } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
                 Log.d(null, "onCharacteristicWrite");
                 callCB();
