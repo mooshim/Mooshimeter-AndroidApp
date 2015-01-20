@@ -23,7 +23,9 @@
         android:text="Mooshimeter V.1"
         android:textSize="24dp"
         android:maxLength="16"
-        android:singleLine="true" />
+        android:singleLine="true"
+        android:textAlignment="center"
+        android:editable="true" />
 
     <Space
         android:layout_width="match_parent"
@@ -36,6 +38,7 @@
         android:text="HIBERNATE"
         android:id="@+id/button"
         android:layout_gravity="center_horizontal"
-        android:textSize="30dp" />
+        android:textSize="30dp"
+        android:onClick="hibernateOnClick" />
 
 </LinearLayout>

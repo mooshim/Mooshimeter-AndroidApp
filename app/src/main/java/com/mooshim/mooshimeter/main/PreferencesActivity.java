@@ -53,20 +53,51 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.main;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.Block;
+import com.mooshim.mooshimeter.common.MooshimeterDevice;
 
 public class PreferencesActivity extends FragmentActivity {
 
+    public MooshimeterDevice mMeter;
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.meter_preference_view);
+      super.onCreate(savedInstanceState);
+      final PreferencesActivity mThis = this;
+      mMeter = DeviceActivity.mMeter;
+      setContentView(R.layout.meter_preference_view);
+      final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
+      name_editor.setText(mMeter.meter_name);
+      name_editor.setOnKeyListener(new View.OnKeyListener() {
+          public boolean onKey(View v, int keyCode, KeyEvent event) {
+              if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
+                  mMeter.meter_name = String.valueOf(name_editor.getText());
+                  mMeter.sendMeterName(new Block() {
+                      @Override
+                      public void run() {
+                          Log.d(null, "Name sent");
+                          Toast.makeText(mThis, "Name Sent", Toast.LENGTH_SHORT).show();
+                      }
+                  });
+                  return true;
+              }
+              return false;
+          }
+      });
   }
-  
+
   @Override
   public boolean onOptionsItemSelected(MenuItem item) {
     // Handle presses on the action bar items
@@ -79,5 +110,37 @@ public class PreferencesActivity extends FragmentActivity {
       return super.onOptionsItemSelected(item);
     }
   }
+
+    public void hibernateOnClick(View v) {
+        Log.d(null,"Hibernate clicked");
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+
+        // set title
+        alertDialogBuilder.setTitle("Confirm Hibernation");
+
+        // set dialog message
+        alertDialogBuilder
+                .setMessage("Once in hibernation, you will not be able to connect to the meter until you short out the Ω input to wake the meter up.")
+                .setCancelable(false)
+                .setPositiveButton("Hibernate",new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog,int id) {
+                        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_HIBERNATE;
+                        mMeter.sendMeterSettings(null);
+                    }
+                })
+                .setNegativeButton("Cancel",new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog,int id) {
+                        // if this button is clicked, just close
+                        // the dialog box and do nothing
+                        dialog.cancel();
+                    }
+                });
+
+        // create alert dialog
+        AlertDialog alertDialog = alertDialogBuilder.create();
+
+        // show it
+        alertDialog.show();
+    }
 
 }

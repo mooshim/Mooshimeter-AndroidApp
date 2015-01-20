@@ -93,7 +93,7 @@ public class DeviceActivity extends FragmentActivity {
 	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
 	private boolean mIsReceiving = false;
-    private MooshimeterDevice mMeter = null;
+    public static MooshimeterDevice mMeter = null;
 
 	// SensorTagGatt
 	private List<Sensor> mEnabledSensors = new ArrayList<Sensor>();
@@ -283,7 +283,7 @@ public class DeviceActivity extends FragmentActivity {
 		//enableDataCollection(false);
 		// Launch preferences
 		final Intent i = new Intent(this, PreferencesActivity.class);
-		i.putExtra(EXTRA_DEVICE, mBluetoothDevice);
+		//i.putExtra(PreferencesActivity.EXTRA_METER, mMeter);
 		startActivityForResult(i, PREF_ACT_REQ);
 	}
 
