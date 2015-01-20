@@ -94,7 +94,6 @@ public class DeviceActivity extends FragmentActivity {
 	private List<BluetoothGattService> mServiceList = null;
 	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
-	private boolean mIsReceiving = false;
     public static MooshimeterDevice mMeter = null;
 
 	// SensorTagGatt
@@ -254,18 +253,12 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onResume() {
 		// Log.d(TAG, "onResume");
 		super.onResume();
-		if (!mIsReceiving) {
-			mIsReceiving = true;
-		}
 	}
 
 	@Override
 	protected void onPause() {
 		// Log.d(TAG, "onPause");
 		super.onPause();
-		if (mIsReceiving) {
-			mIsReceiving = false;
-		}
 	}
 
 	BluetoothGattService getOadService() {
@@ -358,9 +351,6 @@ public class DeviceActivity extends FragmentActivity {
 		switch (requestCode) {
 		case PREF_ACT_REQ:
 			Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
-			if (!mIsReceiving) {
-				mIsReceiving = true;
-			}
 			break;
 		case FWUPDATE_ACT_REQ:
 			// FW update cancelled so resume
