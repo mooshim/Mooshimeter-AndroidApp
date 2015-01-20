@@ -80,17 +80,17 @@ import android.util.Log;
 public class BluetoothLeService extends Service {
 	static final String TAG = "BluetoothLeService";
 
-	public final static String ACTION_GATT_CONNECTED            = "com.example.ti.ble.common.ACTION_GATT_CONNECTED";
-	public final static String ACTION_GATT_DISCONNECTED         = "com.example.ti.ble.common.ACTION_GATT_DISCONNECTED";
-	public final static String ACTION_GATT_SERVICES_DISCOVERED  = "com.example.ti.ble.common.ACTION_GATT_SERVICES_DISCOVERED";
-	public final static String ACTION_DATA_READ                 = "com.example.ti.ble.common.ACTION_DATA_READ";
-	public final static String ACTION_DATA_NOTIFY               = "com.example.ti.ble.common.ACTION_DATA_NOTIFY";
-	public final static String ACTION_DATA_WRITE                = "com.example.ti.ble.common.ACTION_DATA_WRITE";
-    public final static String ACTION_DESCRIPTOR_WRITE          = "com.example.ti.ble.common.ACTION_DESCRIPTOR_WRITE";
-	public final static String EXTRA_DATA                       = "com.example.ti.ble.common.EXTRA_DATA";
-	public final static String EXTRA_UUID                       = "com.example.ti.ble.common.EXTRA_UUID";
-	public final static String EXTRA_STATUS                     = "com.example.ti.ble.common.EXTRA_STATUS";
-	public final static String EXTRA_ADDRESS                    = "com.example.ti.ble.common.EXTRA_ADDRESS";
+	public final static String ACTION_GATT_CONNECTED            = "com.mooshim.mooshimeter.ACTION_GATT_CONNECTED";
+	public final static String ACTION_GATT_DISCONNECTED         = "com.mooshim.mooshimeter.ACTION_GATT_DISCONNECTED";
+	public final static String ACTION_GATT_SERVICES_DISCOVERED  = "com.mooshim.mooshimeter.ACTION_GATT_SERVICES_DISCOVERED";
+	public final static String ACTION_DATA_READ                 = "com.mooshim.mooshimeter.ACTION_DATA_READ";
+	public final static String ACTION_DATA_NOTIFY               = "com.mooshim.mooshimeter.ACTION_DATA_NOTIFY";
+	public final static String ACTION_DATA_WRITE                = "com.mooshim.mooshimeter.ACTION_DATA_WRITE";
+    public final static String ACTION_DESCRIPTOR_WRITE          = "com.mooshim.mooshimeter.ACTION_DESCRIPTOR_WRITE";
+	public final static String EXTRA_DATA                       = "com.mooshim.mooshimeter.EXTRA_DATA";
+	public final static String EXTRA_UUID                       = "com.mooshim.mooshimeter.EXTRA_UUID";
+	public final static String EXTRA_STATUS                     = "com.mooshim.mooshimeter.EXTRA_STATUS";
+	public final static String EXTRA_ADDRESS                    = "com.mooshim.mooshimeter.EXTRA_ADDRESS";
 
 	// BLE
 	private BluetoothManager mBluetoothManager = null;
