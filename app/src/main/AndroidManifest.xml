@@ -4,15 +4,15 @@
     android:versionCode="2"
     android:versionName="1.01" >
 
+    <uses-sdk
+        android:minSdkVersion="18"
+        android:targetSdkVersion="19" />
+
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    
-    <uses-sdk
-        android:minSdkVersion="18"
-        android:targetSdkVersion="19" />
-    
+
     <uses-feature
         android:name="android.hardware.bluetooth_le"
         android:required="true" />
@@ -23,11 +23,11 @@
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Holo.Light" >
         <service
-            android:name="com.mooshim.mooshimeter.common.BluetoothLeService"
+            android:name=".common.BluetoothLeService"
             android:enabled="true" />
 
         <activity
-            android:name="com.mooshim.mooshimeter.main.MainActivity"
+            android:name=".main.MainActivity"
             android:label="@string/app_name"
             android:screenOrientation="portrait" >
             <intent-filter>
@@ -38,24 +38,30 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.mooshim.mooshimeter.main.DeviceActivity"
-            android:parentActivityName="com.mooshim.mooshimeter.main.MainActivity"
+            android:name=".main.DeviceActivity"
+            android:parentActivityName=".main.MainActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.mooshim.mooshimeter.main.FwUpdateActivity"
-            android:parentActivityName="com.mooshim.mooshimeter.main.DeviceActivity"
+            android:name=".main.FwUpdateActivity"
+            android:parentActivityName=".main.DeviceActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.mooshim.mooshimeter.main.FileActivity"
-            android:parentActivityName="com.mooshim.mooshimeter.main.FwUpdateActivity"
+            android:name=".main.FileActivity"
+            android:parentActivityName=".main.FwUpdateActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.mooshim.mooshimeter.main.PreferencesActivity"
-            android:parentActivityName="com.mooshim.mooshimeter.main.DeviceActivity"
-            android:screenOrientation="portrait"
-            android:label="Preferences"/>
-        
+            android:name=".main.PreferencesActivity"
+            android:label="Preferences"
+            android:parentActivityName=".main.DeviceActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".main.TrendActivity"
+            android:label="@string/title_activity_trend"
+            android:parentActivityName=".main.DeviceActivity" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.mooshim.mooshimeter.main.DeviceActivity" />
+        </activity>
     </application>
-
 
 </manifest>

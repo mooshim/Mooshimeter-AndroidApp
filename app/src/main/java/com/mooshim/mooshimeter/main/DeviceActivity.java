@@ -87,6 +87,7 @@ public class DeviceActivity extends FragmentActivity {
 	public static final String EXTRA_DEVICE = "EXTRA_DEVICE";
 	private static final int PREF_ACT_REQ = 0;
 	private static final int FWUPDATE_ACT_REQ = 1;
+    private static final int TREND_ACT_REQ = 2;
 
 	// BLE
 	private BluetoothLeService mBtLeService = null;
@@ -119,6 +120,7 @@ public class DeviceActivity extends FragmentActivity {
     private Button zero_button;
 
     private OrientationEventListener orientation_listener;
+    private boolean trend_view_running = false;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -207,10 +209,13 @@ public class DeviceActivity extends FragmentActivity {
                 if((i > 80 && i < 100) || (i>260 && i < 280)) {
                     // FIXME: I know there should be a better way to do this.
                     Log.i(null,"LANDSCAPE!");
+                    if(!trend_view_running) {
+                        trend_view_running = true;
+                        startTrendActivity();
+                    }
                 }
             }
         };
-        orientation_listener.enable();
 	}
 
 
@@ -253,12 +258,14 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onResume() {
 		// Log.d(TAG, "onResume");
 		super.onResume();
+        orientation_listener.enable();
 	}
 
 	@Override
 	protected void onPause() {
 		// Log.d(TAG, "onPause");
 		super.onPause();
+        orientation_listener.disable();
 	}
 
 	BluetoothGattService getOadService() {
@@ -297,6 +304,11 @@ public class DeviceActivity extends FragmentActivity {
 		//i.putExtra(PreferencesActivity.EXTRA_METER, mMeter);
 		startActivityForResult(i, PREF_ACT_REQ);
 	}
+
+    private void startTrendActivity() {
+        final Intent i = new Intent(this, TrendActivity.class);
+        startActivityForResult(i, TREND_ACT_REQ);
+    }
 
 	private void checkOad() {
 		// Check if OAD is supported (needs OAD and Connection Control service)
@@ -356,6 +368,9 @@ public class DeviceActivity extends FragmentActivity {
 			// FW update cancelled so resume
 			//enableDataCollection(true);
 			break;
+        case TREND_ACT_REQ:
+            Toast.makeText(this, "Trend finished", Toast.LENGTH_SHORT).show();
+            trend_view_running = false;
 		default:
 			setError("Unknown request code");
 			break;
