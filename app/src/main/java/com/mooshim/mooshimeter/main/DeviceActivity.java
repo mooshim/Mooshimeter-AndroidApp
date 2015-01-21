@@ -390,6 +390,7 @@ public class DeviceActivity extends FragmentActivity {
         case TREND_ACT_REQ:
             Toast.makeText(this, "Trend finished", Toast.LENGTH_SHORT).show();
             trend_view_running = false;
+            break;
 		default:
 			setError("Unknown request code");
 			break;
