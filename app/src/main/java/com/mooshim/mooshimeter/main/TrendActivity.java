@@ -117,6 +117,8 @@ public class TrendActivity extends Activity {
         r.setVerticalLabelsColor(Color.RED);
         r.setNumVerticalLabels(7);
         // TODO: Second scale needs a title but I don't see a way to set it through GraphView API
+        ss.setVerticalAxisTitle(mMeter.getDescriptor(1));
+        ss.setVerticalAxisTitleColor(Color.GREEN);
         r.setVerticalLabelsSecondScaleColor(Color.GREEN);
 
         dataSeries[0] = new LineGraphSeries();
@@ -188,14 +190,13 @@ public class TrendActivity extends Activity {
                         final Viewport vp = mGraph.getViewport();
 
                         // Manually reset axis boundaries
-                        final double padding_factor = 0.15;
+                        final double padding_factor = 0.20;
                         final double min_x = dataSeries[0].getLowestValueX();
                         final double max_x = dataSeries[0].getHighestValueX();
-                        final double x_span = max_x - min_x;
 
                         // MaxX must be padded to leave room for the second Y axis
                         vp.setMinX(Math.floor(min_x));
-                        vp.setMaxX(Math.ceil(max_x-padding_factor*x_span));
+                        vp.setMaxX(Math.ceil(max_x));
 
                         final double min_y1 = dataSeries[0].getLowestValueY();
                         final double max_y1 = dataSeries[0].getHighestValueY();
