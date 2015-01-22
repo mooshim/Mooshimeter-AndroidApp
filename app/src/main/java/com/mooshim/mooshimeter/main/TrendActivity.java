@@ -107,6 +107,7 @@ public class TrendActivity extends Activity {
         mGraph.setKeepScreenOn(true);
         mGraph.setBackgroundColor(Color.BLACK);
         GridLabelRenderer r = mGraph.getGridLabelRenderer();
+        r.setGridColor(Color.GRAY);
         r.setHorizontalAxisTitle("Time");
         r.setHorizontalAxisTitleColor(Color.WHITE);
         r.setHorizontalLabelsColor(Color.WHITE);
@@ -114,6 +115,7 @@ public class TrendActivity extends Activity {
         r.setVerticalAxisTitle(mMeter.getDescriptor(0));
         r.setVerticalAxisTitleColor(Color.RED);
         r.setVerticalLabelsColor(Color.RED);
+        r.setNumVerticalLabels(7);
         // TODO: Second scale needs a title but I don't see a way to set it through GraphView API
         r.setVerticalLabelsSecondScaleColor(Color.GREEN);
 
@@ -129,6 +131,28 @@ public class TrendActivity extends Activity {
         start_time = milliTime();
 
         orientation_listener.enable();
+    }
+
+    private class MinMax {
+        public double min;
+        public double max;
+    }
+
+    MinMax getMinMaxFromRange(double in_min, double in_max) {
+        final double range = in_max - in_min;
+        final double avg   = in_min+(range/2);
+        double tick = 1e-6;
+        boolean b = false;
+        while( tick < range/7.f ) {
+            if( b ){ tick *= 2.f; }
+            else   { tick *= 5.f; }
+            b ^= true;
+        }
+        final double center = tick * (int)((avg+tick/2)/tick);
+        MinMax r = new MinMax();
+        r.min = center-3*tick;
+        r.max = center+3*tick;
+        return r;
     }
 
     private void onMeterInitialized() {
@@ -164,28 +188,28 @@ public class TrendActivity extends Activity {
                         final Viewport vp = mGraph.getViewport();
 
                         // Manually reset axis boundaries
-                        final double padding_factor = 0.1;
+                        final double padding_factor = 0.15;
                         final double min_x = dataSeries[0].getLowestValueX();
                         final double max_x = dataSeries[0].getHighestValueX();
                         final double x_span = max_x - min_x;
 
                         // MaxX must be padded to leave room for the second Y axis
-                        vp.setMinX(min_x);
-                        vp.setMaxX(max_x-padding_factor*x_span);
+                        vp.setMinX(Math.floor(min_x));
+                        vp.setMaxX(Math.ceil(max_x-padding_factor*x_span));
 
                         final double min_y1 = dataSeries[0].getLowestValueY();
                         final double max_y1 = dataSeries[0].getHighestValueY();
-                        final double y1_span = max_y1 - min_y1;
+                        final MinMax m1 = getMinMaxFromRange(min_y1, max_y1);
+                        vp.setMinY(m1.min);
+                        vp.setMaxY(m1.max);
 
-                        vp.setMinY(min_y1 - padding_factor*y1_span);
-                        vp.setMaxY(max_y1 + padding_factor*y1_span);
 
                         final double min_y2 = dataSeries[1].getLowestValueY();
                         final double max_y2 = dataSeries[1].getHighestValueY();
-                        final double y2_span = max_y2 - min_y2;
+                        final MinMax m2 = getMinMaxFromRange(min_y2, max_y2);
 
-                        mGraph.getSecondScale().setMinY(min_y2 - padding_factor*y2_span);
-                        mGraph.getSecondScale().setMaxY(max_y2 + padding_factor*y2_span);
+                        mGraph.getSecondScale().setMinY(m2.min);
+                        mGraph.getSecondScale().setMaxY(m2.max);
                     }
                 });
             }
