@@ -20,5 +20,6 @@ android {
 
 dependencies {
     compile 'com.android.support:support-v4:19.1.0'
-    compile 'com.jjoe64:graphview:4.0.0'
+    compile project(':GraphView')
+    //compile 'com.jjoe64:graphview:4.0.0'
 }
