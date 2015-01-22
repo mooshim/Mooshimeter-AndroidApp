@@ -101,8 +101,7 @@ public class FwUpdateActivity extends Activity {
 
   private static final int FILE_BUFFER_SIZE = 0x40000;
   private static final String FW_CUSTOM_DIRECTORY = Environment.DIRECTORY_DOWNLOADS;
-  private static final String FW_FILE_A = "SensorTagImgA.bin";
-  private static final String FW_FILE_B = "SensorTagImgB.bin";
+  private static final String FW_FILE_A = "Mooshimeter.bin";
 
   private static final int OAD_BLOCK_SIZE = 16;
   private static final int HAL_FLASH_WORD_SIZE = 4;
@@ -304,10 +303,7 @@ public class FwUpdateActivity extends Activity {
   }
 
   public void onLoad(View v) {
-    if (v.getId() == R.id.btn_load_a)
-      loadFile(FW_FILE_A, true);
-    else
-      loadFile(FW_FILE_B, true);
+    loadFile(FW_FILE_A, true);
     updateGui();
   }
 
