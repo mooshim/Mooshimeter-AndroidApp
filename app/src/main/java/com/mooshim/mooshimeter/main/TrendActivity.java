@@ -102,6 +102,7 @@ public class TrendActivity extends Activity {
         mGraph.removeAllSeries();
         mGraph.getViewport().setXAxisBoundsManual(true);
         mGraph.getViewport().setYAxisBoundsManual(true);
+        mGraph.setExplicitRefreshMode(true);
         final SecondScale ss = mGraph.getSecondScale();
 
         mGraph.setKeepScreenOn(true);
@@ -211,6 +212,8 @@ public class TrendActivity extends Activity {
 
                         mGraph.getSecondScale().setMinY(m2.min);
                         mGraph.getSecondScale().setMaxY(m2.max);
+
+                        mGraph.forceRefresh(true,false);
                     }
                 });
             }

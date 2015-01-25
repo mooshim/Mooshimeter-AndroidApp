@@ -623,7 +623,7 @@ public class DeviceActivity extends FragmentActivity {
 
         if( mMeter.disp_hex[c]) {
             lsb_int &= 0x00FFFFFF;
-            String s = String.format("%06X", lsb_int);
+            String s = String.format("0x%06X", lsb_int);
             v.setText(s);
         } else {
             // If at the edge of your range, say overload
