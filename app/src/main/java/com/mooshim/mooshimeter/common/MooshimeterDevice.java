@@ -49,8 +49,13 @@ public class MooshimeterDevice {
     public boolean offset_on      = false;
     public final double[] offsets = new double[]{0,0,0};
 
+    private boolean ch1_last_received = false;
+    private int buf_i = 0;
+    private final double[][] buffers = new double[2][256];
+
     private Block cb = null;
     private Block stream_cb = null;
+    private Block buffer_done_cb = null;
 
     private static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b
@@ -358,6 +363,63 @@ public class MooshimeterDevice {
         bt_service.setCharacteristicNotification(c,enable);
     }
 
+    public void enableMeterStreamBuf( boolean enable, Block new_cb ) {
+        // TODO: The buffers are only streamed together, why not unite them in firmware?
+        BluetoothGattCharacteristic c;
+        c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_CH1BUF);
+        cb = new_cb;
+        bt_service.setCharacteristicNotification(c,enable);
+        c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_CH2BUF);
+        bt_service.setCharacteristicNotification(c,enable);
+    }
+
+    public void getBuffer(Block onReceived) {
+        meter_settings.calc_settings &=~(METER_CALC_SETTINGS_MS|METER_CALC_SETTINGS_MEAN);
+        meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
+        meter_settings.target_meter_state = METER_RUNNING;
+
+        buffer_done_cb = onReceived;
+
+        enableMeterStreamSample(false, new Block() {
+            @Override
+            public void run() {
+                enableMeterStreamBuf(true, new Block() {
+                    @Override
+                    public void run() {
+                        sendMeterSettings(null);
+                    }
+                });
+            }
+        }, null);
+    }
+
+    private int getBufLen() {
+        return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
+    }
+
+    private void handleBufStreamUpdate(byte[] data, int channel) {
+        int buf_len_bytes = getBufLen()*3;
+        double[] target = buffers[channel];
+        ByteBuffer bbuf = ByteBuffer.wrap(data);
+
+        for(int i = 0; i < data.length; i+=3) {
+            // Unload readings 3 bytes at a time, append them to the sample buffer
+            final int lsb = getInt24(bbuf);
+            target[buf_i] = lsbToNativeUnits(lsb,channel);
+            buf_i++;
+        }
+
+        if(buf_i >= buf_len_bytes) {
+            Log.d(null,"Complete sample buffer received");
+            if(buffer_done_cb != null) {
+                buffer_done_cb.run();
+            }
+        }
+
+        // This is a primitive way to synchronize buffers
+        if(ch1_last_received ^ (channel==0)) { buf_i = 0; }
+    }
+
     ////////////////////////////////
     // GATT Callbacks
     ////////////////////////////////
@@ -371,10 +433,25 @@ public class MooshimeterDevice {
             meter_info.unpack(value);
         } else if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
             meter_sample.unpack(value);
+        } else if(uuid.equals(SensorTagGatt.METER_CH1BUF)) {
+            handleBufStreamUpdate(value,0);
+        } else if(uuid.equals(SensorTagGatt.METER_CH2BUF)) {
+            handleBufStreamUpdate(value,1);
         } else if(uuid.equals(SensorTagGatt.METER_NAME)) {
             meter_name = new String(value);
         }
         callCB();
+    }
+
+    private void handleDescriptorWrite(UUID uuid) {
+        if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
+            callCB();
+        } else if(uuid.equals(SensorTagGatt.METER_CH1BUF)) {
+            // FIXME: Right now skip any CB calling on METER_CH1BUF because it is only done in a pair with
+            // CH2BUF, so we should only call the CB when the confirmation of METER_CH2BUF comes in.  This is sloppy.
+        } else if(uuid.equals(SensorTagGatt.METER_CH2BUF)) {
+            callCB();
+        }
     }
 
     private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
@@ -403,7 +480,7 @@ public class MooshimeterDevice {
                 callCB();
             } else if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
                 Log.d(null, "onDescriptorWrite");
-                callCB();
+                handleDescriptorWrite(uuid);
             }
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.d(null, "GATT error code: " + status);
