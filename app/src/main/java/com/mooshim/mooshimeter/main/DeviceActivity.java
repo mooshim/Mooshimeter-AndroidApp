@@ -910,7 +910,8 @@ public class DeviceActivity extends FragmentActivity {
 
     public void onLoggingClick(View v) {
         Log.i(null,"onLoggingClick");
-        // TODO
+        Toast.makeText(this, "Feature not finished, check for app update",
+                Toast.LENGTH_LONG).show();
     }
 
     public void onDepthAutoClick(View v) {

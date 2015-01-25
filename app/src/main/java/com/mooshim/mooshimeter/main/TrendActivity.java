@@ -8,6 +8,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.OrientationEventListener;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.GridLabelRenderer;
@@ -23,9 +26,14 @@ import java.util.Calendar;
 
 public class TrendActivity extends Activity {
 
+    ////////////////
+    // GUI elements
+    ////////////////
+    private LinearLayout mSettingsView;
+    private GraphView mGraph;
+
     private OrientationEventListener orientation_listener;
     private MooshimeterDevice mMeter;
-    private GraphView mGraph;
     private final LineGraphSeries[] dataSeries = new LineGraphSeries[2];
     private double start_time;
     private boolean cleaning_up = false;
@@ -35,6 +43,7 @@ public class TrendActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_trend);
         mGraph = (GraphView) findViewById(R.id.graph);
+        mSettingsView = (LinearLayout) findViewById(R.id.settings_view);
         orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
             @Override
             public void onOrientationChanged(int i) {
@@ -235,4 +244,39 @@ public class TrendActivity extends Activity {
         mMeter.close();
         orientation_listener.disable();
     }
+
+    ///////////////
+    // Button handlers
+    ///////////////
+
+    public void onSettingsButtonClick(View v) {
+        Log.d(null, "Settings Click");
+        int n;
+        switch(mSettingsView.getVisibility()) {
+            case View.INVISIBLE:
+                n = View.VISIBLE;
+                break;
+            case View.VISIBLE:
+                n = View.INVISIBLE;
+                break;
+            default:
+                Log.e(null,"Invalid settings visibility");
+                n = View.INVISIBLE;
+                break;
+        }
+        mSettingsView.setVisibility(n);
+    }
+    public void onTrendButtonClick(View v) {
+        Log.d(null, "TrendClick");
+    }
+    public void onCH1ButtonClick(View v) {
+        Log.d(null, "CH1 Click");
+    }
+    public void onCH2ButtonClick(View v) {
+        Log.d(null, "CH2 Click");
+    }
+    public void onXYButtonClick(View v) {
+        Log.d(null, "XY Click");
+    }
+
 }
