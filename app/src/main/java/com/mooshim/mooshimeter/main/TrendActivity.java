@@ -109,18 +109,19 @@ public class TrendActivity extends Activity {
         mGraph.setBackgroundColor(Color.BLACK);
         GridLabelRenderer r = mGraph.getGridLabelRenderer();
         r.setGridColor(Color.GRAY);
-        r.setHorizontalAxisTitle("Time");
+        r.setHorizontalAxisTitle("Time [s]");
         r.setHorizontalAxisTitleColor(Color.WHITE);
         r.setHorizontalLabelsColor(Color.WHITE);
         r.setGridStyle(GridLabelRenderer.GridStyle.BOTH);
-        r.setVerticalAxisTitle(mMeter.getDescriptor(0));
+        r.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(0), mMeter.getUnits(0)));
         r.setVerticalAxisTitleColor(Color.RED);
         r.setVerticalLabelsColor(Color.RED);
-        r.setNumVerticalLabels(7);
-        // TODO: Second scale needs a title but I don't see a way to set it through GraphView API
-        ss.setVerticalAxisTitle(mMeter.getDescriptor(1));
+
+        ss.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(1), mMeter.getUnits(1)));
         ss.setVerticalAxisTitleColor(Color.GREEN);
         r.setVerticalLabelsSecondScaleColor(Color.GREEN);
+
+        r.setNumVerticalLabels(7);
 
         dataSeries[0] = new LineGraphSeries();
         dataSeries[1] = new LineGraphSeries();
@@ -177,16 +178,15 @@ public class TrendActivity extends Activity {
                         double new_time = milliTime()-start_time;
                         double val;
                         int lsb_int;
-                        // TODO: Need to refactor so that mMeter is being passed, not recreated
-                        // By recreating we are losing settings
-                        //if(ac) { lsb_int = (int)(Math.sqrt(mMeter.meter_sample.reading_ms[c])); }
-                        //else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
-                        lsb_int = mMeter.meter_sample.reading_lsb[0];
-                        val = mMeter.lsbToNativeUnits(lsb_int, 0);
-                        dataSeries[0].appendData(new DataPoint(new_time,val),false,500);
-                        lsb_int = mMeter.meter_sample.reading_lsb[1];
-                        val = mMeter.lsbToNativeUnits(lsb_int, 1);
-                        dataSeries[1].appendData(new DataPoint(new_time,val),false,500);
+                        for(int c = 0; c < 2; c++) {
+                            if (mMeter.disp_ac[c]) {
+                                lsb_int = (int) (Math.sqrt(mMeter.meter_sample.reading_ms[c]));
+                            } else {
+                                lsb_int = mMeter.meter_sample.reading_lsb[c];
+                            }
+                            val = mMeter.lsbToNativeUnits(lsb_int, c);
+                            dataSeries[c].appendData(new DataPoint(new_time, val), false, 500);
+                        }
 
                         final Viewport vp = mGraph.getViewport();
 
