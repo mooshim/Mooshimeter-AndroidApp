@@ -55,6 +55,7 @@
 package com.mooshim.mooshimeter.main;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import android.bluetooth.BluetoothDevice;
@@ -240,6 +241,7 @@ public class DeviceActivity extends FragmentActivity {
             @Override
             public void run() {
                 Log.i(null,"Mode set");
+                refreshAllControls();
                 mMeter.enableMeterStreamSample(true, new Block() {
                     @Override
                     public void run() {
@@ -259,7 +261,7 @@ public class DeviceActivity extends FragmentActivity {
                         byte[] compare = mMeter.meter_settings.pack();
                         // TODO: There must be a more efficient way to do this.  But I think like a c-person
                         // Check if anything changed, and if so apply changes
-                        if(!save.equals(compare)) {
+                        if(!Arrays.equals(save, compare)) {
                             mMeter.sendMeterSettings(new Block() {
                                 @Override
                                 public void run() {
