@@ -49,9 +49,10 @@ public class MooshimeterDevice {
     public boolean offset_on      = false;
     public final double[] offsets = new double[]{0,0,0};
 
-    private boolean ch1_last_received = false;
-    private int buf_i = 0;
-    private final double[][] buffers = new double[2][256];
+    public final double[][] buffers = new double[2][256];
+
+    private int mByteBuf_i = 0;
+    private final byte[] mByteBuf = new byte[4096];
 
     private Block cb = null;
     private Block stream_cb = null;
@@ -363,14 +364,28 @@ public class MooshimeterDevice {
         bt_service.setCharacteristicNotification(c,enable);
     }
 
-    public void enableMeterStreamBuf( boolean enable, Block new_cb ) {
-        // TODO: The buffers are only streamed together, why not unite them in firmware?
+    private void enableMeterStreamCH1Buf( boolean enable, Block new_cb ) {
         BluetoothGattCharacteristic c;
         c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_CH1BUF);
         cb = new_cb;
         bt_service.setCharacteristicNotification(c,enable);
+    }
+
+    private void enableMeterStreamCH2Buf( boolean enable, Block new_cb ) {
+        BluetoothGattCharacteristic c;
         c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_CH2BUF);
+        cb = new_cb;
         bt_service.setCharacteristicNotification(c,enable);
+    }
+
+    public void enableMeterStreamBuf( final boolean enable, final Block new_cb ) {
+        // TODO: The buffers are only streamed together, why not unite them in firmware?
+        enableMeterStreamCH1Buf(enable, new Block() {
+            @Override
+            public void run() {
+                enableMeterStreamCH2Buf(enable, new_cb);
+            }
+        });
     }
 
     public void getBuffer(Block onReceived) {
@@ -383,7 +398,7 @@ public class MooshimeterDevice {
         enableMeterStreamSample(false, new Block() {
             @Override
             public void run() {
-                enableMeterStreamBuf(true, new Block() {
+                enableMeterStreamBuf(true,new Block() {
                     @Override
                     public void run() {
                         sendMeterSettings(null);
@@ -393,31 +408,41 @@ public class MooshimeterDevice {
         }, null);
     }
 
-    private int getBufLen() {
+    public int getBufLen() {
         return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
     private void handleBufStreamUpdate(byte[] data, int channel) {
-        int buf_len_bytes = getBufLen()*3;
-        double[] target = buffers[channel];
-        ByteBuffer bbuf = ByteBuffer.wrap(data);
+        // getBufLen returns the number of int24s
+        // *3 gives number of bytes per channel
+        // *2 because there are two channels
+        final int buf_len_bytes = getBufLen()*3*2;
 
-        for(int i = 0; i < data.length; i+=3) {
-            // Unload readings 3 bytes at a time, append them to the sample buffer
-            final int lsb = getInt24(bbuf);
-            target[buf_i] = lsbToNativeUnits(lsb,channel);
-            buf_i++;
-        }
+        // Copy to internal byte buffer
+        for(int i = 0; i < data.length; i++) { mByteBuf[mByteBuf_i++] = data[i]; }
 
-        if(buf_i >= buf_len_bytes) {
-            Log.d(null,"Complete sample buffer received");
-            if(buffer_done_cb != null) {
+        // Have we received the entire buffer?
+
+        if(mByteBuf_i >= buf_len_bytes) {
+            // We've received the entire sample buffer
+            ByteBuffer bb = ByteBuffer.wrap(mByteBuf);
+            // The first half of the stored buffer is channel 1
+            for(int i = 0; i < getBufLen(); i++) {
+                buffers[0][i] = lsbToNativeUnits(getInt24(bb),0);
+            }
+            // The second half of the stored buffer is channel 2
+            for(int i = 0; i < getBufLen(); i++) {
+                buffers[1][i] = lsbToNativeUnits(getInt24(bb),1);
+            }
+            Log.d(null, "Complete sample buffer received");
+            mByteBuf_i = 0;
+            if (buffer_done_cb != null) {
                 buffer_done_cb.run();
             }
         }
 
         // This is a primitive way to synchronize buffers
-        if(ch1_last_received ^ (channel==0)) { buf_i = 0; }
+        //if(ch1_last_received ^ (channel==0)) { buf_i = 0; }
     }
 
     ////////////////////////////////
@@ -427,10 +452,13 @@ public class MooshimeterDevice {
     private void handleValueUpdate(UUID uuid, byte[] value) {
         if(uuid.equals(SensorTagGatt.METER_SETTINGS)) {
             meter_settings.unpack(value);
+            callCB();
         } else if(uuid.equals(SensorTagGatt.METER_LOG_SETTINGS)) {
             meter_log_settings.unpack(value);
+            callCB();
         } else if(uuid.equals(SensorTagGatt.METER_INFO)) {
             meter_info.unpack(value);
+            callCB();
         } else if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
             meter_sample.unpack(value);
         } else if(uuid.equals(SensorTagGatt.METER_CH1BUF)) {
@@ -439,16 +467,15 @@ public class MooshimeterDevice {
             handleBufStreamUpdate(value,1);
         } else if(uuid.equals(SensorTagGatt.METER_NAME)) {
             meter_name = new String(value);
+            callCB();
         }
-        callCB();
     }
 
     private void handleDescriptorWrite(UUID uuid) {
         if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
             callCB();
         } else if(uuid.equals(SensorTagGatt.METER_CH1BUF)) {
-            // FIXME: Right now skip any CB calling on METER_CH1BUF because it is only done in a pair with
-            // CH2BUF, so we should only call the CB when the confirmation of METER_CH2BUF comes in.  This is sloppy.
+            callCB();
         } else if(uuid.equals(SensorTagGatt.METER_CH2BUF)) {
             callCB();
         }

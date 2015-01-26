@@ -235,6 +235,7 @@ public class DeviceActivity extends FragmentActivity {
     private void onMeterInitialized() {
         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
         mMeter.meter_settings.calc_settings |= 0x50;
+        mMeter.meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
         mMeter.sendMeterSettings(new Block() {
             @Override
             public void run() {
