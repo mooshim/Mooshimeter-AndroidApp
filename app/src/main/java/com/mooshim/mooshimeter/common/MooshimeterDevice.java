@@ -301,13 +301,8 @@ public class MooshimeterDevice {
                         reqMeterInfo( new Block() {
                             @Override
                             public void run() {
-                                reqMeterSample( new Block() {
-                                    @Override
-                                    public void run() {
-                                        reqMeterName(on_init);
-                                        Log.i(null,"Meter initialization complete");
-                                    }
-                                } );
+                                    reqMeterName(on_init);
+                                    Log.i(null,"Meter initialization complete");
                             }
                         });
                     }
@@ -440,9 +435,6 @@ public class MooshimeterDevice {
                 buffer_done_cb.run();
             }
         }
-
-        // This is a primitive way to synchronize buffers
-        //if(ch1_last_received ^ (channel==0)) { buf_i = 0; }
     }
 
     ////////////////////////////////

@@ -65,10 +65,18 @@ public class TrendActivity extends Activity {
                     // FIXME: I know there should be a better way to do this.
                     if(!cleaning_up) {
                         cleaning_up = true;
-                        Log.i(null, "PORTRAIT!");
-                        setResult(RESULT_OK);
-                        finish();
                         orientation_listener.disable();
+                        Log.i(null, "PORTRAIT!");
+                        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
+                        mMeter.sendMeterSettings(new Block() {
+                            @Override
+                            public void run() {
+                                mMeter.close();
+                                orientation_listener.disable();
+                                setResult(RESULT_OK);
+                                finish();
+                            }
+                        });
                     }
                 }
             }
@@ -110,6 +118,18 @@ public class TrendActivity extends Activity {
 
         getActionBar().hide();
 
+        mMeter = MooshimeterDevice.getInstance();
+        if(mMeter == null) {
+            mMeter = MooshimeterDevice.Initialize(this, new Block() {
+                @Override
+                public void run() {
+                    trendViewPlay();
+                }
+            });
+        } else {
+            trendViewPlay();
+        }
+
         mGraph.getViewport().setXAxisBoundsManual(true);
         mGraph.getViewport().setYAxisBoundsManual(true);
         mGraph.setExplicitRefreshMode(true);
@@ -132,18 +152,6 @@ public class TrendActivity extends Activity {
         r.setVerticalLabelsSecondScaleColor(Color.GREEN);
 
         r.setNumVerticalLabels(7);
-
-        mMeter = MooshimeterDevice.getInstance();
-        if(mMeter == null) {
-            mMeter = MooshimeterDevice.Initialize(this, new Block() {
-                @Override
-                public void run() {
-                    trendViewPlay();
-                }
-            });
-        } else {
-            trendViewPlay();
-        }
 
         orientation_listener.enable();
     }
@@ -308,15 +316,6 @@ public class TrendActivity extends Activity {
         // Log.d(TAG, "onPause");
         super.onPause();
         getActionBar().show();
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-        mMeter.sendMeterSettings(new Block() {
-            @Override
-            public void run() {
-                Log.d(null, "Paused");
-            }
-        });
-        mMeter.close();
-        orientation_listener.disable();
     }
 
     ///////////////
@@ -349,21 +348,22 @@ public class TrendActivity extends Activity {
                     @Override
                     public void run() {
                         streamBuffer();
+                        mTrendButton.setText("Buffer Mode");
                     }
                 });
             } else {
                 streamBuffer();
             }
-            mTrendButton.setText("Buffer Mode");
         } else {
             mMeter.enableMeterStreamBuf(false, new Block() {
                 @Override
                 public void run() {
                     trendViewPlay();
+                    mTrendButton.setText("Trend Mode");
                 }
             });
-            mTrendButton.setText("Trend Mode");
         }
+        mTrendButton.setText("Transition...");
     }
     public void onCH1ButtonClick(View v) {
         Log.d(null, "CH1 Click");

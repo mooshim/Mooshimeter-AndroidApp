@@ -920,6 +920,7 @@ public class DeviceActivity extends FragmentActivity {
     public void onDepthAutoClick(View v) {
         Log.i(null,"onDepthAutoClick");
         mMeter.disp_depth_auto ^= true;
+        refreshAllControls();
     }
 
     public void onDepthClick(View v) {
