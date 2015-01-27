@@ -32,27 +32,6 @@ public class BLEUtil {
     private BLEUtilRequest mRunning = null;
     private HashMap<UUID,BLEUtilCB> mNotifyCB= new HashMap<UUID,BLEUtilCB>();
 
-    private static void putInt24(ByteBuffer b, int arg) {
-        // Puts the bottom 3 bytes of arg on to b
-        ByteBuffer tmp = ByteBuffer.allocate(4);
-        byte[] tb = new byte[3];
-        tmp.putInt(arg);
-        tmp.flip();
-        tmp.get(tb);
-        b.put( tb );
-    }
-    private static int  getInt24(ByteBuffer b) {
-        // Pulls out a 3 byte int, expands it to 4 bytes
-        // Advances the buffer by 3 bytes
-        byte[] tb = new byte[4];
-        b.get(tb, 0, 3);                   // Grab 3 bytes of the input
-        if(tb[2] < 0) {tb[3] = (byte)0xFF;}// Sign extend
-        else          {tb[3] = (byte)0x00;}
-        ByteBuffer tmp = ByteBuffer.wrap(tb);
-        tmp.order(ByteOrder.LITTLE_ENDIAN);
-        return tmp.getInt();
-    }
-
     public static abstract class BLEUtilCB implements Runnable {
         public UUID uuid;       // UUID
         public byte[] value;    // Value for the characteristic in question
@@ -86,6 +65,7 @@ public class BLEUtil {
     public static void Destroy() {
         // Clear the global instance
         if(mInstance != null) {
+            mInstance.mContext.unregisterReceiver(mInstance.mGattUpdateReceiver);
             mInstance.close();
             mInstance = null;
         }
@@ -189,13 +169,19 @@ public class BLEUtil {
         } else {
             mNotifyCB.remove(uuid);
         }
-        BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
-            @Override
-            public void run() {
-                bt_service.setCharacteristicNotification(c,enable);
-            }
-        }, on_complete);
-        serviceExecuteQueue(r);
+        if(bt_service.isNotificationEnabled(c) != enable) {
+            // Only bother setting the notification if the status has changed
+            BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
+                @Override
+                public void run() {
+                    bt_service.setCharacteristicNotification(c,enable);
+                }
+            }, on_complete);
+            serviceExecuteQueue(r);
+        } else {
+            // Otherwise just run the callback
+            on_complete.run();
+        }
     }
 
     ////////////////////////////////

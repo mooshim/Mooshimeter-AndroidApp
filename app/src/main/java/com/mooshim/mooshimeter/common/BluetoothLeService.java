@@ -199,16 +199,16 @@ public class BluetoothLeService extends Service {
 	private boolean checkGatt() {
 		if (mBtAdapter == null) {
 			// Log.w(TAG, "BluetoothAdapter not initialized");
-			return false;
+			//return false;
 		}
 		if (mBluetoothGatt == null) {
 			// Log.w(TAG, "BluetoothGatt not initialized");
-			return false;
+			//return false;
 		}
 
 		if (mBusy) {
 			// Log.w(TAG, "LeService busy");
-			return false;
+			//return false;
 		}
 		return true;
 
@@ -387,13 +387,9 @@ public class BluetoothLeService extends Service {
 			if (clientConfig != null) {
 
 				if (enable) {
-					// Log.i(TAG, "Enable notification: " +
-					// characteristic.getUuid().toString());
 					ok = clientConfig
 					    .setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
 				} else {
-					// Log.i(TAG, "Disable notification: " +
-					// characteristic.getUuid().toString());
 					ok = clientConfig
 					    .setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
 				}
@@ -401,8 +397,6 @@ public class BluetoothLeService extends Service {
 				if (ok) {
 					mBusy = true;
 					ok = mBluetoothGatt.writeDescriptor(clientConfig);
-					// Log.i(TAG, "writeDescriptor: " +
-					// characteristic.getUuid().toString());
 				}
 			}
 		}

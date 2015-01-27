@@ -89,17 +89,13 @@ public class DeviceActivity extends FragmentActivity {
 
 	// BLE
 	private BluetoothLeService mBtLeService = null;
-	private BluetoothDevice mBluetoothDevice = null;
 	private List<BluetoothGattService> mServiceList = null;
-	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
     private MooshimeterDevice mMeter = null;
 
 	// SensorTagGatt
-	private List<Sensor> mEnabledSensors = new ArrayList<Sensor>();
 	private BluetoothGattService mOadService = null;
 	private BluetoothGattService mConnControlService = null;
-	private String mFwRev;
 
     // GUI
     private final TextView[] value_labels = new TextView[2];
@@ -128,7 +124,6 @@ public class DeviceActivity extends FragmentActivity {
 
 		// BLE
 		mBtLeService = BluetoothLeService.getInstance();
-		mBluetoothDevice = intent.getParcelableExtra(EXTRA_DEVICE);
 		mServiceList = new ArrayList<BluetoothGattService>();
 
         // GUI
@@ -166,7 +161,15 @@ public class DeviceActivity extends FragmentActivity {
                     Log.i(null,"LANDSCAPE!");
                     if(!trend_view_running) {
                         trend_view_running = true;
-                        startTrendActivity();
+                        mMeter.pauseStream(new Runnable() {
+                            @Override
+                            public void run() {
+                                Log.d(null,"Paused");
+                                mMeter.close();
+                                orientation_listener.disable();
+                                startTrendActivity();
+                            }
+                        });
                     }
                 }
             }
@@ -231,43 +234,33 @@ public class DeviceActivity extends FragmentActivity {
 	}
 
     private void onMeterInitialized() {
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
-        mMeter.meter_settings.calc_settings |= 0x50;
-        mMeter.meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
-        mMeter.meter_settings.send(new Runnable() {
+        mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(null,"Mode set");
+                Log.i(null,"Stream requested");
                 refreshAllControls();
-                mMeter.meter_sample.enableNotify(true, new Runnable() {
-                    @Override
-                    public void run() {
-                        Log.i(null,"Stream requested");
-                    }
-                }, new Runnable() {
-                    @Override
-                    public void run() {
-                        Log.i(null,"Sample received!");
-                        valueLabelRefresh(0);
-                        valueLabelRefresh(1);
+            }
+        }, new Runnable() {
+            @Override
+            public void run() {
+                valueLabelRefresh(0);
+                valueLabelRefresh(1);
 
-                        // Handle autoranging
-                        // Save a local copy of settings
-                        byte[] save = mMeter.meter_settings.pack();
-                        mMeter.applyAutorange();
-                        byte[] compare = mMeter.meter_settings.pack();
-                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
-                        // Check if anything changed, and if so apply changes
-                        if(!Arrays.equals(save, compare)) {
-                            mMeter.meter_settings.send(new Runnable() {
-                                @Override
-                                public void run() {
-                                    refreshAllControls();
-                                }
-                            });
+                // Handle autoranging
+                // Save a local copy of settings
+                byte[] save = mMeter.meter_settings.pack();
+                mMeter.applyAutorange();
+                byte[] compare = mMeter.meter_settings.pack();
+                // TODO: There must be a more efficient way to do this.  But I think like a c-person
+                // Check if anything changed, and if so apply changes
+                if(!Arrays.equals(save, compare)) {
+                    mMeter.meter_settings.send(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshAllControls();
                         }
-                    }
-                });
+                    });
+                }
             }
         });
     }
@@ -276,15 +269,6 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onPause() {
 		// Log.d(TAG, "onPause");
         super.onPause();
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-        mMeter.meter_settings.send(new Runnable() {
-            @Override
-            public void run() {
-                Log.d(null,"Paused");
-            }
-        });
-        mMeter.close();
-        orientation_listener.disable();
 	}
 
 	BluetoothGattService getOadService() {
@@ -425,8 +409,6 @@ public class DeviceActivity extends FragmentActivity {
     /////////////////////////
 
     private void refreshAllControls() {
-        //TODO
-        Log.d(null,"TODO");
         rate_auto_button_refresh();
         rate_button_refresh();
         depth_auto_button_refresh();
@@ -612,8 +594,6 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void valueLabelRefresh(final int c) {
-        Log.d(null,"Value update");
-
         final boolean ac = mMeter.disp_ac[c];
         final TextView v = value_labels[c];
         double val;

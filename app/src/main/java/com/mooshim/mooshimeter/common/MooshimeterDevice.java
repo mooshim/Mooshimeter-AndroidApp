@@ -72,11 +72,6 @@ public class MooshimeterDevice {
     public boolean offset_on      = false;
     public final double[] offsets = new double[]{0,0,0};
 
-    public final double[][] buffers = new double[2][256];
-
-    private int mByteBuf_i = 0;
-    private final byte[] mByteBuf = new byte[4096];
-
     private static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b
         ByteBuffer tmp = ByteBuffer.allocate(4);
@@ -310,7 +305,7 @@ public class MooshimeterDevice {
         }
     }
     public class MeterName        extends MeterStructure {
-        public String name = "";
+        public String name = "Mooshimeter V.1";
 
         @Override
         public UUID getUUID() { return mUUID.METER_NAME; }
@@ -324,12 +319,90 @@ public class MooshimeterDevice {
             name = in.toString();
         }
     }
+    // FIXME: The channel buffer system uses a lot of repeated code.  Really should be merged on the firmware side.
+    public class MeterCH1Buf      extends MeterStructure {
+        public int buf_i = 0;
+        public byte[] buf = new byte[1024];
+        public float[] floatBuf = new float[256];
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_CH1BUF; }
+
+        @Override
+        public byte[] pack() {
+            // SHOULD NEVER BE CALLED
+            return null;
+        }
+        @Override
+        public void unpack(byte[] arg) {
+            // Nasty synchonization hack
+            meter_ch2_buf.buf_i = 0;
+            for(byte b : arg) {
+                buf[buf_i++] = b;
+            }
+            final int nBytes = getBufLen()*3;
+            if(buf_i >= nBytes) {
+                // Sample buffer is full
+                Log.d(null,"CH1 full");
+                if(buf_i > nBytes) {
+                    Log.e(null,"CH1 OVERFLOW");
+                }
+
+                ByteBuffer bb = ByteBuffer.wrap(buf);
+                for(int i = 0; i < getBufLen(); i++) {
+                    floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),0);
+                }
+
+                buf_i = 0;
+            }
+        }
+    }
+    public class MeterCH2Buf      extends MeterStructure {
+        public int buf_i = 0;
+        public byte[] buf = new byte[1024];
+        public float[] floatBuf = new float[256];
+        public Runnable buf_full_cb;
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_CH2BUF; }
+
+        @Override
+        public byte[] pack() {
+            // SHOULD NEVER BE CALLED
+            return null;
+        }
+        @Override
+        public void unpack(byte[] arg) {
+            meter_ch1_buf.buf_i = 0;
+            for(byte b : arg) {
+                buf[buf_i++] = b;
+            }
+            final int nBytes = getBufLen()*3;
+            if(buf_i >= nBytes) {
+                // Sample buffer is full
+                Log.d(null,"CH2 full");
+                if(buf_i > nBytes) {
+                    Log.e(null,"CH2 OVERFLOW");
+                }
+                ByteBuffer bb = ByteBuffer.wrap(buf);
+                for(int i = 0; i < getBufLen(); i++) {
+                    floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),0);
+                }
+                buf_i = 0;
+                if(buf_full_cb != null) {
+                    buf_full_cb.run();
+                }
+            }
+        }
+    }
 
     public MeterSettings    meter_settings;
     public MeterLogSettings meter_log_settings;
     public MeterInfo        meter_info;
     public MeterSample      meter_sample;
     public MeterName        meter_name;
+    public MeterCH1Buf      meter_ch1_buf;
+    public MeterCH2Buf      meter_ch2_buf;
 
     private static MooshimeterDevice mInstance = null;
 
@@ -350,6 +423,7 @@ public class MooshimeterDevice {
         // Clear the global instance
         if(mInstance != null) {
             mInstance.close();
+            mInstance.mBLEUtil.Destroy();
             mInstance = null;
         }
     }
@@ -362,6 +436,8 @@ public class MooshimeterDevice {
         meter_log_settings  = new MeterLogSettings();
         meter_info          = new MeterInfo();
         meter_sample        = new MeterSample();
+        meter_ch1_buf       = new MeterCH1Buf();
+        meter_ch2_buf       = new MeterCH2Buf();
 
         // Grab the initial settings
         meter_settings.update(new Runnable() {
@@ -387,77 +463,71 @@ public class MooshimeterDevice {
 
     public void close() {
         mBLEUtil.close();
-        //stream_cb = null;
-        //mContext.unregisterReceiver(mGattUpdateReceiver);
     }
 
     ////////////////////////////////
-    // Accessors
+    // Convenience functions
     ////////////////////////////////
     public int getBufLen() {
         return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
-/*
-    public void enableMeterStreamBuf( final boolean enable, final Runnable new_cb ) {
-        // TODO: The buffers are only streamed together, why not unite them in firmware?
-        //enableMeterStreamCH1Buf(enable, new Runnable() {
-        //    @Override
-        //    public void run() {
-        //        enableMeterStreamCH2Buf(enable, new_cb);
-        //    }
-        //});
-    }
-
-    public void getBuffer(Runnable onReceived) {
+    public void getBuffer(final Runnable onReceived) {
+        // Set up for oneshot, turn off all math in firmware
         meter_settings.calc_settings &=~(METER_CALC_SETTINGS_MS|METER_CALC_SETTINGS_MEAN);
         meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
-        meter_settings.target_meter_state = METER_RUNNING;
+        meter_settings.target_meter_state = METER_PAUSED;
 
-        //buffer_done_cb = onReceived;
-
-        enableMeterStreamSample(false, new Runnable() {
+        meter_settings.send(new Runnable() {
             @Override
             public void run() {
-                enableMeterStreamBuf(true,new Runnable() {
+                meter_sample.enableNotify(false,new Runnable() {
                     @Override
                     public void run() {
-                        sendMeterSettings(null);
+                        meter_ch1_buf.enableNotify(true,new Runnable() {
+                            @Override
+                            public void run() {
+                                meter_ch2_buf.enableNotify(true,new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        meter_ch2_buf.buf_full_cb = onReceived;
+                                        meter_settings.target_meter_state = METER_RUNNING;
+                                        meter_settings.send(null);
+                                    }
+                                },null);
+                            }
+                        },null);
                     }
-                });
+                }, null);
+            }
+        });
+    }
+
+    public void pauseStream(final Runnable cb) {
+        meter_sample.enableNotify(false, new Runnable() {
+            @Override
+            public void run() {
+                if(meter_settings.target_meter_state != METER_PAUSED) {
+                    meter_settings.target_meter_state = METER_PAUSED;
+                    meter_settings.send(cb);
+                } else {
+                    cb.run();
+                }
             }
         }, null);
     }
 
-    private void handleBufStreamUpdate(byte[] data, int channel) {
-        // getBufLen returns the number of int24s
-        // *3 gives number of bytes per channel
-        // *2 because there are two channels
-        final int buf_len_bytes = getBufLen()*3*2;
+    public void playSampleStream(final Runnable cb, final Runnable on_notify) {
+        meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
+        meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
 
-        // Copy to internal byte buffer
-        for(int i = 0; i < data.length; i++) { mByteBuf[mByteBuf_i++] = data[i]; }
-
-        // Have we received the entire buffer?
-
-        if(mByteBuf_i >= buf_len_bytes) {
-            // We've received the entire sample buffer
-            ByteBuffer bb = ByteBuffer.wrap(mByteBuf);
-            // The first half of the stored buffer is channel 1
-            for(int i = 0; i < getBufLen(); i++) {
-                buffers[0][i] = lsbToNativeUnits(getInt24(bb),0);
+        meter_sample.enableNotify(true, new Runnable() {
+            @Override
+            public void run() {
+                meter_settings.send(cb);
             }
-            // The second half of the stored buffer is channel 2
-            for(int i = 0; i < getBufLen(); i++) {
-                buffers[1][i] = lsbToNativeUnits(getInt24(bb),1);
-            }
-            Log.d(null, "Complete sample buffer received");
-            mByteBuf_i = 0;
-            if (buffer_done_cb != null) {
-                buffer_done_cb.run();
-            }
-        }
-    }*/
+        }, on_notify);
+    }
 
     //////////////////////////////////////
     // Autoranging

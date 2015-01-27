@@ -66,16 +66,25 @@ public class TrendActivity extends Activity {
                         cleaning_up = true;
                         orientation_listener.disable();
                         Log.i(null, "PORTRAIT!");
-                        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-                        mMeter.meter_settings.send(new Runnable() {
+                        mMeter.meter_ch1_buf.enableNotify(false,new Runnable() {
                             @Override
                             public void run() {
-                                mMeter.close();
-                                orientation_listener.disable();
-                                setResult(RESULT_OK);
-                                finish();
+                                mMeter.meter_ch2_buf.enableNotify(false,new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        mMeter.pauseStream(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                mMeter.close();
+                                                orientation_listener.disable();
+                                                setResult(RESULT_OK);
+                                                finish();
+                                            }
+                                        });
+                                    }
+                                },null);
                             }
-                        });
+                        },null);
                     }
                 }
             }
@@ -117,40 +126,34 @@ public class TrendActivity extends Activity {
 
         getActionBar().hide();
 
-        mMeter = MooshimeterDevice.getInstance();
-        if(mMeter == null) {
-            mMeter = MooshimeterDevice.Initialize(this, new Runnable() {
-                @Override
-                public void run() {
-                    trendViewPlay();
-                }
-            });
-        } else {
+        if(!mPlaying) {
+            mMeter = MooshimeterDevice.getInstance();
+
+            mGraph.getViewport().setXAxisBoundsManual(true);
+            mGraph.getViewport().setYAxisBoundsManual(true);
+            mGraph.setExplicitRefreshMode(true);
+            final SecondScale ss = mGraph.getSecondScale();
+
+            mGraph.setKeepScreenOn(true);
+            mGraph.setBackgroundColor(Color.BLACK);
+            GridLabelRenderer r = mGraph.getGridLabelRenderer();
+            r.setGridColor(Color.GRAY);
+            r.setHorizontalAxisTitle("Time [s]");
+            r.setHorizontalAxisTitleColor(Color.WHITE);
+            r.setHorizontalLabelsColor(Color.WHITE);
+            r.setGridStyle(GridLabelRenderer.GridStyle.BOTH);
+            r.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(0), mMeter.getUnits(0)));
+            r.setVerticalAxisTitleColor(Color.RED);
+            r.setVerticalLabelsColor(Color.RED);
+
+            ss.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(1), mMeter.getUnits(1)));
+            ss.setVerticalAxisTitleColor(Color.GREEN);
+            r.setVerticalLabelsSecondScaleColor(Color.GREEN);
+
+            r.setNumVerticalLabels(7);
+
             trendViewPlay();
         }
-
-        mGraph.getViewport().setXAxisBoundsManual(true);
-        mGraph.getViewport().setYAxisBoundsManual(true);
-        mGraph.setExplicitRefreshMode(true);
-        final SecondScale ss = mGraph.getSecondScale();
-
-        mGraph.setKeepScreenOn(true);
-        mGraph.setBackgroundColor(Color.BLACK);
-        GridLabelRenderer r = mGraph.getGridLabelRenderer();
-        r.setGridColor(Color.GRAY);
-        r.setHorizontalAxisTitle("Time [s]");
-        r.setHorizontalAxisTitleColor(Color.WHITE);
-        r.setHorizontalLabelsColor(Color.WHITE);
-        r.setGridStyle(GridLabelRenderer.GridStyle.BOTH);
-        r.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(0), mMeter.getUnits(0)));
-        r.setVerticalAxisTitleColor(Color.RED);
-        r.setVerticalLabelsColor(Color.RED);
-
-        ss.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(1), mMeter.getUnits(1)));
-        ss.setVerticalAxisTitleColor(Color.GREEN);
-        r.setVerticalLabelsSecondScaleColor(Color.GREEN);
-
-        r.setNumVerticalLabels(7);
 
         orientation_listener.enable();
     }
@@ -205,10 +208,6 @@ public class TrendActivity extends Activity {
     }
 
     private void trendViewPlay() {
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
-        mMeter.meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
-        mMeter.meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
-
         final SecondScale ss = mGraph.getSecondScale();
         dataSeries[0] = new LineGraphSeries();
         dataSeries[1] = new LineGraphSeries();
@@ -223,21 +222,16 @@ public class TrendActivity extends Activity {
 
         start_time = milliTime();
 
-        mMeter.meter_sample.enableNotify(true, new Runnable() {
+        mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(null,"Stream requested");
-                mMeter.meter_settings.send( new Runnable() {
-                    @Override
-                    public void run() {
-                        mPlaying = true;
-                    }
-                });
+                Log.i(null, "Stream requested");
+                mPlaying = true;
             }
         }, new Runnable() {
             @Override
             public void run() {
-                if(!mBufferMode) {
+                if (!mBufferMode) {
                     Log.i(null, "Sample received!");
                     double new_time = milliTime() - start_time;
                     double val;
@@ -259,23 +253,16 @@ public class TrendActivity extends Activity {
     }
 
     private void trendViewPause(final Runnable cb) {
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-        mMeter.meter_settings.send(new Runnable() {
+        mMeter.pauseStream(new Runnable() {
             @Override
             public void run() {
-                mMeter.meter_sample.enableNotify(false,new Runnable() {
-                    @Override
-                    public void run() {
-                        mPlaying = false;
-                        cb.run();
-                    }
-                },null);
+                mPlaying = false;
+                cb.run();
             }
         });
     }
 
     private void streamBuffer() {
-        /*
         mMeter.getBuffer(new Runnable() {
             @Override
             public void run() {
@@ -299,8 +286,8 @@ public class TrendActivity extends Activity {
                 }
                 double t = 0.0;
                 for(int i= 0; i < buf_len; i++) {
-                    dataSeries[0].appendData(new DataPoint(t,mMeter.buffers[0][i]),false,buf_len);
-                    dataSeries[1].appendData(new DataPoint(t,mMeter.buffers[1][i]),false,buf_len);
+                    dataSeries[0].appendData(new DataPoint(t,mMeter.meter_ch1_buf.floatBuf[i]),false,buf_len);
+                    dataSeries[1].appendData(new DataPoint(t,mMeter.meter_ch2_buf.floatBuf[i]),false,buf_len);
                     t+=dt;
                 }
 
@@ -309,7 +296,6 @@ public class TrendActivity extends Activity {
                 mGraph.forceRefresh(true,true);
             }
         });
-        */
     }
 
     @Override
@@ -355,14 +341,18 @@ public class TrendActivity extends Activity {
             } else {
                 streamBuffer();
             }
-        } else {/*
-            mMeter.enableMeterStreamBuf(false, new com.mooshim.mooshimeter.common.Runnable() {
+        } else {
+            mMeter.meter_ch1_buf.enableNotify(false, new Runnable() {
                 @Override
                 public void run() {
-                    trendViewPlay();
-                    mTrendButton.setText("Trend Mode");
+                    mMeter.meter_ch2_buf.enableNotify(false,new Runnable() {
+                        @Override
+                        public void run() {
+                            trendViewPlay();
+                        }
+                    },null);
                 }
-            });*/
+            },null);
         }
         mTrendButton.setText("Transition...");
     }
