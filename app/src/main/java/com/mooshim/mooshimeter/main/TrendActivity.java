@@ -19,8 +19,7 @@ import com.jjoe64.graphview.Viewport;
 import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.Block;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.*;
 
 import java.util.Calendar;
 
@@ -68,7 +67,7 @@ public class TrendActivity extends Activity {
                         orientation_listener.disable();
                         Log.i(null, "PORTRAIT!");
                         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-                        mMeter.sendMeterSettings(new Block() {
+                        mMeter.meter_settings.send(new Runnable() {
                             @Override
                             public void run() {
                                 mMeter.close();
@@ -120,7 +119,7 @@ public class TrendActivity extends Activity {
 
         mMeter = MooshimeterDevice.getInstance();
         if(mMeter == null) {
-            mMeter = MooshimeterDevice.Initialize(this, new Block() {
+            mMeter = MooshimeterDevice.Initialize(this, new Runnable() {
                 @Override
                 public void run() {
                     trendViewPlay();
@@ -224,18 +223,18 @@ public class TrendActivity extends Activity {
 
         start_time = milliTime();
 
-        mMeter.enableMeterStreamSample(true, new Block() {
+        mMeter.meter_sample.enableNotify(true, new Runnable() {
             @Override
             public void run() {
                 Log.i(null,"Stream requested");
-                mMeter.sendMeterSettings( new Block() {
+                mMeter.meter_settings.send( new Runnable() {
                     @Override
                     public void run() {
                         mPlaying = true;
                     }
                 });
             }
-        }, new Block() {
+        }, new Runnable() {
             @Override
             public void run() {
                 if(!mBufferMode) {
@@ -259,12 +258,12 @@ public class TrendActivity extends Activity {
         });
     }
 
-    private void trendViewPause(final Block cb) {
+    private void trendViewPause(final Runnable cb) {
         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
-                mMeter.enableMeterStreamSample(false,new Block() {
+                mMeter.meter_sample.enableNotify(false,new Runnable() {
                     @Override
                     public void run() {
                         mPlaying = false;
@@ -276,7 +275,8 @@ public class TrendActivity extends Activity {
     }
 
     private void streamBuffer() {
-        mMeter.getBuffer(new Block() {
+        /*
+        mMeter.getBuffer(new Runnable() {
             @Override
             public void run() {
                 Log.d(null,"Received full buffer in trendview!");
@@ -309,6 +309,7 @@ public class TrendActivity extends Activity {
                 mGraph.forceRefresh(true,true);
             }
         });
+        */
     }
 
     @Override
@@ -344,7 +345,7 @@ public class TrendActivity extends Activity {
         mBufferMode ^= true;
         if(mBufferMode) {
             if(mPlaying) {
-                trendViewPause(new Block() {
+                trendViewPause(new Runnable() {
                     @Override
                     public void run() {
                         streamBuffer();
@@ -354,14 +355,14 @@ public class TrendActivity extends Activity {
             } else {
                 streamBuffer();
             }
-        } else {
-            mMeter.enableMeterStreamBuf(false, new Block() {
+        } else {/*
+            mMeter.enableMeterStreamBuf(false, new com.mooshim.mooshimeter.common.Runnable() {
                 @Override
                 public void run() {
                     trendViewPlay();
                     mTrendButton.setText("Trend Mode");
                 }
-            });
+            });*/
         }
         mTrendButton.setText("Transition...");
     }

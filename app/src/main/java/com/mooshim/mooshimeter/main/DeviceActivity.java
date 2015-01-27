@@ -78,10 +78,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.Block;
-import com.mooshim.mooshimeter.common.BluetoothLeService;
-import com.mooshim.mooshimeter.common.GattInfo;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.*;
 
 public class DeviceActivity extends FragmentActivity {
 	// Activity
@@ -221,7 +218,7 @@ public class DeviceActivity extends FragmentActivity {
 		super.onResume();
         mMeter = MooshimeterDevice.getInstance();
         if(mMeter == null) {
-            mMeter = MooshimeterDevice.Initialize(this, new Block() {
+            mMeter = MooshimeterDevice.Initialize(this, new Runnable() {
                 @Override
                 public void run() {
                     onMeterInitialized();
@@ -237,17 +234,17 @@ public class DeviceActivity extends FragmentActivity {
         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
         mMeter.meter_settings.calc_settings |= 0x50;
         mMeter.meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 Log.i(null,"Mode set");
                 refreshAllControls();
-                mMeter.enableMeterStreamSample(true, new Block() {
+                mMeter.meter_sample.enableNotify(true, new Runnable() {
                     @Override
                     public void run() {
                         Log.i(null,"Stream requested");
                     }
-                }, new Block() {
+                }, new Runnable() {
                     @Override
                     public void run() {
                         Log.i(null,"Sample received!");
@@ -262,7 +259,7 @@ public class DeviceActivity extends FragmentActivity {
                         // TODO: There must be a more efficient way to do this.  But I think like a c-person
                         // Check if anything changed, and if so apply changes
                         if(!Arrays.equals(save, compare)) {
-                            mMeter.sendMeterSettings(new Block() {
+                            mMeter.meter_settings.send(new Runnable() {
                                 @Override
                                 public void run() {
                                     refreshAllControls();
@@ -280,7 +277,7 @@ public class DeviceActivity extends FragmentActivity {
 		// Log.d(TAG, "onPause");
         super.onPause();
         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 Log.d(null,"Paused");
@@ -728,7 +725,7 @@ public class DeviceActivity extends FragmentActivity {
             }
             break;
         }
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 refreshAllControls();
@@ -762,7 +759,7 @@ public class DeviceActivity extends FragmentActivity {
                 break;
         }
         mMeter.meter_settings.chset[c] = setting;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 refreshAllControls();
@@ -826,7 +823,7 @@ public class DeviceActivity extends FragmentActivity {
             break;
         }
         mMeter.meter_settings.chset[c] = channel_setting;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 refreshAllControls();
@@ -902,7 +899,7 @@ public class DeviceActivity extends FragmentActivity {
             rate_setting %= 7;
             mMeter.meter_settings.adc_settings &= ~MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK;
             mMeter.meter_settings.adc_settings |= rate_setting;
-            mMeter.sendMeterSettings(new Block() {
+            mMeter.meter_settings.send(new Runnable() {
                 @Override
                 public void run() {
                     refreshAllControls();
@@ -933,7 +930,7 @@ public class DeviceActivity extends FragmentActivity {
             depth_setting %= 9;
             mMeter.meter_settings.calc_settings &= ~MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2;
             mMeter.meter_settings.calc_settings |= depth_setting;
-            mMeter.sendMeterSettings(new Block() {
+            mMeter.meter_settings.send(new Runnable() {
                 @Override
                 public void run() {
                     refreshAllControls();

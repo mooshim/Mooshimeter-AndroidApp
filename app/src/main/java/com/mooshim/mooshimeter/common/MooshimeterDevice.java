@@ -9,23 +9,46 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.main.SensorTagGatt;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
+
+import static java.util.UUID.fromString;
 
 /**
  * Created by First on 1/7/2015.
  */
 
 public class MooshimeterDevice {
+    public static class mUUID {
+        public final static UUID
+                METER_SERVICE      = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
+                METER_INFO         = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),
+                METER_NAME         = fromString("1BC5FFA2-0200-62AB-E411-F254E005DBD4"),
+                METER_SETTINGS     = fromString("1BC5FFA3-0200-62AB-E411-F254E005DBD4"),
+                METER_LOG_SETTINGS = fromString("1BC5FFA4-0200-62AB-E411-F254E005DBD4"),
+                METER_UTC_TIME     = fromString("1BC5FFA5-0200-62AB-E411-F254E005DBD4"),
+                METER_SAMPLE       = fromString("1BC5FFA6-0200-62AB-E411-F254E005DBD4"),
+                METER_CH1BUF       = fromString("1BC5FFA7-0200-62AB-E411-F254E005DBD4"),
+                METER_CH2BUF       = fromString("1BC5FFA8-0200-62AB-E411-F254E005DBD4"),
+                METER_CAL          = fromString("1BC5FFA9-0200-62AB-E411-F254E005DBD4"),
+                METER_LOG_DATA     = fromString("1BC5FFAA-0200-62AB-E411-F254E005DBD4"),
+                METER_TEMP         = fromString("1BC5FFAB-0200-62AB-E411-F254E005DBD4"),
+                METER_BAT          = fromString("1BC5FFAC-0200-62AB-E411-F254E005DBD4"),
+
+                OAD_SERVICE_UUID    = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4"),
+                OAD_IMAGE_NOTIFY    = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
+                OAD_IMAGE_Runnable_REQ = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
+                OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
+    }
+
     public static final byte METER_SHUTDOWN  = 0;
     public static final byte METER_STANDBY   = 1;
     public static final byte METER_PAUSED    = 2;
     public static final byte METER_RUNNING   = 3;
     public static final byte METER_HIBERNATE = 4;
 
+    private BLEUtil mBLEUtil;
     private Context mContext;
     private BluetoothLeService bt_service;
     private BluetoothGattService bt_gatt_service;
@@ -54,10 +77,6 @@ public class MooshimeterDevice {
     private int mByteBuf_i = 0;
     private final byte[] mByteBuf = new byte[4096];
 
-    private Block cb = null;
-    private Block stream_cb = null;
-    private Block buffer_done_cb = null;
-
     private static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b
         ByteBuffer tmp = ByteBuffer.allocate(4);
@@ -79,11 +98,62 @@ public class MooshimeterDevice {
         return tmp.getInt();
     }
 
-    private abstract class Serializable {
+    private abstract class MeterStructure {
+        public void update(final Runnable cb) {
+            mBLEUtil.req(getUUID(), new BLEUtil.BLEUtilCB() {
+                @Override
+                public void run() {
+                    if(error != BluetoothGatt.GATT_SUCCESS) {
+                        Log.e(null,"Read error code %d");
+                    } else {
+                        unpack(value);
+                    }
+                    if(cb != null) {
+                        cb.run();
+                    }
+                }
+            });
+        }
+        public void send(final Runnable cb) {
+            mBLEUtil.send(getUUID(), pack(), new BLEUtil.BLEUtilCB() {
+                @Override
+                public void run() {
+                    if(cb != null) {
+                        if(error != BluetoothGatt.GATT_SUCCESS) {
+                            Log.e(null,"Read error code %d");
+                        }
+                        cb.run();
+                    }
+                }
+            });
+        }
+        public void enableNotify(boolean enable, final Runnable on_complete, final Runnable on_notify) {
+            mBLEUtil.enableNotify(getUUID(),enable,new BLEUtil.BLEUtilCB() {
+                @Override
+                public void run() {
+                    if(on_complete != null) {
+                        on_complete.run();
+                    }
+                }
+            }, new BLEUtil.BLEUtilCB() {
+                @Override
+                public void run() {
+                    if(error != BluetoothGatt.GATT_SUCCESS) {
+                        Log.e(null,"Read error code %d");
+                    } else {
+                        unpack(value);
+                    }
+                    if(on_notify != null) {
+                        on_notify.run();
+                    }
+                }
+            });
+        }
         public abstract byte[] pack();
         public abstract void unpack(byte[] in);
+        public abstract UUID getUUID();
     }
-    public class MeterSettings    extends Serializable {
+    public class MeterSettings    extends MeterStructure {
         public byte present_meter_state;
         public byte target_meter_state;
         public byte trigger_setting;
@@ -93,6 +163,9 @@ public class MooshimeterDevice {
         public byte calc_settings;
         public byte[] chset = new byte[2];
         public byte adc_settings;
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_SETTINGS; }
 
         @Override
         public byte[] pack() {
@@ -129,7 +202,7 @@ public class MooshimeterDevice {
             adc_settings        = b.get();
         }
     }
-    public class MeterLogSettings extends Serializable {
+    public class MeterLogSettings extends MeterStructure {
         public byte  sd_present;
         public byte  present_logging_state;
         public byte  logging_error;
@@ -138,6 +211,9 @@ public class MooshimeterDevice {
         public byte  target_logging_state;
         public short logging_period_ms;
         public int   logging_n_cycles;
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_LOG_SETTINGS; }
 
         @Override
         public byte[] pack() {
@@ -170,11 +246,14 @@ public class MooshimeterDevice {
             logging_n_cycles        = b.get();
         }
     }
-    public class MeterInfo        extends Serializable {
+    public class MeterInfo        extends MeterStructure {
         byte  pcb_version;
         byte  assembly_variant;
         short lot_number;
         int   build_time;
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_INFO; }
 
         @Override
         public byte[] pack() {
@@ -199,9 +278,12 @@ public class MooshimeterDevice {
             build_time       = b.getInt();
         }
     }
-    public class MeterSample      extends Serializable {
+    public class MeterSample      extends MeterStructure {
         public final int   reading_lsb[] = new int[2];
         public final float reading_ms[]  = new float[2];
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_SAMPLE; }
 
         @Override
         public byte[] pack() {
@@ -227,20 +309,35 @@ public class MooshimeterDevice {
             reading_ms[1]          = b.getFloat();
         }
     }
+    public class MeterName        extends MeterStructure {
+        public String name = "";
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_NAME; }
+
+        @Override
+        public byte[] pack() {
+            return name.getBytes();
+        }
+        @Override
+        public void unpack(byte[] in) {
+            name = in.toString();
+        }
+    }
 
     public MeterSettings    meter_settings;
     public MeterLogSettings meter_log_settings;
     public MeterInfo        meter_info;
     public MeterSample      meter_sample;
-    public String           meter_name;
+    public MeterName        meter_name;
 
     private static MooshimeterDevice mInstance = null;
 
-    public static MooshimeterDevice getInstance() {
+    public static synchronized MooshimeterDevice getInstance() {
         return mInstance;
     }
 
-    public static MooshimeterDevice Initialize(Context context, final Block on_init) {
+    public static synchronized MooshimeterDevice Initialize(Context context, final Runnable on_init) {
         if(mInstance==null) {
             mInstance = new MooshimeterDevice(context, on_init);
         } else {
@@ -257,52 +354,29 @@ public class MooshimeterDevice {
         }
     }
 
-    protected MooshimeterDevice(Context context, final Block on_init) {
+    protected MooshimeterDevice(Context context, final Runnable on_init) {
         // Initialize internal structures
+        mBLEUtil = BLEUtil.getInstance(context);
+        mContext = context;
         meter_settings      = new MeterSettings();
         meter_log_settings  = new MeterLogSettings();
         meter_info          = new MeterInfo();
         meter_sample        = new MeterSample();
 
-        bt_service = BluetoothLeService.getInstance();
-        if(bt_service != null) {
-            // Get the GATT service
-            bt_gatt_service = null;
-            for( BluetoothGattService s : bt_service.getSupportedGattServices() ) {
-                if(s.getUuid().equals(SensorTagGatt.METER_SERVICE)) {
-                    Log.i(null, "Found the meter service");
-                    bt_gatt_service = s;
-                    break;
-                }
-            }
-            if(bt_gatt_service == null) {
-                Log.i(null, "Did not find the meter service!");
-            }
-        }
-        // FIXME:  I am unhappy with the way this class and DeviceActivity are structured
-        // There are a lot of interdependencies that make them complicated to work with.
-        // But I don't want to change too many things at once.
-        final IntentFilter fi = new IntentFilter();
-        fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
-        fi.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
-        fi.addAction(BluetoothLeService.ACTION_DATA_WRITE);
-        fi.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
-        fi.addAction(BluetoothLeService.ACTION_DATA_READ);
-        context.registerReceiver(mGattUpdateReceiver, fi);
-        mContext = context;
-
         // Grab the initial settings
-        reqMeterSettings( new Block() {
+        meter_settings.update(new Runnable() {
             @Override
             public void run() {
-                reqMeterLogSettings( new Block() {
+                meter_log_settings.update(new Runnable() {
                     @Override
                     public void run() {
-                        reqMeterInfo( new Block() {
+                        meter_info.update(new Runnable() {
                             @Override
                             public void run() {
-                                    reqMeterName(on_init);
-                                    Log.i(null,"Meter initialization complete");
+                                on_init.run();
+                                // FIXME: This name grab causes a crash.  Strongly suspect it's in the packing and unpacking.
+                                //meter_name.update(on_init);
+                                Log.i(null, "Meter initialization complete");
                             }
                         });
                     }
@@ -312,88 +386,40 @@ public class MooshimeterDevice {
     }
 
     public void close() {
-        stream_cb = null;
+        mBLEUtil.close();
+        //stream_cb = null;
         //mContext.unregisterReceiver(mGattUpdateReceiver);
     }
 
     ////////////////////////////////
     // Accessors
     ////////////////////////////////
-
-    private void callCB() {
-        if(cb!=null) {
-            Block cbc = cb;
-            cb = null;
-            cbc.run();
-        }
+    public int getBufLen() {
+        return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
-    private void req(UUID uuid, Block new_cb) {
-        BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
-        cb = new_cb;
-        bt_service.readCharacteristic(c);
-    }
-    private void send(UUID uuid, byte[] value, Block new_cb) {
-        BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
-        c.setValue(value);
-        cb = new_cb;
-        bt_service.writeCharacteristic(c);
-    }
-
-    public void reqMeterSettings   ( Block new_cb ) { req(SensorTagGatt.METER_SETTINGS, new_cb); }
-    public void reqMeterLogSettings( Block new_cb ) { req(SensorTagGatt.METER_LOG_SETTINGS, new_cb); }
-    public void reqMeterInfo       ( Block new_cb ) { req(SensorTagGatt.METER_INFO, new_cb); }
-    public void reqMeterSample     ( Block new_cb ) { req(SensorTagGatt.METER_SAMPLE, new_cb); }
-    public void reqMeterName       ( Block new_cb ) { req(SensorTagGatt.METER_NAME, new_cb); }
-
-    public void sendMeterSettings   ( Block new_cb ) { send(SensorTagGatt.METER_SETTINGS, meter_settings.pack(), new_cb); }
-    public void sendMeterLogSettings( Block new_cb ) { send(SensorTagGatt.METER_LOG_SETTINGS, meter_log_settings.pack(), new_cb); }
-    public void sendMeterInfo       ( Block new_cb ) { send(SensorTagGatt.METER_INFO, meter_info.pack(), new_cb); }
-    public void sendMeterSample     ( Block new_cb ) { send(SensorTagGatt.METER_SAMPLE, meter_sample.pack(), new_cb); }
-    public void sendMeterName       ( Block new_cb ) { send(SensorTagGatt.METER_NAME, meter_name.getBytes(), new_cb); }
-
-    public void enableMeterStreamSample( boolean enable, Block new_cb, Block new_stream_cb ) {
-        stream_cb = new_stream_cb;
-        BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_SAMPLE);
-        cb = new_cb;
-        bt_service.setCharacteristicNotification(c,enable);
-    }
-
-    private void enableMeterStreamCH1Buf( boolean enable, Block new_cb ) {
-        BluetoothGattCharacteristic c;
-        c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_CH1BUF);
-        cb = new_cb;
-        bt_service.setCharacteristicNotification(c,enable);
-    }
-
-    private void enableMeterStreamCH2Buf( boolean enable, Block new_cb ) {
-        BluetoothGattCharacteristic c;
-        c = bt_gatt_service.getCharacteristic(SensorTagGatt.METER_CH2BUF);
-        cb = new_cb;
-        bt_service.setCharacteristicNotification(c,enable);
-    }
-
-    public void enableMeterStreamBuf( final boolean enable, final Block new_cb ) {
+/*
+    public void enableMeterStreamBuf( final boolean enable, final Runnable new_cb ) {
         // TODO: The buffers are only streamed together, why not unite them in firmware?
-        enableMeterStreamCH1Buf(enable, new Block() {
-            @Override
-            public void run() {
-                enableMeterStreamCH2Buf(enable, new_cb);
-            }
-        });
+        //enableMeterStreamCH1Buf(enable, new Runnable() {
+        //    @Override
+        //    public void run() {
+        //        enableMeterStreamCH2Buf(enable, new_cb);
+        //    }
+        //});
     }
 
-    public void getBuffer(Block onReceived) {
+    public void getBuffer(Runnable onReceived) {
         meter_settings.calc_settings &=~(METER_CALC_SETTINGS_MS|METER_CALC_SETTINGS_MEAN);
         meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
         meter_settings.target_meter_state = METER_RUNNING;
 
-        buffer_done_cb = onReceived;
+        //buffer_done_cb = onReceived;
 
-        enableMeterStreamSample(false, new Block() {
+        enableMeterStreamSample(false, new Runnable() {
             @Override
             public void run() {
-                enableMeterStreamBuf(true,new Block() {
+                enableMeterStreamBuf(true,new Runnable() {
                     @Override
                     public void run() {
                         sendMeterSettings(null);
@@ -401,10 +427,6 @@ public class MooshimeterDevice {
                 });
             }
         }, null);
-    }
-
-    public int getBufLen() {
-        return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
     private void handleBufStreamUpdate(byte[] data, int channel) {
@@ -435,77 +457,7 @@ public class MooshimeterDevice {
                 buffer_done_cb.run();
             }
         }
-    }
-
-    ////////////////////////////////
-    // GATT Callbacks
-    ////////////////////////////////
-
-    private void handleValueUpdate(UUID uuid, byte[] value) {
-        if(uuid.equals(SensorTagGatt.METER_SETTINGS)) {
-            meter_settings.unpack(value);
-            callCB();
-        } else if(uuid.equals(SensorTagGatt.METER_LOG_SETTINGS)) {
-            meter_log_settings.unpack(value);
-            callCB();
-        } else if(uuid.equals(SensorTagGatt.METER_INFO)) {
-            meter_info.unpack(value);
-            callCB();
-        } else if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
-            meter_sample.unpack(value);
-        } else if(uuid.equals(SensorTagGatt.METER_CH1BUF)) {
-            handleBufStreamUpdate(value,0);
-        } else if(uuid.equals(SensorTagGatt.METER_CH2BUF)) {
-            handleBufStreamUpdate(value,1);
-        } else if(uuid.equals(SensorTagGatt.METER_NAME)) {
-            meter_name = new String(value);
-            callCB();
-        }
-    }
-
-    private void handleDescriptorWrite(UUID uuid) {
-        if(uuid.equals(SensorTagGatt.METER_SAMPLE)) {
-            callCB();
-        } else if(uuid.equals(SensorTagGatt.METER_CH1BUF)) {
-            callCB();
-        } else if(uuid.equals(SensorTagGatt.METER_CH2BUF)) {
-            callCB();
-        }
-    }
-
-    private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
-                    BluetoothGatt.GATT_SUCCESS);
-
-            String uuidStr = intent.getStringExtra(BluetoothLeService.EXTRA_UUID);
-            UUID uuid = UUID.fromString(uuidStr);
-            byte[] value = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
-
-            if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                Log.d(null, "onServiceDiscovery");
-                callCB();
-            } else if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
-                Log.d(null, "onCharacteristicRead");
-                handleValueUpdate(uuid,value);
-            } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
-                Log.d(null, "onCharacteristicNotify");
-                handleValueUpdate(uuid,value);
-                if(stream_cb != null) { stream_cb.run(); }
-            } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
-                Log.d(null, "onCharacteristicWrite");
-                callCB();
-            } else if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
-                Log.d(null, "onDescriptorWrite");
-                handleDescriptorWrite(uuid);
-            }
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.d(null, "GATT error code: " + status);
-            }
-        }
-    };
+    }*/
 
     //////////////////////////////////////
     // Autoranging
