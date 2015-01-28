@@ -42,6 +42,8 @@ public class MooshimeterDevice {
                 OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
     }
 
+    private static final String TAG="MooshimeterDevice";
+
     public static final byte METER_SHUTDOWN  = 0;
     public static final byte METER_STANDBY   = 1;
     public static final byte METER_PAUSED    = 2;
@@ -99,7 +101,7 @@ public class MooshimeterDevice {
                 @Override
                 public void run() {
                     if(error != BluetoothGatt.GATT_SUCCESS) {
-                        Log.e(null,"Read error code %d");
+                        Log.e(TAG,"Read error code %d");
                     } else {
                         unpack(value);
                     }
@@ -115,7 +117,7 @@ public class MooshimeterDevice {
                 public void run() {
                     if(cb != null) {
                         if(error != BluetoothGatt.GATT_SUCCESS) {
-                            Log.e(null,"Read error code %d");
+                            Log.e(TAG,"Read error code %d");
                         }
                         cb.run();
                     }
@@ -134,7 +136,7 @@ public class MooshimeterDevice {
                 @Override
                 public void run() {
                     if(error != BluetoothGatt.GATT_SUCCESS) {
-                        Log.e(null,"Read error code %d");
+                        Log.e(TAG,"Read error code %d");
                     } else {
                         unpack(value);
                     }
@@ -343,9 +345,9 @@ public class MooshimeterDevice {
             final int nBytes = getBufLen()*3;
             if(buf_i >= nBytes) {
                 // Sample buffer is full
-                Log.d(null,"CH1 full");
+                Log.d(TAG,"CH1 full");
                 if(buf_i > nBytes) {
-                    Log.e(null,"CH1 OVERFLOW");
+                    Log.e(TAG,"CH1 OVERFLOW");
                 }
 
                 ByteBuffer bb = ByteBuffer.wrap(buf);
@@ -380,9 +382,9 @@ public class MooshimeterDevice {
             final int nBytes = getBufLen()*3;
             if(buf_i >= nBytes) {
                 // Sample buffer is full
-                Log.d(null,"CH2 full");
+                Log.d(TAG,"CH2 full");
                 if(buf_i > nBytes) {
-                    Log.e(null,"CH2 OVERFLOW");
+                    Log.e(TAG,"CH2 OVERFLOW");
                 }
                 ByteBuffer bb = ByteBuffer.wrap(buf);
                 for(int i = 0; i < getBufLen(); i++) {
@@ -414,7 +416,7 @@ public class MooshimeterDevice {
         if(mInstance==null) {
             mInstance = new MooshimeterDevice(context, on_init);
         } else {
-            Log.e(null, "Already initialized!");
+            Log.e(TAG, "Already initialized!");
         }
         return mInstance;
     }
@@ -452,7 +454,7 @@ public class MooshimeterDevice {
                                 on_init.run();
                                 // FIXME: This name grab causes a crash.  Strongly suspect it's in the packing and unpacking.
                                 //meter_name.update(on_init);
-                                Log.i(null, "Meter initialization complete");
+                                Log.i(TAG, "Meter initialization complete");
                             }
                         });
                     }
@@ -813,7 +815,7 @@ public class MooshimeterDevice {
                 pga_setting = meter_settings.chset[1] >> 4;
                 break;
             default:
-                Log.i(null,"Should not be here");
+                Log.i(TAG,"Should not be here");
                 break;
         }
         double pga_gain = pga_lookup[pga_setting];
@@ -832,7 +834,7 @@ public class MooshimeterDevice {
                 // 1000V range
                 return ((10e6+11e3)/(11e3)) * adc_voltage;
             default:
-                Log.w(null,"Invalid setting!");
+                Log.w(TAG,"Invalid setting!");
                 return 0.0;
         }
     }
@@ -869,7 +871,7 @@ public class MooshimeterDevice {
                         adc_volts = lsbToADCInVoltage(lsb,ch);
                         return adcVoltageToHV(adc_volts);
                     default:
-                        Log.w(null,"Invalid channel");
+                        Log.w(TAG,"Invalid channel");
                         return 0;
                 }
             case 0x04:
@@ -893,7 +895,7 @@ public class MooshimeterDevice {
                     return adc_volts;
                 }
             default:
-                Log.w(null,"Unrecognized channel setting");
+                Log.w(TAG,"Unrecognized channel setting");
                 return adc_volts;
         }
     }
@@ -928,7 +930,7 @@ public class MooshimeterDevice {
                 }
                 break;
             default:
-                Log.w(null,"Unrecognized setting");
+                Log.w(TAG,"Unrecognized setting");
         }
         return "";
     }
@@ -960,7 +962,7 @@ public class MooshimeterDevice {
                         return "V";
                 }
             default:
-                Log.w(null,"Unrecognized chset[0] setting");
+                Log.w(TAG,"Unrecognized chset[0] setting");
                 return "";
         }
     }
@@ -982,7 +984,7 @@ public class MooshimeterDevice {
             case 0x09:
                 return "Ω";
             default:
-                Log.w(null,"Unrecognized setting");
+                Log.w(TAG,"Unrecognized setting");
                 return "";
         }
     }

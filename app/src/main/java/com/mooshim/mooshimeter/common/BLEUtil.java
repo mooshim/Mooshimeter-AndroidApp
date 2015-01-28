@@ -24,6 +24,7 @@ import java.util.UUID;
  * Anything more than that and everything gets buggy.
  */
 public class BLEUtil {
+    private static final String TAG="BLEUtil";
     private Context mContext;
     private BluetoothLeService bt_service;
     private BluetoothGattService bt_gatt_service;
@@ -81,13 +82,13 @@ public class BLEUtil {
             for( BluetoothGattService s : bt_service.getSupportedGattServices() ) {
                 // FIXME: Should be able to specify the service to attach to instead of hardcode
                 if(s.getUuid().equals(MooshimeterDevice.mUUID.METER_SERVICE)) {
-                    Log.i(null, "Found the meter service");
+                    Log.i(TAG, "Found the meter service");
                     bt_gatt_service = s;
                     break;
                 }
             }
             if(bt_gatt_service == null) {
-                Log.e(null, "Did not find the meter service!");
+                Log.e(TAG, "Did not find the meter service!");
             }
         }
         // FIXME:  I am unhappy with the way this class and DeviceActivity are structured
@@ -125,7 +126,7 @@ public class BLEUtil {
     }
     synchronized private void finishRunningBlock(final UUID uuid, final int error, final byte[] value) {
         if(mRunning==null) {
-            Log.e(null,"ERROR: Asked to finish a task but no task running");
+            Log.e(TAG,"ERROR: Asked to finish a task but no task running");
             return;
         }
         final BLEUtilCB cb = mRunning.callback;
@@ -199,12 +200,12 @@ public class BLEUtil {
             UUID uuid      = UUID.fromString(uuidStr);
 
             if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                Log.d(null, "onServiceDiscovery");
+                Log.d(TAG, "onServiceDiscovery");
             } else if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
-                Log.d(null, "onCharacteristicRead");
+                Log.d(TAG, "onCharacteristicRead");
                 finishRunningBlock(uuid, status, value);
             } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
-                Log.d(null, "onCharacteristicNotify");
+                Log.d(TAG, "onCharacteristicNotify");
                 if(mNotifyCB.containsKey(uuid)) {
                     BLEUtilCB cb = mNotifyCB.get(uuid);
                     cb.uuid  = uuid;
@@ -213,14 +214,14 @@ public class BLEUtil {
                     cb.run();
                 }
             } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
-                Log.d(null, "onCharacteristicWrite");
+                Log.d(TAG, "onCharacteristicWrite");
                 finishRunningBlock(uuid, status, value);
             } else if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
-                Log.d(null, "onDescriptorWrite");
+                Log.d(TAG, "onDescriptorWrite");
                 finishRunningBlock(uuid, status, value);
             }
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.e(null, "GATT error code: " + status);
+                Log.e(TAG, "GATT error code: " + status);
             }
         }
     };

@@ -81,6 +81,7 @@ import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
 
 public class DeviceActivity extends FragmentActivity {
+    private static final String TAG = "DeviceActivity";
 	// Activity
 	public static final String EXTRA_DEVICE = "EXTRA_DEVICE";
 	private static final int PREF_ACT_REQ = 0;
@@ -158,13 +159,13 @@ public class DeviceActivity extends FragmentActivity {
             public void onOrientationChanged(int i) {
                 if((i > 80 && i < 100) || (i>260 && i < 280)) {
                     // FIXME: I know there should be a better way to do this.
-                    Log.i(null,"LANDSCAPE!");
+                    Log.i(TAG,"LANDSCAPE!");
                     if(!trend_view_running) {
                         trend_view_running = true;
                         mMeter.pauseStream(new Runnable() {
                             @Override
                             public void run() {
-                                Log.d(null,"Paused");
+                                Log.d(TAG,"Paused");
                                 mMeter.close();
                                 orientation_listener.disable();
                                 startTrendActivity();
@@ -237,7 +238,7 @@ public class DeviceActivity extends FragmentActivity {
         mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(null,"Stream requested");
+                Log.i(TAG,"Stream requested");
                 refreshAllControls();
             }
         }, new Runnable() {
@@ -368,11 +369,8 @@ public class DeviceActivity extends FragmentActivity {
 			Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
 			break;
 		case FWUPDATE_ACT_REQ:
-			// FW update cancelled so resume
-			//enableDataCollection(true);
 			break;
         case TREND_ACT_REQ:
-            Toast.makeText(this, "Trend finished", Toast.LENGTH_SHORT).show();
             trend_view_running = false;
             break;
 		default:
@@ -812,65 +810,65 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     public void onCh1DisplaySetClick(View v) {
-        Log.i(null,"onCh1DisplaySetClick");
+        Log.i(TAG,"onCh1DisplaySetClick");
         onDisplaySetClick(0);
     }
 
     public void onCh1InputSetClick(View v) {
-        Log.i(null,"onCh1InputSetClick");
+        Log.i(TAG,"onCh1InputSetClick");
         onInputSetClick(0);
     }
 
     public void onCh1RangeAutoClick(View v) {
-        Log.i(null,"onCh1RangeAutoClick");
+        Log.i(TAG,"onCh1RangeAutoClick");
         mMeter.disp_range_auto[0] ^= true;
         refreshAllControls();
     }
 
     public void onCh1RangeClick(View v) {
-        Log.i(null,"onCh1RangeClick");
+        Log.i(TAG,"onCh1RangeClick");
         onRangeClick(0);
     }
 
     public void onCh1UnitsClick(View v) {
-        Log.i(null,"onCh1UnitsClick");
+        Log.i(TAG,"onCh1UnitsClick");
         onUnitsClick(0);
     }
 
     public void onCh2DisplaySetClick(View v) {
-        Log.i(null,"onCh2DisplaySetClick");
+        Log.i(TAG,"onCh2DisplaySetClick");
         onDisplaySetClick(1);
     }
 
     public void onCh2InputSetClick(View v) {
-        Log.i(null,"onCh2InputSetClick");
+        Log.i(TAG,"onCh2InputSetClick");
         onInputSetClick(1);
     }
 
     public void onCh2RangeAutoClick(View v) {
-        Log.i(null,"onCh2RangeAutoClick");
+        Log.i(TAG,"onCh2RangeAutoClick");
         mMeter.disp_range_auto[1] ^= true;
         refreshAllControls();
     }
 
     public void onCh2RangeClick(View v) {
-        Log.i(null,"onCh2RangeClick");
+        Log.i(TAG,"onCh2RangeClick");
         onRangeClick(1);
     }
 
     public void onCh2UnitsClick(View v) {
-        Log.i(null, "onCh2UnitsClick");
+        Log.i(TAG, "onCh2UnitsClick");
         onUnitsClick(1);
     }
 
     public void onRateAutoClick(View v) {
-        Log.i(null,"onRateAutoClick");
+        Log.i(TAG,"onRateAutoClick");
         mMeter.disp_rate_auto ^= true;
         refreshAllControls();
     }
 
     public void onRateClick(View v) {
-        Log.i(null,"onRateClick");
+        Log.i(TAG,"onRateClick");
         if(mMeter.disp_rate_auto) {
             // If auto is on, do nothing
         } else {
@@ -889,19 +887,19 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     public void onLoggingClick(View v) {
-        Log.i(null,"onLoggingClick");
+        Log.i(TAG,"onLoggingClick");
         Toast.makeText(this, "Feature not finished, check for app update",
                 Toast.LENGTH_LONG).show();
     }
 
     public void onDepthAutoClick(View v) {
-        Log.i(null,"onDepthAutoClick");
+        Log.i(TAG,"onDepthAutoClick");
         mMeter.disp_depth_auto ^= true;
         refreshAllControls();
     }
 
     public void onDepthClick(View v) {
-        Log.i(null,"onDepthClick");
+        Log.i(TAG,"onDepthClick");
         if(mMeter.disp_depth_auto) {
             // If auto is on, do nothing
         } else {
@@ -920,7 +918,7 @@ public class DeviceActivity extends FragmentActivity {
     }
     
     public void onZeroClick(View v) {
-        Log.i(null,"onZeroClick");
+        Log.i(TAG,"onZeroClick");
         // TODO: Update firmware to allow saving of user offsets to flash
         // FIXME: Annoying special case: Channel 1 offset in current mode is stored as offset at the ADC
         // because current sense amp drift dominates the offset.  Hardware fix this in Rev2.

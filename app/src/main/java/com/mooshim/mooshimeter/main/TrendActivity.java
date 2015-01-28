@@ -11,6 +11,8 @@ import android.view.OrientationEventListener;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.GridLabelRenderer;
@@ -25,6 +27,8 @@ import java.util.Calendar;
 
 public class TrendActivity extends Activity {
 
+    private static final String TAG="TrendActivity";
+
     ////////////////
     // GUI elements
     ////////////////
@@ -34,6 +38,8 @@ public class TrendActivity extends Activity {
     private Button mCH1Button;
     private Button mCH2Button;
     private Button mXYButton;
+    private Button mGraphPlayButton;
+    private ProgressBar mProgressSpinner;
 
     private OrientationEventListener orientation_listener;
     private MooshimeterDevice mMeter;
@@ -56,6 +62,8 @@ public class TrendActivity extends Activity {
         mCH1Button    = (Button)       findViewById(R.id.ch1_button);
         mCH2Button    = (Button)       findViewById(R.id.ch2_button);
         mXYButton     = (Button)       findViewById(R.id.xy_button);
+        mGraphPlayButton=(Button)      findViewById(R.id.graph_play_button);
+        mProgressSpinner=(ProgressBar) findViewById(R.id.graph_progress_spinner);
 
         orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
             @Override
@@ -65,7 +73,8 @@ public class TrendActivity extends Activity {
                     if(!cleaning_up) {
                         cleaning_up = true;
                         orientation_listener.disable();
-                        Log.i(null, "PORTRAIT!");
+                        Log.i(TAG, "PORTRAIT!");
+                        mProgressSpinner.setVisibility(View.VISIBLE);
                         mMeter.meter_ch1_buf.enableNotify(false,new Runnable() {
                             @Override
                             public void run() {
@@ -152,7 +161,7 @@ public class TrendActivity extends Activity {
 
             r.setNumVerticalLabels(7);
 
-            trendViewPlay();
+            trendViewPlay(null);
         }
 
         orientation_listener.enable();
@@ -162,13 +171,16 @@ public class TrendActivity extends Activity {
         final Viewport vp = mGraph.getViewport();
 
         // Manually reset axis boundaries
-        final double padding_factor = 0.20;
-        final double min_x = dataSeries[0].getLowestValueX();
-        final double max_x = dataSeries[0].getHighestValueX();
+        double min_x = dataSeries[0].getLowestValueX();
+        double max_x = dataSeries[0].getHighestValueX();
 
-        // MaxX must be padded to leave room for the second Y axis
-        vp.setMinX(Math.floor(min_x));
-        vp.setMaxX(Math.ceil(max_x));
+        if(!mBufferMode) {
+            // Round to the nearest second in trend mode
+            min_x = Math.floor(min_x);
+            max_x = Math.ceil(max_x);
+        }
+        vp.setMinX(min_x);
+        vp.setMaxX(max_x);
 
         final double min_y1 = dataSeries[0].getLowestValueY();
         final double max_y1 = dataSeries[0].getHighestValueY();
@@ -207,7 +219,7 @@ public class TrendActivity extends Activity {
         return r;
     }
 
-    private void trendViewPlay() {
+    private void trendViewPlay(final Runnable cb) {
         final SecondScale ss = mGraph.getSecondScale();
         dataSeries[0] = new LineGraphSeries();
         dataSeries[1] = new LineGraphSeries();
@@ -217,22 +229,29 @@ public class TrendActivity extends Activity {
         dataSeries[1].setThickness(5);
         mGraph.removeAllSeries();
         ss.removeAllSeries();
-        mGraph.addSeries(dataSeries[0]);
-        ss.addSeries(dataSeries[1]);
+        if(mCHXOn[0]) {
+            mGraph.addSeries(dataSeries[0]);
+        }
+        if(mCHXOn[1]) {
+            ss.addSeries(dataSeries[1]);
+        }
 
         start_time = milliTime();
 
         mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(null, "Stream requested");
+                Log.i(TAG, "Stream requested");
                 mPlaying = true;
+                if(cb!=null) {
+                    cb.run();
+                }
             }
         }, new Runnable() {
             @Override
             public void run() {
                 if (!mBufferMode) {
-                    Log.i(null, "Sample received!");
+                    Log.i(TAG, "Sample received!");
                     double new_time = milliTime() - start_time;
                     double val;
                     int lsb_int;
@@ -257,16 +276,20 @@ public class TrendActivity extends Activity {
             @Override
             public void run() {
                 mPlaying = false;
-                cb.run();
+                if(cb!=null) {
+                    cb.run();
+                }
             }
         });
     }
 
     private void streamBuffer() {
+        mProgressSpinner.setVisibility(View.VISIBLE);
         mMeter.getBuffer(new Runnable() {
             @Override
             public void run() {
-                Log.d(null,"Received full buffer in trendview!");
+                Log.d(TAG,"Received full buffer in trendview!");
+                mProgressSpinner.setVisibility(View.INVISIBLE);
                 final SecondScale ss = mGraph.getSecondScale();
                 dataSeries[0] = new LineGraphSeries();
                 dataSeries[1] = new LineGraphSeries();
@@ -276,8 +299,12 @@ public class TrendActivity extends Activity {
                 dataSeries[1].setThickness(5);
                 mGraph.removeAllSeries();
                 ss.removeAllSeries();
-                mGraph.addSeries(dataSeries[0]);
-                ss.addSeries(dataSeries[1]);
+                if(mCHXOn[0]) {
+                    mGraph.addSeries(dataSeries[0]);
+                }
+                if(mCHXOn[1]) {
+                    ss.addSeries(dataSeries[1]);
+                }
 
                 final int buf_len = mMeter.getBufLen();
                 double dt = 1./125;
@@ -293,7 +320,7 @@ public class TrendActivity extends Activity {
 
                 resetViewBounds();
 
-                mGraph.forceRefresh(true,true);
+                mGraph.forceRefresh(false,false);
             }
         });
     }
@@ -310,7 +337,7 @@ public class TrendActivity extends Activity {
     ///////////////
 
     public void onSettingsButtonClick(View v) {
-        Log.d(null, "Settings Click");
+        Log.d(TAG, "Settings Click");
         int n;
         switch(mSettingsView.getVisibility()) {
             case View.INVISIBLE:
@@ -320,14 +347,14 @@ public class TrendActivity extends Activity {
                 n = View.INVISIBLE;
                 break;
             default:
-                Log.e(null,"Invalid settings visibility");
+                Log.e(TAG,"Invalid settings visibility");
                 n = View.INVISIBLE;
                 break;
         }
         mSettingsView.setVisibility(n);
     }
     public void onTrendButtonClick(View v) {
-        Log.d(null, "TrendClick");
+        Log.d(TAG, "TrendClick");
         mBufferMode ^= true;
         if(mBufferMode) {
             if(mPlaying) {
@@ -336,6 +363,7 @@ public class TrendActivity extends Activity {
                     public void run() {
                         streamBuffer();
                         mTrendButton.setText("Buffer Mode");
+                        mGraphPlayButton.setText("Refresh");
                     }
                 });
             } else {
@@ -348,7 +376,13 @@ public class TrendActivity extends Activity {
                     mMeter.meter_ch2_buf.enableNotify(false,new Runnable() {
                         @Override
                         public void run() {
-                            trendViewPlay();
+                            trendViewPlay(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mTrendButton.setText("Trend Mode");
+                                    mGraphPlayButton.setText("Pause");
+                                }
+                            });
                         }
                     },null);
                 }
@@ -357,30 +391,65 @@ public class TrendActivity extends Activity {
         mTrendButton.setText("Transition...");
     }
     public void onCH1ButtonClick(View v) {
-        Log.d(null, "CH1 Click");
+        Log.d(TAG, "CH1 Click");
         mCHXOn[0] ^= true;
         if(mCHXOn[0]) {
             mCH1Button.setText("CH1: ON");
+            mGraph.addSeries(dataSeries[0]);
         } else {
             mCH1Button.setText("CH1: OFF");
+            mGraph.removeAllSeries();
         }
+        mGraph.forceRefresh(false,false);
     }
     public void onCH2ButtonClick(View v) {
-        Log.d(null, "CH2 Click");
+        Log.d(TAG, "CH2 Click");
         mCHXOn[1] ^= true;
         if(mCHXOn[1]) {
             mCH2Button.setText("CH2: ON");
+            mGraph.getSecondScale().addSeries(dataSeries[1]);
         } else {
             mCH2Button.setText("CH2: OFF");
+            mGraph.getSecondScale().removeAllSeries();
         }
+        mGraph.forceRefresh(false,false);
     }
     public void onXYButtonClick(View v) {
-        Log.d(null, "XY Click");
+        Log.d(TAG, "XY Click");
+        Toast.makeText(this, "XY Feature coming soon",
+                Toast.LENGTH_LONG).show();
         mXYMode ^= true;
         if(mXYMode) {
             mXYButton.setText("XY Mode: ON");
         } else {
             mXYButton.setText("XY Mode: OFF");
+        }
+    }
+
+    public void onPlayButtonClick(View v) {
+        if(mBufferMode) {
+            // Start a new refresh
+            streamBuffer();
+        } else {
+            if(mPlaying) {
+                mProgressSpinner.setVisibility(View.VISIBLE);
+                trendViewPause(new Runnable() {
+                    @Override
+                    public void run() {
+                        mProgressSpinner.setVisibility(View.INVISIBLE);
+                        mGraphPlayButton.setText("Play");
+                    }
+                });
+            } else {
+                mProgressSpinner.setVisibility(View.VISIBLE);
+                trendViewPlay(new Runnable() {
+                    @Override
+                    public void run() {
+                        mProgressSpinner.setVisibility(View.INVISIBLE);
+                        mGraphPlayButton.setText("Pause");
+                    }
+                });
+            }
         }
     }
 
