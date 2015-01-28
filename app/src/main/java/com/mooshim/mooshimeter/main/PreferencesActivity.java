@@ -65,8 +65,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.Block;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.*;
 
 public class PreferencesActivity extends FragmentActivity {
 
@@ -79,12 +78,12 @@ public class PreferencesActivity extends FragmentActivity {
       mMeter = MooshimeterDevice.getInstance();
       setContentView(R.layout.meter_preference_view);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
-      name_editor.setText(mMeter.meter_name);
+      name_editor.setText(mMeter.meter_name.name);
       name_editor.setOnKeyListener(new View.OnKeyListener() {
           public boolean onKey(View v, int keyCode, KeyEvent event) {
               if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
-                  mMeter.meter_name = String.valueOf(name_editor.getText());
-                  mMeter.sendMeterName(new Block() {
+                  mMeter.meter_name.name = String.valueOf(name_editor.getText());
+                  mMeter.meter_name.send(new Runnable() {
                       @Override
                       public void run() {
                           Log.d(null, "Name sent");
@@ -125,7 +124,7 @@ public class PreferencesActivity extends FragmentActivity {
                 .setPositiveButton("Hibernate",new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog,int id) {
                         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_HIBERNATE;
-                        mMeter.sendMeterSettings(null);
+                        mMeter.meter_settings.send(null);
                     }
                 })
                 .setNegativeButton("Cancel",new DialogInterface.OnClickListener() {

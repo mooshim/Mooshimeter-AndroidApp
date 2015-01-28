@@ -55,6 +55,7 @@
 package com.mooshim.mooshimeter.main;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import android.bluetooth.BluetoothDevice;
@@ -77,12 +78,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.Block;
-import com.mooshim.mooshimeter.common.BluetoothLeService;
-import com.mooshim.mooshimeter.common.GattInfo;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.*;
 
 public class DeviceActivity extends FragmentActivity {
+    private static final String TAG = "DeviceActivity";
 	// Activity
 	public static final String EXTRA_DEVICE = "EXTRA_DEVICE";
 	private static final int PREF_ACT_REQ = 0;
@@ -91,17 +90,13 @@ public class DeviceActivity extends FragmentActivity {
 
 	// BLE
 	private BluetoothLeService mBtLeService = null;
-	private BluetoothDevice mBluetoothDevice = null;
 	private List<BluetoothGattService> mServiceList = null;
-	private static final int GATT_TIMEOUT = 250; // milliseconds
 	private boolean mServicesRdy = false;
     private MooshimeterDevice mMeter = null;
 
 	// SensorTagGatt
-	private List<Sensor> mEnabledSensors = new ArrayList<Sensor>();
 	private BluetoothGattService mOadService = null;
 	private BluetoothGattService mConnControlService = null;
-	private String mFwRev;
 
     // GUI
     private final TextView[] value_labels = new TextView[2];
@@ -130,7 +125,6 @@ public class DeviceActivity extends FragmentActivity {
 
 		// BLE
 		mBtLeService = BluetoothLeService.getInstance();
-		mBluetoothDevice = intent.getParcelableExtra(EXTRA_DEVICE);
 		mServiceList = new ArrayList<BluetoothGattService>();
 
         // GUI
@@ -165,10 +159,18 @@ public class DeviceActivity extends FragmentActivity {
             public void onOrientationChanged(int i) {
                 if((i > 80 && i < 100) || (i>260 && i < 280)) {
                     // FIXME: I know there should be a better way to do this.
-                    Log.i(null,"LANDSCAPE!");
+                    Log.i(TAG,"LANDSCAPE!");
                     if(!trend_view_running) {
                         trend_view_running = true;
-                        startTrendActivity();
+                        mMeter.pauseStream(new Runnable() {
+                            @Override
+                            public void run() {
+                                Log.d(TAG,"Paused");
+                                mMeter.close();
+                                orientation_listener.disable();
+                                startTrendActivity();
+                            }
+                        });
                     }
                 }
             }
@@ -220,7 +222,7 @@ public class DeviceActivity extends FragmentActivity {
 		super.onResume();
         mMeter = MooshimeterDevice.getInstance();
         if(mMeter == null) {
-            mMeter = MooshimeterDevice.Initialize(this, new Block() {
+            mMeter = MooshimeterDevice.Initialize(this, new Runnable() {
                 @Override
                 public void run() {
                     onMeterInitialized();
@@ -233,41 +235,33 @@ public class DeviceActivity extends FragmentActivity {
 	}
 
     private void onMeterInitialized() {
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
-        mMeter.meter_settings.calc_settings |= 0x50;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(null,"Mode set");
-                mMeter.enableMeterStreamSample(true, new Block() {
-                    @Override
-                    public void run() {
-                        Log.i(null,"Stream requested");
-                    }
-                }, new Block() {
-                    @Override
-                    public void run() {
-                        Log.i(null,"Sample received!");
-                        valueLabelRefresh(0);
-                        valueLabelRefresh(1);
+                Log.i(TAG,"Stream requested");
+                refreshAllControls();
+            }
+        }, new Runnable() {
+            @Override
+            public void run() {
+                valueLabelRefresh(0);
+                valueLabelRefresh(1);
 
-                        // Handle autoranging
-                        // Save a local copy of settings
-                        byte[] save = mMeter.meter_settings.pack();
-                        mMeter.applyAutorange();
-                        byte[] compare = mMeter.meter_settings.pack();
-                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
-                        // Check if anything changed, and if so apply changes
-                        if(!save.equals(compare)) {
-                            mMeter.sendMeterSettings(new Block() {
-                                @Override
-                                public void run() {
-                                    refreshAllControls();
-                                }
-                            });
+                // Handle autoranging
+                // Save a local copy of settings
+                byte[] save = mMeter.meter_settings.pack();
+                mMeter.applyAutorange();
+                byte[] compare = mMeter.meter_settings.pack();
+                // TODO: There must be a more efficient way to do this.  But I think like a c-person
+                // Check if anything changed, and if so apply changes
+                if(!Arrays.equals(save, compare)) {
+                    mMeter.meter_settings.send(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshAllControls();
                         }
-                    }
-                });
+                    });
+                }
             }
         });
     }
@@ -276,15 +270,6 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onPause() {
 		// Log.d(TAG, "onPause");
         super.onPause();
-        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_PAUSED;
-        mMeter.sendMeterSettings(new Block() {
-            @Override
-            public void run() {
-                Log.d(null,"Paused");
-            }
-        });
-        mMeter.close();
-        orientation_listener.disable();
 	}
 
 	BluetoothGattService getOadService() {
@@ -384,11 +369,8 @@ public class DeviceActivity extends FragmentActivity {
 			Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
 			break;
 		case FWUPDATE_ACT_REQ:
-			// FW update cancelled so resume
-			//enableDataCollection(true);
 			break;
         case TREND_ACT_REQ:
-            Toast.makeText(this, "Trend finished", Toast.LENGTH_SHORT).show();
             trend_view_running = false;
             break;
 		default:
@@ -425,8 +407,6 @@ public class DeviceActivity extends FragmentActivity {
     /////////////////////////
 
     private void refreshAllControls() {
-        //TODO
-        Log.d(null,"TODO");
         rate_auto_button_refresh();
         rate_button_refresh();
         depth_auto_button_refresh();
@@ -612,8 +592,6 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void valueLabelRefresh(final int c) {
-        Log.d(null,"Value update");
-
         final boolean ac = mMeter.disp_ac[c];
         final TextView v = value_labels[c];
         double val;
@@ -725,7 +703,7 @@ public class DeviceActivity extends FragmentActivity {
             }
             break;
         }
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 refreshAllControls();
@@ -759,7 +737,7 @@ public class DeviceActivity extends FragmentActivity {
                 break;
         }
         mMeter.meter_settings.chset[c] = setting;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 refreshAllControls();
@@ -823,7 +801,7 @@ public class DeviceActivity extends FragmentActivity {
             break;
         }
         mMeter.meter_settings.chset[c] = channel_setting;
-        mMeter.sendMeterSettings(new Block() {
+        mMeter.meter_settings.send(new Runnable() {
             @Override
             public void run() {
                 refreshAllControls();
@@ -832,65 +810,65 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     public void onCh1DisplaySetClick(View v) {
-        Log.i(null,"onCh1DisplaySetClick");
+        Log.i(TAG,"onCh1DisplaySetClick");
         onDisplaySetClick(0);
     }
 
     public void onCh1InputSetClick(View v) {
-        Log.i(null,"onCh1InputSetClick");
+        Log.i(TAG,"onCh1InputSetClick");
         onInputSetClick(0);
     }
 
     public void onCh1RangeAutoClick(View v) {
-        Log.i(null,"onCh1RangeAutoClick");
+        Log.i(TAG,"onCh1RangeAutoClick");
         mMeter.disp_range_auto[0] ^= true;
         refreshAllControls();
     }
 
     public void onCh1RangeClick(View v) {
-        Log.i(null,"onCh1RangeClick");
+        Log.i(TAG,"onCh1RangeClick");
         onRangeClick(0);
     }
 
     public void onCh1UnitsClick(View v) {
-        Log.i(null,"onCh1UnitsClick");
+        Log.i(TAG,"onCh1UnitsClick");
         onUnitsClick(0);
     }
 
     public void onCh2DisplaySetClick(View v) {
-        Log.i(null,"onCh2DisplaySetClick");
+        Log.i(TAG,"onCh2DisplaySetClick");
         onDisplaySetClick(1);
     }
 
     public void onCh2InputSetClick(View v) {
-        Log.i(null,"onCh2InputSetClick");
+        Log.i(TAG,"onCh2InputSetClick");
         onInputSetClick(1);
     }
 
     public void onCh2RangeAutoClick(View v) {
-        Log.i(null,"onCh2RangeAutoClick");
+        Log.i(TAG,"onCh2RangeAutoClick");
         mMeter.disp_range_auto[1] ^= true;
         refreshAllControls();
     }
 
     public void onCh2RangeClick(View v) {
-        Log.i(null,"onCh2RangeClick");
+        Log.i(TAG,"onCh2RangeClick");
         onRangeClick(1);
     }
 
     public void onCh2UnitsClick(View v) {
-        Log.i(null, "onCh2UnitsClick");
+        Log.i(TAG, "onCh2UnitsClick");
         onUnitsClick(1);
     }
 
     public void onRateAutoClick(View v) {
-        Log.i(null,"onRateAutoClick");
+        Log.i(TAG,"onRateAutoClick");
         mMeter.disp_rate_auto ^= true;
         refreshAllControls();
     }
 
     public void onRateClick(View v) {
-        Log.i(null,"onRateClick");
+        Log.i(TAG,"onRateClick");
         if(mMeter.disp_rate_auto) {
             // If auto is on, do nothing
         } else {
@@ -899,7 +877,7 @@ public class DeviceActivity extends FragmentActivity {
             rate_setting %= 7;
             mMeter.meter_settings.adc_settings &= ~MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK;
             mMeter.meter_settings.adc_settings |= rate_setting;
-            mMeter.sendMeterSettings(new Block() {
+            mMeter.meter_settings.send(new Runnable() {
                 @Override
                 public void run() {
                     refreshAllControls();
@@ -909,18 +887,19 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     public void onLoggingClick(View v) {
-        Log.i(null,"onLoggingClick");
+        Log.i(TAG,"onLoggingClick");
         Toast.makeText(this, "Feature not finished, check for app update",
                 Toast.LENGTH_LONG).show();
     }
 
     public void onDepthAutoClick(View v) {
-        Log.i(null,"onDepthAutoClick");
+        Log.i(TAG,"onDepthAutoClick");
         mMeter.disp_depth_auto ^= true;
+        refreshAllControls();
     }
 
     public void onDepthClick(View v) {
-        Log.i(null,"onDepthClick");
+        Log.i(TAG,"onDepthClick");
         if(mMeter.disp_depth_auto) {
             // If auto is on, do nothing
         } else {
@@ -929,7 +908,7 @@ public class DeviceActivity extends FragmentActivity {
             depth_setting %= 9;
             mMeter.meter_settings.calc_settings &= ~MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2;
             mMeter.meter_settings.calc_settings |= depth_setting;
-            mMeter.sendMeterSettings(new Block() {
+            mMeter.meter_settings.send(new Runnable() {
                 @Override
                 public void run() {
                     refreshAllControls();
@@ -939,7 +918,7 @@ public class DeviceActivity extends FragmentActivity {
     }
     
     public void onZeroClick(View v) {
-        Log.i(null,"onZeroClick");
+        Log.i(TAG,"onZeroClick");
         // TODO: Update firmware to allow saving of user offsets to flash
         // FIXME: Annoying special case: Channel 1 offset in current mode is stored as offset at the ADC
         // because current sense amp drift dominates the offset.  Hardware fix this in Rev2.
@@ -965,6 +944,6 @@ public class DeviceActivity extends FragmentActivity {
         } else {
             for(int i=0; i<mMeter.offsets.length; i++) {mMeter.offsets[i]=0;}
         }
+        refreshAllControls();
     }
-
 }

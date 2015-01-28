@@ -20,7 +20,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onCh1DisplaySetClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -30,7 +31,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh1InputSetClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
     </LinearLayout>
 
@@ -67,7 +69,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh1RangeAutoClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -77,7 +80,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onCh1RangeClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -87,7 +91,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="3"
             android:onClick="onCh1UnitsClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
     </LinearLayout>
 
     <Space
@@ -109,7 +114,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onCh2DisplaySetClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -119,7 +125,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2InputSetClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
     </LinearLayout>
 
@@ -157,7 +164,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2RangeAutoClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -167,7 +175,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onCh2RangeClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -177,7 +186,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="3"
             android:onClick="onCh2UnitsClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
     </LinearLayout>
 
     <Space
@@ -199,7 +209,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onRateAutoClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -209,7 +220,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onRateClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -219,7 +231,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="3"
             android:onClick="onLoggingClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
     </LinearLayout>
 
     <LinearLayout
@@ -236,7 +249,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onDepthAutoClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -246,7 +260,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onDepthClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
 
         <Button
             android:layout_width="0dp"
@@ -256,7 +271,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="3"
             android:onClick="onZeroClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp" />
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
     </LinearLayout>
 
 </LinearLayout>
