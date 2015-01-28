@@ -68,7 +68,7 @@ public class TrendActivity extends Activity {
         orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
             @Override
             public void onOrientationChanged(int i) {
-                if((i > 170 && i < 190) || (i>0 && i < 10)) {
+                if((i > 170 && i < 190) || (i>0 && i < 10) || (i>350 && i < 360)) {
                     // FIXME: I know there should be a better way to do this.
                     if(!cleaning_up) {
                         cleaning_up = true;
@@ -207,7 +207,7 @@ public class TrendActivity extends Activity {
         final double avg   = in_min+(range/2);
         double tick = 1e-6;
         boolean b = false;
-        while( tick < range/7.f ) {
+        while( tick < range/6.f ) {
             if( b ){ tick *= 2.f; }
             else   { tick *= 5.f; }
             b ^= true;
@@ -265,6 +265,9 @@ public class TrendActivity extends Activity {
                         dataSeries[c].appendData(new DataPoint(new_time, val), false, 500);
                     }
                     resetViewBounds();
+                    // TODO: find a more elegant way of handling label widths.  Hardcode for now.
+                    mGraph.getGridLabelRenderer().setLabelVerticalWidth(120);
+                    mGraph.getGridLabelRenderer().setSecondScaleLabelVerticalWidth(120);
                     mGraph.forceRefresh(true, false);
                 }
             }
@@ -285,10 +288,16 @@ public class TrendActivity extends Activity {
 
     private void streamBuffer() {
         mProgressSpinner.setVisibility(View.VISIBLE);
+        mPlaying = true;
         mMeter.getBuffer(new Runnable() {
             @Override
             public void run() {
                 Log.d(TAG,"Received full buffer in trendview!");
+                if(!mPlaying) {
+                    Log.e(TAG,"Received multiple buffers for one request... ignoring");
+                    return;
+                }
+                mPlaying = false;
                 mProgressSpinner.setVisibility(View.INVISIBLE);
                 final SecondScale ss = mGraph.getSecondScale();
                 dataSeries[0] = new LineGraphSeries();

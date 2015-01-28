@@ -200,12 +200,9 @@ public class BLEUtil {
             UUID uuid      = UUID.fromString(uuidStr);
 
             if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                Log.d(TAG, "onServiceDiscovery");
             } else if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
-                Log.d(TAG, "onCharacteristicRead");
                 finishRunningBlock(uuid, status, value);
             } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
-                Log.d(TAG, "onCharacteristicNotify");
                 if(mNotifyCB.containsKey(uuid)) {
                     BLEUtilCB cb = mNotifyCB.get(uuid);
                     cb.uuid  = uuid;
@@ -214,13 +211,13 @@ public class BLEUtil {
                     cb.run();
                 }
             } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
-                Log.d(TAG, "onCharacteristicWrite");
                 finishRunningBlock(uuid, status, value);
             } else if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
-                Log.d(TAG, "onDescriptorWrite");
                 finishRunningBlock(uuid, status, value);
             }
             if (status != BluetoothGatt.GATT_SUCCESS) {
+                // GATT Error 133 seems to be coming up from time to time.  I don't think we're doing anything wrong,
+                // just instability in the Android stack...
                 Log.e(TAG, "GATT error code: " + status);
             }
         }

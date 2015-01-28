@@ -944,6 +944,6 @@ public class DeviceActivity extends FragmentActivity {
         } else {
             for(int i=0; i<mMeter.offsets.length; i++) {mMeter.offsets[i]=0;}
         }
+        refreshAllControls();
     }
-
 }

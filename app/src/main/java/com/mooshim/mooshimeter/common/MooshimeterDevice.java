@@ -101,7 +101,8 @@ public class MooshimeterDevice {
                 @Override
                 public void run() {
                     if(error != BluetoothGatt.GATT_SUCCESS) {
-                        Log.e(TAG,"Read error code %d");
+                        final String s = String.format("Read has error code %d",error);
+                        Log.e(TAG,s);
                     } else {
                         unpack(value);
                     }
@@ -117,7 +118,8 @@ public class MooshimeterDevice {
                 public void run() {
                     if(cb != null) {
                         if(error != BluetoothGatt.GATT_SUCCESS) {
-                            Log.e(TAG,"Read error code %d");
+                            final String s = String.format("Write has error code %d",error);
+                            Log.e(TAG,s);
                         }
                         cb.run();
                     }
@@ -136,7 +138,8 @@ public class MooshimeterDevice {
                 @Override
                 public void run() {
                     if(error != BluetoothGatt.GATT_SUCCESS) {
-                        Log.e(TAG,"Read error code %d");
+                        final String s = String.format("Notification has error code %d",error);
+                        Log.e(TAG,s);
                     } else {
                         unpack(value);
                     }
@@ -339,23 +342,25 @@ public class MooshimeterDevice {
         public void unpack(byte[] arg) {
             // Nasty synchonization hack
             meter_ch2_buf.buf_i = 0;
+            final int nBytes = getBufLen()*3;
             for(byte b : arg) {
+                if(buf_i >= nBytes) {
+                    Log.e(TAG,"CH1 OVERFLOW");
+                    break;
+                }
                 buf[buf_i++] = b;
             }
-            final int nBytes = getBufLen()*3;
             if(buf_i >= nBytes) {
                 // Sample buffer is full
                 Log.d(TAG,"CH1 full");
                 if(buf_i > nBytes) {
-                    Log.e(TAG,"CH1 OVERFLOW");
+                    return;
                 }
 
                 ByteBuffer bb = ByteBuffer.wrap(buf);
                 for(int i = 0; i < getBufLen(); i++) {
                     floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),0);
                 }
-
-                buf_i = 0;
             }
         }
     }
@@ -375,23 +380,28 @@ public class MooshimeterDevice {
         }
         @Override
         public void unpack(byte[] arg) {
+            // Nasty synchonization hack
             meter_ch1_buf.buf_i = 0;
+            final int nBytes = getBufLen()*3;
             for(byte b : arg) {
+                if(buf_i >= nBytes) {
+                    Log.e(TAG,"CH2 OVERFLOW");
+                    break;
+                }
                 buf[buf_i++] = b;
             }
-            final int nBytes = getBufLen()*3;
             if(buf_i >= nBytes) {
                 // Sample buffer is full
                 Log.d(TAG,"CH2 full");
                 if(buf_i > nBytes) {
-                    Log.e(TAG,"CH2 OVERFLOW");
+                    return;
                 }
+
                 ByteBuffer bb = ByteBuffer.wrap(buf);
                 for(int i = 0; i < getBufLen(); i++) {
-                    floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),0);
+                    floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),1);
                 }
-                buf_i = 0;
-                if(buf_full_cb != null) {
+                if(buf_full_cb!=null){
                     buf_full_cb.run();
                 }
             }
@@ -494,6 +504,8 @@ public class MooshimeterDevice {
                                     public void run() {
                                         meter_ch2_buf.buf_full_cb = onReceived;
                                         meter_settings.target_meter_state = METER_RUNNING;
+                                        meter_ch1_buf.buf_i = 0;
+                                        meter_ch2_buf.buf_i = 0;
                                         meter_settings.send(null);
                                     }
                                 },null);
