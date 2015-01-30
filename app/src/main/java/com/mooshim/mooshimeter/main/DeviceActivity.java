@@ -624,6 +624,13 @@ public class DeviceActivity extends FragmentActivity {
     // Button Click Handlers
     ////////////////////////
 
+    private void clearOffsets() {
+        // If we are switching through a mode change that involves toggling the iSRC
+        // we must invalidate the offsets
+        for(int i = 0; i < 3; i++) {mMeter.offsets[i]=0;};
+        mMeter.offset_on = false;
+    }
+
     private void cycleCH3Mode() {
         // Java enums don't have integer values associated with them
         // so I must explicitly build this state machine
@@ -631,12 +638,14 @@ public class DeviceActivity extends FragmentActivity {
         switch(mMeter.disp_ch3_mode) {
             case VOLTAGE:
                 mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.RESISTANCE;
+                clearOffsets();
                 break;
             case RESISTANCE:
                 mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.DIODE;
                 break;
             case DIODE:
                 mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.VOLTAGE;
+                clearOffsets();
                 break;
         }
     }
@@ -916,12 +925,30 @@ public class DeviceActivity extends FragmentActivity {
             });
         }
     }
-    
+
+    private void auxZero(int c) {
+        final int lsb = mMeter.meter_sample.reading_lsb[c];
+        if( 0 != (mMeter.meter_settings.measure_settings & MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON) ) {
+            final double isrc_current = mMeter.getIsrcCurrent();
+            // Save aux offset as a resistance
+            mMeter.offsets[2] = mMeter.lsbToNativeUnits(lsb, c);
+            if( mMeter.disp_ch3_mode != MooshimeterDevice.CH3_MODES.RESISTANCE ) {
+                mMeter.offsets[2] /= isrc_current;
+            }
+        } else {
+            // Current source is off, save as a simple voltage offset
+            mMeter.offsets[2] = lsb;
+        }
+    }
+
     public void onZeroClick(View v) {
         Log.i(TAG,"onZeroClick");
         // TODO: Update firmware to allow saving of user offsets to flash
         // FIXME: Annoying special case: Channel 1 offset in current mode is stored as offset at the ADC
         // because current sense amp drift dominates the offset.  Hardware fix this in Rev2.
+        // FIXME: Annoyance number 2: When the ISRC is on, offset in the leads dominates
+        // When iSRC is off, offset in the ADC dominates
+
         // Toggle
         mMeter.offset_on ^= true;
         if(mMeter.offset_on) {
@@ -931,7 +958,7 @@ public class DeviceActivity extends FragmentActivity {
                     mMeter.offsets[0] = mMeter.lsbToADCInVoltage(mMeter.meter_sample.reading_lsb[0],0);
                     break;
                 case 0x09:
-                    mMeter.offsets[2] = mMeter.meter_sample.reading_lsb[0];
+                    auxZero(0);
             }
             channel_setting = (byte) (mMeter.meter_settings.chset[1] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
             switch(channel_setting) {
@@ -939,7 +966,7 @@ public class DeviceActivity extends FragmentActivity {
                     mMeter.offsets[1] = mMeter.meter_sample.reading_lsb[1];
                     break;
                 case 0x09:
-                    mMeter.offsets[2] = mMeter.meter_sample.reading_lsb[1];
+                    auxZero(1);
             }
         } else {
             for(int i=0; i<mMeter.offsets.length; i++) {mMeter.offsets[i]=0;}

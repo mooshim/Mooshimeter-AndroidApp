@@ -863,8 +863,20 @@ public class MooshimeterDevice {
         return 25.0 + adc_voltage;
     }
 
+    public double getIsrcCurrent() {
+        if( 0 == (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_ON) ) {
+            return 0;
+        }
+        if( 0 != (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL) ) {
+            return 100e-6;
+        } else {
+            return 100e-9;
+        }
+    }
+
     public double lsbToNativeUnits(int lsb, final int ch) {
         double adc_volts = 0;
+        final double ptc_resistance = 7.9;
         final byte channel_setting = (byte) (meter_settings.chset[ch] & METER_CH_SETTINGS_INPUT_MASK);
         if(disp_hex[ch]) {
             return lsb;
@@ -874,11 +886,12 @@ public class MooshimeterDevice {
                 // Regular electrode input
                 switch(ch) {
                     case 0:
-                        // FIXME: CH1 offset is treated as an extrinsic offset because it's dominated by drift in the isns amp
+                        // CH1 offset is treated as an extrinsic offset because it's dominated by drift in the isns amp
                         adc_volts = lsbToADCInVoltage(lsb,ch);
                         adc_volts -= offsets[0];
                         return adcVoltageToCurrent(adc_volts);
                     case 1:
+                        // CH2 offset is treaded as an intrinsic offset because it's dominated by offset in the ADC itself
                         lsb -= offsets[1];
                         adc_volts = lsbToADCInVoltage(lsb,ch);
                         return adcVoltageToHV(adc_volts);
@@ -890,19 +903,22 @@ public class MooshimeterDevice {
                 adc_volts = lsbToADCInVoltage(lsb,ch);
                 return adcVoltageToTemp(adc_volts);
             case 0x09:
-                // Apply offset
-                lsb -= offsets[2];
-                adc_volts = lsbToADCInVoltage(lsb,ch);
+                // CH3 is complicated.  When measuring aux voltage, offset is dominated by intrinsic offsets in the ADC
+                // When measuring resistance, offset is a resistance and must be treated as such
+                final double isrc_current = getIsrcCurrent();
+                if( isrc_current != 0 ) {
+                    // Current source is on, apply compensation for PTC drop
+                    adc_volts = lsbToADCInVoltage(lsb,ch);
+                    adc_volts -= ptc_resistance*isrc_current;
+                    adc_volts -= offsets[2]*isrc_current;
+                } else {
+                    // Current source is off, offset is intrinsic
+                    lsb -= offsets[2];
+                    adc_volts = lsbToADCInVoltage(lsb,ch);
+                }
                 if( disp_ch3_mode == CH3_MODES.RESISTANCE ) {
                     // Convert to Ohms
-                    double retval = adc_volts;
-                    if( 0 != (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL) ) {
-                        retval /= 100e-6;
-                    } else {
-                        retval /= 100e-9;
-                    }
-                    retval -= 7.9; // Compensate for the PTC
-                    return retval;
+                    return adc_volts/isrc_current;
                 } else {
                     return adc_volts;
                 }
