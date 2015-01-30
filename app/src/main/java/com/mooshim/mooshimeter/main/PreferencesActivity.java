@@ -78,7 +78,12 @@ public class PreferencesActivity extends FragmentActivity {
       mMeter = MooshimeterDevice.getInstance();
       setContentView(R.layout.meter_preference_view);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
-      name_editor.setText(mMeter.meter_name.name);
+      name_editor.setText("Mooshimeter V.1");
+      if(mMeter.meter_name.name != null) {
+          name_editor.setText(mMeter.meter_name.name);
+      } else {
+          name_editor.setText("Mooshimeter V.1");
+      }
       name_editor.setOnKeyListener(new View.OnKeyListener() {
           public boolean onKey(View v, int keyCode, KeyEvent event) {
               if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
