@@ -320,8 +320,8 @@ public class MooshimeterDevice {
             return name.getBytes();
         }
         @Override
-        public void unpack(byte[] in) {
-            name = in.toString();
+        public void unpack(final byte[] in) {
+            name = new String(in);
         }
     }
     // FIXME: The channel buffer system uses a lot of repeated code.  Really should be merged on the firmware side.
@@ -444,6 +444,7 @@ public class MooshimeterDevice {
         // Initialize internal structures
         mBLEUtil = BLEUtil.getInstance(context);
         mContext = context;
+        meter_name          = new MeterName();
         meter_settings      = new MeterSettings();
         meter_log_settings  = new MeterLogSettings();
         meter_info          = new MeterInfo();
@@ -461,9 +462,7 @@ public class MooshimeterDevice {
                         meter_info.update(new Runnable() {
                             @Override
                             public void run() {
-                                on_init.run();
-                                // FIXME: This name grab causes a crash.  Strongly suspect it's in the packing and unpacking.
-                                //meter_name.update(on_init);
+                                meter_name.update(on_init);
                                 Log.i(TAG, "Meter initialization complete");
                             }
                         });

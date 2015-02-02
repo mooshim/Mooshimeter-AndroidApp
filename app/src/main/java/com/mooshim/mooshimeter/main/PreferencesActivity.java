@@ -78,7 +78,6 @@ public class PreferencesActivity extends FragmentActivity {
       mMeter = MooshimeterDevice.getInstance();
       setContentView(R.layout.meter_preference_view);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
-      name_editor.setText("Mooshimeter V.1");
       if(mMeter.meter_name.name != null) {
           name_editor.setText(mMeter.meter_name.name);
       } else {
