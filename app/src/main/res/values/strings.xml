@@ -42,29 +42,6 @@
     <string name="dev_addr">Device address</string>
     <string name="image">Image</string>
 
-    <!-- Sensor names -->
-    <string name="keys">Keys</string>
-    <string name="acc">Accelerometer</string>
-    <string name="mag">Magnetometer</string>
-    <string name="lux">Luxometer</string>
-    <string name="gyro">Gyroscope</string>
-    <string name="hum">Humidity</string>
-    <string name="bar">Barometer</string>
-    <string name="tAmb">Ambience Temperature</string>
-    <string name="tObj">Object Temperature</string>
-
-    <!-- Sensor misc. -->
-    <string name="xyz3">x:\ny:\nz:\n</string>
-    <string name="empty3">*\n*\n*\n</string>
-    <string name="unitDegSec3">deg/s\ndeg/s\ndeg/s\n</string>
-    <string name="unitG3">g\ng\ng\n</string>
-    <string name="unitT3">uT\nuT\nuT\n</string>
-    <string name="empty1">*\n</string>
-    <string name="unitDeg">deg/C\n</string>
-    <string name="unitRH">%rH\n</string>
-    <string name="unitPA_Meter">nPA\nmeter</string>
-    <string name="unitLux">Lux\n</string>
-
     <!-- FWUpdate activity -->
     <string name="title_oad">Firmware Update (OAD)</string>
     <string name="start_prog">Start Programming</string>

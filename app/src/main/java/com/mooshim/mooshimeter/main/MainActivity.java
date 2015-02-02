@@ -96,8 +96,6 @@ public class MainActivity extends ViewPagerActivity {
 	// URLs
 	private static final Uri URL_FORUM = Uri
 	    .parse("http://e2e.ti.com/support/low_power_rf/default.aspx?DCMP=hpa_hpa_community&HQS=NotApplicable+OT+lprf-forum");
-	private static final Uri URL_STHOME = Uri
-	    .parse("http://www.ti.com/ww/en/wireless_connectivity/sensortag/index.shtml?INTC=SensorTagGatt&HQS=sensortag");
 
 	// Requests to other activities
 	private static final int REQ_ENABLE_BT = 0;

@@ -9,13 +9,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.main.SensorTagGatt;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.UUID;
 
 /**

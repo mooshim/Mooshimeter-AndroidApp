@@ -94,7 +94,6 @@ public class DeviceActivity extends FragmentActivity {
 	private boolean mServicesRdy = false;
     private MooshimeterDevice mMeter = null;
 
-	// SensorTagGatt
 	private BluetoothGattService mOadService = null;
 	private BluetoothGattService mConnControlService = null;
 
