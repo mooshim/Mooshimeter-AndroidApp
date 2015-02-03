@@ -59,5 +59,6 @@
     <string name="title_activity_trend">TrendActivity</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="crash_toast_text">Oh no! Something went wrong, a crash report has been submitted.</string>
 
 </resources>
