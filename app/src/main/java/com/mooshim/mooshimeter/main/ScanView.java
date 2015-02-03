@@ -215,7 +215,12 @@ public class ScanView extends Fragment {
   private CustomTimerCallback mPgConnectCallback = new CustomTimerCallback() {
     public void onTimeout() {
       mActivity.onConnectTimeout();
-      mBtnScan.setEnabled(true);
+      getActivity().runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+              mBtnScan.setEnabled(true);
+          }
+      });
     }
 
     public void onTick(int i) {
