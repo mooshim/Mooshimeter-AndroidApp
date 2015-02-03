@@ -1,8 +1,13 @@
 package com.mooshim.mooshimeter.common;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -19,9 +24,14 @@ import java.util.UUID;
  * Anything more than that and everything gets buggy.
  */
 public class BLEUtil {
+    public final static String EXTRA_STATUS                     = "com.mooshim.mooshimeter.EXTRA_STATUS";
+    public final static String EXTRA_ADDRESS                    = "com.mooshim.mooshimeter.EXTRA_ADDRESS";
+    public final static String ACTION_GATT_DISCONNECTED         = "com.mooshim.mooshimeter.ACTION_GATT_DISCONNECTED";
     private static final String TAG="BLEUtil";
-    private Context mContext;
-    private BluetoothLeService bt_service;
+
+    private Context              mContext;
+    private BluetoothAdapter     mBtAdapter;
+    private BluetoothGatt        mBluetoothGatt;
     private BluetoothGattService bt_gatt_service;
 
     private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
@@ -61,7 +71,7 @@ public class BLEUtil {
     public static void Destroy() {
         // Clear the global instance
         if(mInstance != null) {
-            mInstance.mContext.unregisterReceiver(mInstance.mGattUpdateReceiver);
+            mInstance.disconnect();
             mInstance.close();
             mInstance = null;
         }
@@ -69,38 +79,13 @@ public class BLEUtil {
 
     protected BLEUtil(Context context) {
         // Initialize internal structures
-        mContext = context;
-        bt_service = BluetoothLeService.getInstance();
-        if(bt_service != null) {
-            // Get the GATT service
-            bt_gatt_service = null;
-            for( BluetoothGattService s : bt_service.getSupportedGattServices() ) {
-                // FIXME: Should be able to specify the service to attach to instead of hardcode
-                if(s.getUuid().equals(MooshimeterDevice.mUUID.METER_SERVICE)) {
-                    Log.i(TAG, "Found the meter service");
-                    bt_gatt_service = s;
-                    break;
-                }
-            }
-            if(bt_gatt_service == null) {
-                Log.e(TAG, "Did not find the meter service!");
-            }
-        }
-        // FIXME:  I am unhappy with the way this class and DeviceActivity are structured
-        // There are a lot of interdependencies that make them complicated to work with.
-        // But I don't want to change too many things at once.
-        final IntentFilter fi = new IntentFilter();
-        fi.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
-        fi.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
-        fi.addAction(BluetoothLeService.ACTION_DATA_WRITE);
-        fi.addAction(BluetoothLeService.ACTION_DESCRIPTOR_WRITE);
-        fi.addAction(BluetoothLeService.ACTION_DATA_READ);
-        context.registerReceiver(mGattUpdateReceiver, fi);
+        mBtAdapter = BluetoothAdapter.getDefaultAdapter();
         mContext = context;
     }
 
     public void close() {
         mExecuteQueue.clear();
+        mNotifyCB.clear();
         mRunning = null;
     }
 
@@ -136,12 +121,28 @@ public class BLEUtil {
         serviceExecuteQueue(null);
     }
 
+    public void connect(final String address, final BLEUtilCB cb) {
+        BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
+            @Override
+            public void run() {
+                final BluetoothDevice device = mBtAdapter.getRemoteDevice(address);
+                mBluetoothGatt = device.connectGatt(mContext,false,mGattCallbacks);
+            }
+        }, cb);
+        serviceExecuteQueue(r);
+    }
+
+    public void disconnect() {
+        mBluetoothGatt.disconnect();
+        bt_gatt_service = null;
+    }
+
     public void req(UUID uuid, BLEUtilCB on_complete) {
         final BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
         BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
             @Override
             public void run() {
-                bt_service.readCharacteristic(c);
+                mBluetoothGatt.readCharacteristic(c);
             }
         }, on_complete);
         serviceExecuteQueue(r);
@@ -152,11 +153,19 @@ public class BLEUtil {
             @Override
             public void run() {
                 c.setValue(value);
-                bt_service.writeCharacteristic(c);
+                mBluetoothGatt.writeCharacteristic(c);
             }
         }, on_complete);
         serviceExecuteQueue(r);
     }
+
+    public boolean isNotificationEnabled(BluetoothGattCharacteristic c) {
+        final BluetoothGattDescriptor d = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
+        final byte[] dval = d.getValue();
+        final boolean retval =  (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        return retval;
+    }
+
     public void enableNotify(final UUID uuid, final boolean enable, final BLEUtilCB on_complete, final BLEUtilCB on_notify) {
         final BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
         // Set up the notify callback
@@ -165,12 +174,22 @@ public class BLEUtil {
         } else {
             mNotifyCB.remove(uuid);
         }
-        if(bt_service.isNotificationEnabled(c) != enable) {
+        if(isNotificationEnabled(c) != enable) {
             // Only bother setting the notification if the status has changed
             BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
                 @Override
                 public void run() {
-                    bt_service.setCharacteristicNotification(c,enable);
+                    if (mBluetoothGatt.setCharacteristicNotification(c, enable)) {
+                        final BluetoothGattDescriptor clientConfig = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
+                        final byte[] enable_val;
+                        if(enable) {
+                            enable_val = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
+                        } else {
+                            enable_val = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                        }
+                        clientConfig.setValue(enable_val);
+                        mBluetoothGatt.writeDescriptor(clientConfig);
+                    }
                 }
             }, on_complete);
             serviceExecuteQueue(r);
@@ -184,37 +203,102 @@ public class BLEUtil {
     // GATT Callbacks
     ////////////////////////////////
 
-    private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
+    private static void printGattError(int s) {
+        if (s != BluetoothGatt.GATT_SUCCESS) {
+            // GATT Error 133 seems to be coming up from time to time.  I don't think we're doing anything wrong,
+            // just instability in the Android stack...
+            Log.e(TAG, "GATT error code: " + s);
+        }
+    }
+
+    private void broadcastUpdate(final String action, final String address,
+                                 final int status) {
+        final Intent intent = new Intent(action);
+        intent.putExtra(EXTRA_ADDRESS, address);
+        intent.putExtra(EXTRA_STATUS, status);
+        mContext.sendBroadcast(intent);
+    }
+
+    private BluetoothGattCallback mGattCallbacks = new BluetoothGattCallback() {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            int status          = intent.getIntExtra(      BluetoothLeService.EXTRA_STATUS, BluetoothGatt.GATT_SUCCESS);
-            String uuidStr      = intent.getStringExtra(   BluetoothLeService.EXTRA_UUID);
-            byte[] value        = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA);
+        public void onConnectionStateChange(BluetoothGatt gatt, int status,
+                                            int newState) {
+            if (mBluetoothGatt == null) {
+                // Log.e(TAG, "mBluetoothGatt not created!");
+                return;
+            }
 
-            UUID uuid      = UUID.fromString(uuidStr);
+            BluetoothDevice device = gatt.getDevice();
 
-            if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-            } else if ( BluetoothLeService.ACTION_DATA_READ.equals(action) ) {
-                finishRunningBlock(uuid, status, value);
-            } else if ( BluetoothLeService.ACTION_DATA_NOTIFY.equals(action) ) {
-                if(mNotifyCB.containsKey(uuid)) {
-                    BLEUtilCB cb = mNotifyCB.get(uuid);
-                    cb.uuid  = uuid;
-                    cb.error = status;
-                    cb.value = value;
-                    cb.run();
+            try {
+                switch (newState) {
+                    case BluetoothProfile.STATE_CONNECTED:
+                        mBluetoothGatt.discoverServices();
+                        break;
+                    case BluetoothProfile.STATE_DISCONNECTED:
+                        String address = device.getAddress();
+                        broadcastUpdate(ACTION_GATT_DISCONNECTED, address, status);
+                        break;
+                    default:
+                        Log.e(TAG, "New state not processed: " + newState);
+                        break;
                 }
-            } else if (BluetoothLeService.ACTION_DATA_WRITE.equals(action)) {
-                finishRunningBlock(uuid, status, value);
-            } else if (BluetoothLeService.ACTION_DESCRIPTOR_WRITE.equals(action)) {
-                finishRunningBlock(uuid, status, value);
+            } catch (NullPointerException e) {
+                e.printStackTrace();
             }
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                // GATT Error 133 seems to be coming up from time to time.  I don't think we're doing anything wrong,
-                // just instability in the Android stack...
-                Log.e(TAG, "GATT error code: " + status);
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
+                // FIXME: Should be able to specify the service to attach to instead of hardcode
+                if(s.getUuid().equals(MooshimeterDevice.mUUID.METER_SERVICE)) {
+                    Log.i(TAG, "Found the meter service");
+                    bt_gatt_service = s;
+                    break;
+                }
             }
+            if(bt_gatt_service == null) {
+                Log.e(TAG, "Did not find the meter service!");
+            }
+            finishRunningBlock(bt_gatt_service.getUuid(), status, null);
+            printGattError(status);
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                                            BluetoothGattCharacteristic c) {
+            if(mNotifyCB.containsKey(c.getUuid())) {
+                BLEUtilCB cb = mNotifyCB.get(c.getUuid());
+                cb.uuid  = c.getUuid();
+                cb.error = 0; // fixme
+                cb.value = c.getValue();
+                cb.run();
+            }
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic c, int s) {
+            finishRunningBlock(c.getUuid(), s, c.getValue());
+            printGattError(s);
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic c, int s) {
+            finishRunningBlock(c.getUuid(), s, c.getValue());
+            printGattError(s);
+        }
+
+        @Override
+        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor c, int s) {
+            finishRunningBlock(c.getUuid(), s, c.getValue());
+            printGattError(s);
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor c, int s) {
+            finishRunningBlock(c.getUuid(), s, c.getValue());
+            printGattError(s);
         }
     };
 }

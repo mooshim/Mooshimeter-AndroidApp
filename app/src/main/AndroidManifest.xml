@@ -22,9 +22,6 @@
         android:icon="@drawable/mstar"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Holo.Light" >
-        <service
-            android:name=".common.BluetoothLeService"
-            android:enabled="true" />
 
         <activity
             android:name=".main.MainActivity"

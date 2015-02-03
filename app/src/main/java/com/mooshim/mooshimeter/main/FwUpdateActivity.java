@@ -83,7 +83,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.BluetoothLeService;
 import com.mooshim.mooshimeter.util.Conversion;
 
 public class FwUpdateActivity extends Activity {
@@ -132,7 +131,6 @@ public class FwUpdateActivity extends Activity {
   private BluetoothGattCharacteristic mCharBlock = null;
   private BluetoothGattCharacteristic mCharConnReq = null;
   private DeviceActivity mDeviceActivity = null;
-  private BluetoothLeService mLeService;
 
   // Programming
   private final byte[] mFileBuffer = new byte[FILE_BUFFER_SIZE];
@@ -153,7 +151,7 @@ public class FwUpdateActivity extends Activity {
     //mDeviceActivity = DeviceActivity.getInstance();
 
     // BLE Gatt Service
-    mLeService = BluetoothLeService.getInstance();
+    //mLeService = BluetoothLeService.getInstance();
 
     // Service information
     mOadService = mDeviceActivity.getOadService();
@@ -263,7 +261,7 @@ public class FwUpdateActivity extends Activity {
   private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
 		@Override
 		public void onReceive(Context context, Intent intent) {
-
+/*
 			final String action = intent.getAction();
 
 	    if (BluetoothLeService.ACTION_DATA_NOTIFY.equals(action)) {
@@ -283,15 +281,15 @@ public class FwUpdateActivity extends Activity {
 				if (status != BluetoothGatt.GATT_SUCCESS) {
 					Toast.makeText(context, "GATT error: status=" + status, Toast.LENGTH_SHORT).show();
 				}
-			}
+			}*/
 		}
 	};
 
 
   private void initIntentFilter() {
   	mIntentFilter = new IntentFilter();
-  	mIntentFilter.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
-  	mIntentFilter.addAction(BluetoothLeService.ACTION_DATA_WRITE);
+  	//mIntentFilter.addAction(BluetoothLeService.ACTION_DATA_NOTIFY);
+  	//mIntentFilter.addAction(BluetoothLeService.ACTION_DATA_WRITE);
   }
 
   public void onStart(View v) {
@@ -328,7 +326,7 @@ public class FwUpdateActivity extends Activity {
 
     // Send image notification
     mCharIdentify.setValue(buf);
-    mLeService.writeCharacteristic(mCharIdentify);
+    //mLeService.writeCharacteristic(mCharIdentify);
 
     // Initialize stats
     mProgInfo.reset();
@@ -469,25 +467,28 @@ public class FwUpdateActivity extends Activity {
   }
 
   private boolean writeCharacteristic(BluetoothGattCharacteristic c, byte v) {
-    boolean ok = mLeService.writeCharacteristic(c, v);
+    /*boolean ok = mLeService.writeCharacteristic(c, v);
     if (ok)
       ok = mLeService.waitIdle(GATT_WRITE_TIMEOUT);
-    return ok;
+    return ok;*/
+    return true;
   }
 
   private boolean enableNotification(BluetoothGattCharacteristic c, boolean enable) {
-    boolean ok = mLeService.setCharacteristicNotification(c, enable);
+    /*boolean ok = mLeService.setCharacteristicNotification(c, enable);
     if (ok)
       ok = mLeService.waitIdle(GATT_WRITE_TIMEOUT);
-    return ok;
+    return ok;*/
+    return true;
   }
 
   private void setConnectionParameters() {
-    // Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
+    /*// Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
     byte[] value = { Conversion.loUint16(OAD_CONN_INTERVAL), Conversion.hiUint16(OAD_CONN_INTERVAL), Conversion.loUint16(OAD_CONN_INTERVAL),
         Conversion.hiUint16(OAD_CONN_INTERVAL), 0, 0, Conversion.loUint16(OAD_SUPERVISION_TIMEOUT), Conversion.hiUint16(OAD_SUPERVISION_TIMEOUT) };
     mCharConnReq.setValue(value);
     mLeService.writeCharacteristic(mCharConnReq);
+    */
   }
 
 
@@ -522,18 +523,19 @@ public class FwUpdateActivity extends Activity {
 
       // Send block
       mCharBlock.setValue(mOadBuffer);
-      boolean success = mLeService.writeCharacteristic(mCharBlock);
+      //boolean success = mLeService.writeCharacteristic(mCharBlock);
+        boolean success = false;
 
       if (success) {
         // Update stats
         mProgInfo.iBlocks++;
         mProgInfo.iBytes += OAD_BLOCK_SIZE;
         mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
-        if (!mLeService.waitIdle(GATT_WRITE_TIMEOUT)) {
+        /*if (!mLeService.waitIdle(GATT_WRITE_TIMEOUT)) {
         	mProgramming = false;
         	success = false;
         	msg = "GATT write timeout\n";
-        }
+        }*/
       } else {
          mProgramming = false;
       	 msg = "GATT writeCharacteristic failed\n";

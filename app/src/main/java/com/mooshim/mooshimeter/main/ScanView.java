@@ -91,7 +91,6 @@ public class ScanView extends Fragment {
 
   private CustomTimer mScanTimer = null;
   private CustomTimer mConnectTimer = null;
-  @SuppressWarnings("unused")
   private CustomTimer mStatusTimer;
   private Context mContext;
   
@@ -129,11 +128,6 @@ public class ScanView extends Fragment {
   void setStatus(String txt) {
     mStatus.setText(txt);
     mStatus.setTextAppearance(mContext, R.style.statusStyle_Success);
-  }
-
-  void setStatus(String txt, int duration) {
-    setStatus(txt);
-    mStatusTimer = new CustomTimer(null, duration, mClearStatusCallback);
   }
 
   void setError(String txt) {

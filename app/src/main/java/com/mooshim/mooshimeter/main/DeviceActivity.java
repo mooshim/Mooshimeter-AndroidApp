@@ -89,7 +89,6 @@ public class DeviceActivity extends FragmentActivity {
     private static final int TREND_ACT_REQ = 2;
 
 	// BLE
-	private BluetoothLeService mBtLeService = null;
 	private List<BluetoothGattService> mServiceList = null;
 	private boolean mServicesRdy = false;
     private MooshimeterDevice mMeter = null;
@@ -120,10 +119,8 @@ public class DeviceActivity extends FragmentActivity {
 	public void onCreate(Bundle savedInstanceState) {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
-		Intent intent = getIntent();
 
 		// BLE
-		mBtLeService = BluetoothLeService.getInstance();
 		mServiceList = new ArrayList<BluetoothGattService>();
 
         // GUI
@@ -157,16 +154,15 @@ public class DeviceActivity extends FragmentActivity {
             @Override
             public void onOrientationChanged(int i) {
                 if((i > 80 && i < 100) || (i>260 && i < 280)) {
-                    // FIXME: I know there should be a better way to do this.
-                    Log.i(TAG,"LANDSCAPE!");
                     if(!trend_view_running) {
+                        Log.i(TAG, "LANDSCAPE!");
                         trend_view_running = true;
+                        orientation_listener.disable();
                         mMeter.pauseStream(new Runnable() {
                             @Override
                             public void run() {
                                 Log.d(TAG,"Paused");
-                                mMeter.close();
-                                orientation_listener.disable();
+                                //mMeter.close();
                                 startTrendActivity();
                             }
                         });
@@ -181,6 +177,7 @@ public class DeviceActivity extends FragmentActivity {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
+        orientation_listener.disable();
 		finishActivity(PREF_ACT_REQ);
 		finishActivity(FWUPDATE_ACT_REQ);
         // FIXME: This should be destroyed in onActivityResult in MainActivity, but for some reason the right case is not getting called there
@@ -334,22 +331,6 @@ public class DeviceActivity extends FragmentActivity {
 		//mDeviceView.setBusy(b);
 	}
 
-	private void displayServices() {
-		mServicesRdy = true;
-
-		try {
-			mServiceList = mBtLeService.getSupportedGattServices();
-		} catch (Exception e) {
-			e.printStackTrace();
-			mServicesRdy = false;
-		}
-
-		// Characteristics descriptor readout done
-		if (!mServicesRdy) {
-			setError("Failed to read services");
-		}
-	}
-
 	private void setError(String txt) {
 		setBusy(false);
 		Toast.makeText(this, txt, Toast.LENGTH_LONG).show();
@@ -406,19 +387,24 @@ public class DeviceActivity extends FragmentActivity {
     /////////////////////////
 
     private void refreshAllControls() {
-        rate_auto_button_refresh();
-        rate_button_refresh();
-        depth_auto_button_refresh();
-        depth_button_refresh();
-        logging_button_refresh();
-        zero_button_refresh();
-        for(int c = 0; c < 2; c++) {
-            autoRangeButtonRefresh(c);
-            display_set_button_refresh(c);
-            input_set_button_refresh(c);
-            units_button_refresh(c);
-            range_button_refresh(c);
-        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                rate_auto_button_refresh();
+                rate_button_refresh();
+                depth_auto_button_refresh();
+                depth_button_refresh();
+                logging_button_refresh();
+                zero_button_refresh();
+                for(int c = 0; c < 2; c++) {
+                    autoRangeButtonRefresh(c);
+                    display_set_button_refresh(c);
+                    input_set_button_refresh(c);
+                    units_button_refresh(c);
+                    range_button_refresh(c);
+                }
+            }
+        });
     }
 
     private void rate_auto_button_refresh() {
@@ -598,10 +584,12 @@ public class DeviceActivity extends FragmentActivity {
         if(ac) { lsb_int = (int)(Math.sqrt(mMeter.meter_sample.reading_ms[c])); }
         else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
 
+        final String label_text;
+
         if( mMeter.disp_hex[c]) {
             lsb_int &= 0x00FFFFFF;
-            String s = String.format("0x%06X", lsb_int);
-            v.setText(s);
+            label_text = String.format("0x%06X", lsb_int);
+
         } else {
             // If at the edge of your range, say overload
             // Remember the bounds are asymmetrical
@@ -610,13 +598,19 @@ public class DeviceActivity extends FragmentActivity {
 
             if(   lsb_int > upper_limit_lsb
                     || lsb_int < lower_limit_lsb ) {
-                v.setText("OVERLOAD");
+                label_text = "OVERLOAD";
             } else {
                 // TODO: implement these methods and revive this segment of code
                 val = mMeter.lsbToNativeUnits(lsb_int, c);
-                v.setText(formatReading(val, mMeter.getSigDigits(c)));
+                label_text = formatReading(val, mMeter.getSigDigits(c));
             }
         }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                v.setText(label_text);
+            }
+        });
     }
 
     /////////////////////////

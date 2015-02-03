@@ -66,17 +66,14 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Menu;
@@ -87,9 +84,8 @@ import android.view.Window;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.BLEUtil;
 import com.mooshim.mooshimeter.common.BleDeviceInfo;
-import com.mooshim.mooshimeter.common.BluetoothLeService;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.util.CustomToast;
 
 public class MainActivity extends ViewPagerActivity {
@@ -117,7 +113,7 @@ public class MainActivity extends ViewPagerActivity {
 	private static BluetoothManager mBluetoothManager;
 	private BluetoothAdapter mBtAdapter = null;
 	private BluetoothDevice mBluetoothDevice = null;
-	private BluetoothLeService mBluetoothLeService = null;
+    private BLEUtil mBleUtil = null;
 	private IntentFilter mFilter;
 
 	// Housekeeping
@@ -151,7 +147,8 @@ public class MainActivity extends ViewPagerActivity {
 		// Initializes a Bluetooth adapter. For API level 18 and above, get a
 		// reference to BluetoothAdapter through BluetoothManager.
 		mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-		mBtAdapter = mBluetoothManager.getAdapter();
+		mBtAdapter = BluetoothAdapter.getDefaultAdapter();
+        mBleUtil = BLEUtil.getInstance(this);
 
 		// Checks if Bluetooth is supported on the device.
 		if (mBtAdapter == null) {
@@ -166,28 +163,15 @@ public class MainActivity extends ViewPagerActivity {
 		// Create the fragments and add them to the view pager and tabs
 		mScanView = new ScanView();
 		mSectionsPagerAdapter.addSection(mScanView, "BLE Device List");
-
-		// Register the BroadcastReceiver
-		mFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-		mFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
-		mFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
-        mFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
 	}
 
 	@Override
 	public void onDestroy() {
 		// Log.e(TAG,"onDestroy");
 		super.onDestroy();
-		if (mBluetoothLeService != null) {
-			if (mScanning)
-				scanLeDevice(false);
-			unregisterReceiver(mReceiver);
-			unbindService(mServiceConnection);
-			mBluetoothLeService.close();
-			mBluetoothLeService = null;
-		}
-		
 		mBtAdapter = null;
+        mBleUtil.close();
+        unregisterReceiver(mReceiver);
 		
 		// Clear cache
 		File cache = getCacheDir();
@@ -242,28 +226,17 @@ public class MainActivity extends ViewPagerActivity {
 		// Initial state of widgets
 		updateGuiState();
 
-		// License popup on first run
-		if (prefs.getBoolean("firstrun", true)) {
-			//onLicense();
-			prefs.edit().putBoolean("firstrun", false).commit();
-		}
-
 		if (!mInitialised) {
 			// Broadcast receiver
+            mFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+            mFilter.addAction(BLEUtil.ACTION_GATT_DISCONNECTED);
 			registerReceiver(mReceiver, mFilter);
 			mBtAdapterEnabled = mBtAdapter.isEnabled();
-			if (mBtAdapterEnabled) {
-				// Start straight away
-				startBluetoothLeService();
-			} else {
-				// Request BT adapter to be turned on
-				Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-				startActivityForResult(enableIntent, REQ_ENABLE_BT);
-			}
 			mInitialised = true;
 		} else {
 			mScanView.notifyDataSetChanged();
 		}
+        startScan();
 	}
 
 	public void onBtnScan(View view) {
@@ -274,20 +247,27 @@ public class MainActivity extends ViewPagerActivity {
 		}
 	}
 
-	void onConnect() {
+	void onDeviceClick() {
 		if (mNumDevs > 0) {
 			int connState = mBluetoothManager.getConnectionState(mBluetoothDevice,
 			    BluetoothGatt.GATT);
 
 			switch (connState) {
 			case BluetoothGatt.STATE_CONNECTED:
-				mBluetoothLeService.disconnect(null);
+				mBleUtil.disconnect();
 				break;
 			case BluetoothGatt.STATE_DISCONNECTED:
-				boolean ok = mBluetoothLeService.connect(mBluetoothDevice.getAddress());
-				if (!ok) {
-					setError("Connect failed");
-				}
+				mBleUtil.connect(mBluetoothDevice.getAddress(), new BLEUtil.BLEUtilCB() {
+                    @Override
+                    public void run() {
+                        if (error == BluetoothGatt.GATT_SUCCESS) {
+                            setBusy(false);
+                            startDeviceActivity();
+                        } else	{
+                            setError("Connect failed. Status: " + error);
+                        }
+                    }
+                });
 				break;
 			default:
 				setError("Device busy (connecting/disconnecting)");
@@ -340,11 +320,11 @@ public class MainActivity extends ViewPagerActivity {
 		if (mConnIndex == NO_DEVICE) {
 			mScanView.setStatus("Connecting");
 			mConnIndex = pos;
-			onConnect();
+			onDeviceClick();
 		} else {
 			mScanView.setStatus("Disconnecting");
 			if (mConnIndex != NO_DEVICE) {
-				mBluetoothLeService.disconnect(mBluetoothDevice.getAddress());
+                mBleUtil.disconnect();
 			}
 		}
 	}
@@ -364,7 +344,7 @@ public class MainActivity extends ViewPagerActivity {
 			}
 		});
 		if (mConnIndex != NO_DEVICE) {
-			mBluetoothLeService.disconnect(mBluetoothDevice.getAddress());
+            mBleUtil.disconnect();
 			mConnIndex = NO_DEVICE;
 		}
 	}
@@ -392,8 +372,13 @@ public class MainActivity extends ViewPagerActivity {
 		}
 	}
 
-	private void setBusy(boolean f) {
-		mScanView.setBusy(f);
+	private void setBusy(final boolean f) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mScanView.setBusy(f);
+            }
+        });
 	}
 
 	void setError(String txt) {
@@ -452,18 +437,6 @@ public class MainActivity extends ViewPagerActivity {
 		return mDeviceInfoList;
 	}
 
-	private void startBluetoothLeService() {
-		boolean f;
-
-		Intent bindIntent = new Intent(this, BluetoothLeService.class);
-		startService(bindIntent);
-		f = bindService(bindIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
-		if (!f) {
-			CustomToast.middleBottom(this, "Bind to BluetoothLeService failed");
-			finish();
-		}
-	}
-
 	// Activity result handling
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
@@ -472,7 +445,7 @@ public class MainActivity extends ViewPagerActivity {
 		case REQ_DEVICE_ACT:
 			// When the device activity has finished: disconnect the device
 			if (mConnIndex != NO_DEVICE) {
-				mBluetoothLeService.disconnect(mBluetoothDevice.getAddress());
+                mBleUtil.disconnect();
 			}
 			break;
 
@@ -497,7 +470,7 @@ public class MainActivity extends ViewPagerActivity {
 
 	// ////////////////////////////////////////////////////////////////////////////////////////////////
 	//
-	// Broadcasted actions from Bluetooth adapter and BluetoothLeService
+	// Broadcasted actions from Bluetooth adapter
 	//
 	private BroadcastReceiver mReceiver = new BroadcastReceiver() {
 		@Override
@@ -509,7 +482,6 @@ public class MainActivity extends ViewPagerActivity {
 				switch (mBtAdapter.getState()) {
 				case BluetoothAdapter.STATE_ON:
 					mConnIndex = NO_DEVICE;
-					startBluetoothLeService();
 					break;
 				case BluetoothAdapter.STATE_OFF:
 					Toast.makeText(context, R.string.app_closing, Toast.LENGTH_LONG)
@@ -517,70 +489,24 @@ public class MainActivity extends ViewPagerActivity {
 					finish();
 					break;
 				default:
-					// Log.w(TAG, "Action STATE CHANGED not processed ");
+                    // Log.w(TAG, "Action STATE CHANGED not processed ");
 					break;
 				}
 				updateGuiState();
-            } else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
-                // We have discovered the services for a connected device
-                // BluetoothLeService automatically does the service discovery process upon
-                // connecting, so we should just wait for it to finish before trying to open a
-                // DeviceActivity
-                int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
-                        BluetoothGatt.GATT_FAILURE);
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    setBusy(false);
-                    startDeviceActivity();
-                } else	{setError("Connect failed. Status: " + status);}
-			} else if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
-				// GATT connect
-				Log.d(null,"Gatt connect");
-			} else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
+            } else if (BLEUtil.ACTION_GATT_DISCONNECTED.equals(action)) {
 				// GATT disconnect
-				int status = intent.getIntExtra(BluetoothLeService.EXTRA_STATUS,
+				int status = intent.getIntExtra(BLEUtil.EXTRA_STATUS,
 				    BluetoothGatt.GATT_FAILURE);
 				stopDeviceActivity();
 				if (status == BluetoothGatt.GATT_SUCCESS) {
 					setBusy(false);
-					mScanView.setStatus(mBluetoothDevice.getName() + " disconnected",
-					    STATUS_DURATION);
+					//mScanView.setStatus(mBluetoothDevice.getName() + " disconnected",
+					//    STATUS_DURATION);
 				} else {
 					setError("Disconnect failed. Status: " + status);
 				}
 				mConnIndex = NO_DEVICE;
-				mBluetoothLeService.close();
 			}
-
-		}
-	};
-
-	// Code to manage Service life cycle.
-	private final ServiceConnection mServiceConnection = new ServiceConnection() {
-
-		public void onServiceConnected(ComponentName componentName, IBinder service) {
-			mBluetoothLeService = ((BluetoothLeService.LocalBinder) service)
-			    .getService();
-			if (!mBluetoothLeService.initialize()) {
-				Toast.makeText(mThis, "Unable to initialize BluetoothLeService", Toast.LENGTH_SHORT).show();
-				finish();
-				return;
-			}
-			final int n = mBluetoothLeService.numConnectedDevices();
-			if (n > 0) {
-				runOnUiThread(new Runnable() {
-					public void run() {
-						mThis.setError("Multiple connections!");
-					}
-				});
-			} else {
-				startScan();
-				Log.i(null, "BluetoothLeService connected");
-			}
-		}
-
-		public void onServiceDisconnected(ComponentName componentName) {
-			mBluetoothLeService = null;
-			Log.i(null, "BluetoothLeService disconnected");
 		}
 	};
 
