@@ -138,6 +138,8 @@ public class TrendActivity extends Activity {
         if(!mPlaying) {
             mMeter = MooshimeterDevice.getInstance();
 
+            // FIXME: mMeter coming up null here sometimes
+
             mGraph.getViewport().setXAxisBoundsManual(true);
             mGraph.getViewport().setYAxisBoundsManual(true);
             mGraph.setExplicitRefreshMode(true);

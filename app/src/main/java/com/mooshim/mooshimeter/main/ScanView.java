@@ -138,6 +138,7 @@ public class ScanView extends Fragment {
   }
 
 	void notifyDataSetChanged() {
+        //FIXME  NULL POINTER HERE
 		List<BleDeviceInfo> deviceList = mActivity.getDeviceInfoList();
 		if (mDeviceAdapter == null) {
 			mDeviceAdapter = new DeviceListAdapter(mActivity,deviceList);
