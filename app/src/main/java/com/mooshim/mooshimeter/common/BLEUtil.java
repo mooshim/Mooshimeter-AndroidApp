@@ -48,7 +48,7 @@ public class BLEUtil {
     private static class BLEUtilRequest {
         public Runnable  payload;
         public BLEUtilCB callback;
-        protected BLEUtilRequest() {};
+        protected BLEUtilRequest() {}
         public BLEUtilRequest(final Runnable p, final BLEUtilCB c) {
             payload  = p;
             callback = c;
@@ -90,11 +90,14 @@ public class BLEUtil {
     }
 
     ////////////////////////////////
-    // Accessors
+    // Service functions for internal queue
     ////////////////////////////////
 
     synchronized private void serviceExecuteQueue(BLEUtilRequest add) {
         if(add != null) {
+            if(mExecuteQueue.size() != 0) {
+                Log.e(TAG, "Adding to BLEUtil queue with an item already in the queue.  This is probably not what you intended to do.");
+            }
             mExecuteQueue.addLast(add);
         }
         if(mRunning == null) {
@@ -120,6 +123,10 @@ public class BLEUtil {
         cb.run();
         serviceExecuteQueue(null);
     }
+
+    ////////////////////////////////
+    // Accessors
+    ////////////////////////////////
 
     public void connect(final String address, final BLEUtilCB cb) {
         BLEUtilRequest r = new BLEUtilRequest(new Runnable() {

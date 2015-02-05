@@ -79,7 +79,7 @@ import com.mooshim.mooshimeter.util.CustomTimerCallback;
 public class ScanView extends Fragment {
   // private static final String TAG = "ScanView";
   private final int SCAN_TIMEOUT = 10; // Seconds
-  private final int CONNECT_TIMEOUT = 20; // Seconds
+  private final int CONNECT_TIMEOUT = 10; // Seconds
   private MainActivity mActivity = null;
 
   private DeviceListAdapter mDeviceAdapter = null;
@@ -91,7 +91,6 @@ public class ScanView extends Fragment {
 
   private CustomTimer mScanTimer = null;
   private CustomTimer mConnectTimer = null;
-  private CustomTimer mStatusTimer;
   private Context mContext;
   
   @Override
@@ -121,7 +120,6 @@ public class ScanView extends Fragment {
 
   @Override
   public void onDestroy() {
-    // Log.i(TAG, "onDestroy");
     super.onDestroy();
   }
 
@@ -131,7 +129,6 @@ public class ScanView extends Fragment {
   }
 
   void setError(String txt) {
-    setBusy(false);
     stopTimers();
     mStatus.setText(txt);
     mStatus.setTextAppearance(mContext, R.style.statusStyle_Failure);
@@ -147,29 +144,15 @@ public class ScanView extends Fragment {
 		mDeviceAdapter.notifyDataSetChanged();
 		if (deviceList.size() > 0) {
 			mEmptyMsg.setVisibility(View.GONE);
+            setStatus(deviceList.size() + " devices");
 		} else {
-			mEmptyMsg.setVisibility(View.VISIBLE);			
+			mEmptyMsg.setVisibility(View.VISIBLE);
 		}
 	}
 
-	void setBusy(boolean f) {
-		if (f != mBusy) {
-			mBusy = f;
-			if (!mBusy) {
-				stopTimers();
-				mBtnScan.setEnabled(true);	// Enable in case of connection timeout
-	      mDeviceAdapter.notifyDataSetChanged(); // Force enabling of all Connect buttons
-			}
-			mActivity.showBusyIndicator(f);
-		}
-	}
-
-  void updateGui(boolean scanning) {
+  void updateScanningButton(boolean scanning) {
     if (mBtnScan == null)
       return; // UI not ready
-    
-    setBusy(scanning);
-
     if (scanning) {
       // Indicate that scanning has started
       mScanTimer = new CustomTimer(null, SCAN_TIMEOUT, mPgScanCallback);
@@ -178,7 +161,6 @@ public class ScanView extends Fragment {
       mStatus.setTextAppearance(mContext, R.style.statusStyle_Busy);
       mStatus.setText("Scanning...");
       mEmptyMsg.setText(R.string.nodevice);
-      mActivity.updateGuiState();
     } else {
       // Indicate that scanning has stopped
       mStatus.setTextAppearance(mContext, R.style.statusStyle_Success);
@@ -193,7 +175,7 @@ public class ScanView extends Fragment {
   // Listener for device list
   private OnItemClickListener mDeviceClickListener = new OnItemClickListener() {
     public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
-    	// Log.d(TAG,"item click");
+      stopTimers();
       mConnectTimer = new CustomTimer(null, CONNECT_TIMEOUT, mPgConnectCallback);
       mBtnScan.setEnabled(false);
       mDeviceAdapter.notifyDataSetChanged(); // Force disabling of all Connect buttons
@@ -201,7 +183,7 @@ public class ScanView extends Fragment {
     }
   };
 
-  // Listener for progress timer expiration
+  // Scan timer callback
   private CustomTimerCallback mPgScanCallback = new CustomTimerCallback() {
     public void onTimeout() {
       mActivity.onScanTimeout();
@@ -212,7 +194,7 @@ public class ScanView extends Fragment {
     }
   };
 
-  // Listener for connect/disconnect expiration
+  // Connection timer callback
   private CustomTimerCallback mPgConnectCallback = new CustomTimerCallback() {
     public void onTimeout() {
       mActivity.onConnectTimeout();
@@ -229,22 +211,7 @@ public class ScanView extends Fragment {
     }
   };
 
-  // Listener for connect/disconnect expiration
-  private CustomTimerCallback mClearStatusCallback = new CustomTimerCallback() {
-    public void onTimeout() {
-      mActivity.runOnUiThread(new Runnable() {
-        public void run() {
-          setStatus("");
-        }
-      });
-      mStatusTimer = null;
-    }
-
-    public void onTick(int i) {
-    }
-  };
-
-  private void stopTimers() {
+  public void stopTimers() {
     if (mScanTimer != null) {
       mScanTimer.stop();
       mScanTimer = null;
@@ -307,5 +274,4 @@ public class ScanView extends Fragment {
       return vg;
     }
   }
-
 }

@@ -55,7 +55,8 @@
         <activity
             android:name=".main.TrendActivity"
             android:label="@string/title_activity_trend"
-            android:parentActivityName=".main.DeviceActivity" >
+            android:parentActivityName=".main.DeviceActivity"
+            android:screenOrientation="landscape" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.mooshim.mooshimeter.main.DeviceActivity" />

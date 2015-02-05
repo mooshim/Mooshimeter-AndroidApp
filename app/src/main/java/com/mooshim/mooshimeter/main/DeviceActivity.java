@@ -83,7 +83,6 @@ import com.mooshim.mooshimeter.common.*;
 public class DeviceActivity extends FragmentActivity {
     private static final String TAG = "DeviceActivity";
 	// Activity
-	public static final String EXTRA_DEVICE = "EXTRA_DEVICE";
 	private static final int PREF_ACT_REQ = 0;
 	private static final int FWUPDATE_ACT_REQ = 1;
     private static final int TREND_ACT_REQ = 2;

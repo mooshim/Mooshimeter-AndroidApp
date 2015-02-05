@@ -98,23 +98,13 @@ public class MainActivity extends ViewPagerActivity {
 	private static final int REQ_DEVICE_ACT = 1;
 
 	// GUI
-	private static MainActivity mThis = null;
 	private ScanView mScanView;
-	private Intent mDeviceIntent;
-	private static final int STATUS_DURATION = 5;
 
 	// BLE management
-	private boolean mBtAdapterEnabled = false;
-	private boolean mBleSupported = true;
-	private boolean mScanning = false;
-	private int mNumDevs = 0;
-	private int mConnIndex = NO_DEVICE;
-	private List<BleDeviceInfo> mDeviceInfoList;
-	private static BluetoothManager mBluetoothManager;
-	private BluetoothAdapter mBtAdapter = null;
-	private BluetoothDevice mBluetoothDevice = null;
-    private BLEUtil mBleUtil = null;
-	private IntentFilter mFilter;
+	private boolean mScanning = false;          // Indicates whether we are presently scanning
+	private int mConnIndex = NO_DEVICE;         // The list index of the connected device
+	private List<BleDeviceInfo> mDeviceInfoList;// The list of detected Mooshimeters
+    private BLEUtil mBleUtil = null;            // The singleton BLEUtil.  Used for managing connection
 
 	// Housekeeping
 	private static final int NO_DEVICE = -1;
@@ -122,7 +112,6 @@ public class MainActivity extends ViewPagerActivity {
 	SharedPreferences prefs = null;
 
 	public MainActivity() {
-		mThis = this;
 		mResourceFragmentPager = R.layout.fragment_pager;
 		mResourceIdPager = R.id.pager;
 	}
@@ -139,21 +128,18 @@ public class MainActivity extends ViewPagerActivity {
 		// you can selectively disable BLE-related features.
 		if (!getPackageManager().hasSystemFeature(
 		    PackageManager.FEATURE_BLUETOOTH_LE)) {
-			Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_LONG)
-			    .show();
-			mBleSupported = false;
+			Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_LONG).show();
 		}
 
 		// Initializes a Bluetooth adapter. For API level 18 and above, get a
 		// reference to BluetoothAdapter through BluetoothManager.
-		mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-		mBtAdapter = BluetoothAdapter.getDefaultAdapter();
+
         mBleUtil = BLEUtil.getInstance(this);
 
 		// Checks if Bluetooth is supported on the device.
-		if (mBtAdapter == null) {
+		if (BluetoothAdapter.getDefaultAdapter() == null) {
 			Toast.makeText(this, R.string.bt_not_supported, Toast.LENGTH_LONG).show();
-			mBleSupported = false;
+            setError("BLE not supported on this device");
 		}
 
 		// Initialize device list container and device filter
@@ -169,7 +155,6 @@ public class MainActivity extends ViewPagerActivity {
 	public void onDestroy() {
 		// Log.e(TAG,"onDestroy");
 		super.onDestroy();
-		mBtAdapter = null;
         mBleUtil.close();
         unregisterReceiver(mReceiver);
 		
@@ -224,14 +209,11 @@ public class MainActivity extends ViewPagerActivity {
 
 	void onScanViewReady(View view) {
 		// Initial state of widgets
-		updateGuiState();
-
 		if (!mInitialised) {
 			// Broadcast receiver
-            mFilter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-            mFilter.addAction(BLEUtil.ACTION_GATT_DISCONNECTED);
-			registerReceiver(mReceiver, mFilter);
-			mBtAdapterEnabled = mBtAdapter.isEnabled();
+            final IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+            filter.addAction(BLEUtil.ACTION_GATT_DISCONNECTED);
+			registerReceiver(mReceiver, filter);
 			mInitialised = true;
 		} else {
 			mScanView.notifyDataSetChanged();
@@ -248,20 +230,21 @@ public class MainActivity extends ViewPagerActivity {
 	}
 
 	void onDeviceClick() {
-		if (mNumDevs > 0) {
-			int connState = mBluetoothManager.getConnectionState(mBluetoothDevice,
-			    BluetoothGatt.GATT);
+		if (mDeviceInfoList.size() > 0) {
+            final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+            final BluetoothDevice bluetoothDevice   = mDeviceInfoList.get(mConnIndex).getBluetoothDevice();
+            final int connState                     = bluetoothManager.getConnectionState(bluetoothDevice, BluetoothGatt.GATT);
 
 			switch (connState) {
 			case BluetoothGatt.STATE_CONNECTED:
 				mBleUtil.disconnect();
 				break;
 			case BluetoothGatt.STATE_DISCONNECTED:
-				mBleUtil.connect(mBluetoothDevice.getAddress(), new BLEUtil.BLEUtilCB() {
+				mBleUtil.connect(bluetoothDevice.getAddress(), new BLEUtil.BLEUtilCB() {
                     @Override
                     public void run() {
                         if (error == BluetoothGatt.GATT_SUCCESS) {
-                            setBusy(false);
+                            mScanView.stopTimers();
                             startDeviceActivity();
                         } else	{
                             setError("Connect failed. Status: " + error);
@@ -278,32 +261,24 @@ public class MainActivity extends ViewPagerActivity {
 
 	private void startScan() {
 		// Start device discovery
-		if (mBleSupported) {
-			mNumDevs = 0;
-			mDeviceInfoList.clear();
-			mScanView.notifyDataSetChanged();
-			scanLeDevice(true);
-			mScanView.updateGui(mScanning);
-			if (!mScanning) {
-				setError("Device discovery start failed");
-				setBusy(false);
-			}
-		} else {
-			setError("BLE not supported on this device");
-		}
-
+        mDeviceInfoList.clear();
+        mScanView.notifyDataSetChanged();
+        scanLeDevice(true);
+        mScanView.updateScanningButton(mScanning);
+        if (!mScanning) {
+            setError("Device discovery start failed");
+        }
 	}
 
 	private void stopScan() {
 		mScanning = false;
-		mScanView.updateGui(false);
+		mScanView.updateScanningButton(false);
 		scanLeDevice(false);
 	}
 
 	private void startDeviceActivity() {
-		mDeviceIntent = new Intent(this, DeviceActivity.class);
-		mDeviceIntent.putExtra(DeviceActivity.EXTRA_DEVICE, mBluetoothDevice);
-		startActivityForResult(mDeviceIntent, REQ_DEVICE_ACT);
+		Intent deviceIntent = new Intent(this, DeviceActivity.class);
+		startActivityForResult(deviceIntent, REQ_DEVICE_ACT);
 	}
 
 	private void stopDeviceActivity() {
@@ -315,8 +290,6 @@ public class MainActivity extends ViewPagerActivity {
 		if (mScanning)
 			stopScan();
 
-		setBusy(true);
-		mBluetoothDevice = mDeviceInfoList.get(pos).getBluetoothDevice();
 		if (mConnIndex == NO_DEVICE) {
 			mScanView.setStatus("Connecting");
 			mConnIndex = pos;
@@ -353,33 +326,6 @@ public class MainActivity extends ViewPagerActivity {
 	//
 	// GUI methods
 	//
-	public void updateGuiState() {
-		boolean mBtEnabled = mBtAdapter.isEnabled();
-
-		if (mBtEnabled) {
-			if (mScanning) {
-				// BLE Host connected
-				if (mConnIndex != NO_DEVICE) {
-					String txt = mBluetoothDevice.getName() + " connected";
-					mScanView.setStatus(txt);
-				} else {
-					mScanView.setStatus(mNumDevs + " devices");
-				}
-			}
-		} else {
-			mDeviceInfoList.clear();
-			mScanView.notifyDataSetChanged();
-		}
-	}
-
-	private void setBusy(final boolean f) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mScanView.setBusy(f);
-            }
-        });
-	}
 
 	void setError(String txt) {
 		mScanView.setError(txt);
@@ -387,29 +333,21 @@ public class MainActivity extends ViewPagerActivity {
 	}
 
 	private void addDevice(BleDeviceInfo device) {
-		mNumDevs++;
 		mDeviceInfoList.add(device);
 		mScanView.notifyDataSetChanged();
-		if (mNumDevs > 1)
-			mScanView.setStatus(mNumDevs + " devices");
+		if (mDeviceInfoList.size() > 1)
+			mScanView.setStatus(mDeviceInfoList.size() + " devices");
 		else
 			mScanView.setStatus("1 device");
 	}
 
 	private boolean deviceInfoExists(String address) {
-		for (int i = 0; i < mDeviceInfoList.size(); i++) {
-			if (mDeviceInfoList.get(i).getBluetoothDevice().getAddress()
-			    .equals(address)) {
-				return true;
-			}
-		}
-		return false;
+        return findDeviceInfo(address) != null;
 	}
 
-	private BleDeviceInfo findDeviceInfo(BluetoothDevice device) {
+	private BleDeviceInfo findDeviceInfo(String address) {
 		for (int i = 0; i < mDeviceInfoList.size(); i++) {
-			if (mDeviceInfoList.get(i).getBluetoothDevice().getAddress()
-			    .equals(device.getAddress())) {
+			if (mDeviceInfoList.get(i).getBluetoothDevice().getAddress().equals(address)) {
 				return mDeviceInfoList.get(i);
 			}
 		}
@@ -417,6 +355,7 @@ public class MainActivity extends ViewPagerActivity {
 	}
 
 	private boolean scanLeDevice(boolean enable) {
+        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		if (enable) {
             /*
             // FIXME: jwhong: I've had no luck getting the filtered scan to work.
@@ -425,10 +364,10 @@ public class MainActivity extends ViewPagerActivity {
             service_uuids[0] = UUID.fromString("1bc5ffa0-0200-62ab-e411-f254e005dbd4");
 			mScanning = mBtAdapter.startLeScan(service_uuids, mLeScanCallback);
 			*/
-            mScanning = mBtAdapter.startLeScan(mLeScanCallback);
+            mScanning = bluetoothAdapter.startLeScan(mLeScanCallback);
 		} else {
 			mScanning = false;
-			mBtAdapter.stopLeScan(mLeScanCallback);
+            bluetoothAdapter.stopLeScan(mLeScanCallback);
 		}
 		return mScanning;
 	}
@@ -448,11 +387,9 @@ public class MainActivity extends ViewPagerActivity {
                 mBleUtil.disconnect();
 			}
 			break;
-
 		case REQ_ENABLE_BT:
 			// When the request to enable Bluetooth returns
 			if (resultCode == Activity.RESULT_OK) {
-
 				Toast.makeText(this, R.string.bt_on, Toast.LENGTH_SHORT).show();
 			} else {
 				// User did not enable Bluetooth or an error occurred
@@ -477,7 +414,7 @@ public class MainActivity extends ViewPagerActivity {
 		public void onReceive(Context context, Intent intent) {
 			final String action = intent.getAction();
 
-			if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
+			/*if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)) {
 				// Bluetooth adapter state change
 				switch (mBtAdapter.getState()) {
 				case BluetoothAdapter.STATE_ON:
@@ -493,13 +430,12 @@ public class MainActivity extends ViewPagerActivity {
 					break;
 				}
 				updateGuiState();
-            } else if (BLEUtil.ACTION_GATT_DISCONNECTED.equals(action)) {
+            } else */if (BLEUtil.ACTION_GATT_DISCONNECTED.equals(action)) {
 				// GATT disconnect
 				int status = intent.getIntExtra(BLEUtil.EXTRA_STATUS,
 				    BluetoothGatt.GATT_FAILURE);
 				stopDeviceActivity();
 				if (status == BluetoothGatt.GATT_SUCCESS) {
-					setBusy(false);
 					//mScanView.setStatus(mBluetoothDevice.getName() + " disconnected",
 					//    STATUS_DURATION);
 				} else {
@@ -514,8 +450,7 @@ public class MainActivity extends ViewPagerActivity {
 	// NB! Nexus 4 and Nexus 7 (2012) only provide one scan result per scan
 	private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 
-		public void onLeScan(final BluetoothDevice device, final int rssi,
-		    final byte[] scanRecord) {
+		public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
 			runOnUiThread(new Runnable() {
 				public void run() {
 					// Filter devices
@@ -584,7 +519,7 @@ public class MainActivity extends ViewPagerActivity {
                             addDevice(deviceInfo);
                         } else {
                             // Already in list, update RSSI info
-                            BleDeviceInfo deviceInfo = findDeviceInfo(device);
+                            BleDeviceInfo deviceInfo = findDeviceInfo(device.getAddress());
                             deviceInfo.updateRssi(rssi);
                             mScanView.notifyDataSetChanged();
                         }
