@@ -8,10 +8,8 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.util.Log;
 
 import java.util.HashMap;
@@ -29,7 +27,7 @@ public class BLEUtil {
     public final static String ACTION_GATT_DISCONNECTED         = "com.mooshim.mooshimeter.ACTION_GATT_DISCONNECTED";
     private static final String TAG="BLEUtil";
 
-    private Context              mContext;
+    private Context              mContext;   // Global application context
     private BluetoothAdapter     mBtAdapter;
     private BluetoothGatt        mBluetoothGatt;
     private BluetoothGattService bt_gatt_service;
@@ -37,6 +35,8 @@ public class BLEUtil {
     private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
     private BLEUtilRequest mRunning = null;
     private HashMap<UUID,BLEUtilCB> mNotifyCB= new HashMap<UUID,BLEUtilCB>();
+
+    private Runnable mDisconnectCB = null;
 
     public static abstract class BLEUtilCB implements Runnable {
         public UUID uuid;       // UUID
@@ -72,7 +72,7 @@ public class BLEUtil {
         // Clear the global instance
         if(mInstance != null) {
             mInstance.disconnect();
-            mInstance.close();
+            mInstance.clear();
             mInstance = null;
         }
     }
@@ -80,10 +80,10 @@ public class BLEUtil {
     protected BLEUtil(Context context) {
         // Initialize internal structures
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
-        mContext = context;
+        mContext = context.getApplicationContext();
     }
 
-    public void close() {
+    public void clear() {
         mExecuteQueue.clear();
         mNotifyCB.clear();
         mRunning = null;
@@ -127,6 +127,11 @@ public class BLEUtil {
     ////////////////////////////////
     // Accessors
     ////////////////////////////////
+
+    public void connect(final String address, final BLEUtilCB cb, final Runnable disconnectCB) {
+        mDisconnectCB = disconnectCB;
+        connect(address,cb);
+    }
 
     public void connect(final String address, final BLEUtilCB cb) {
         BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
@@ -228,8 +233,7 @@ public class BLEUtil {
 
     private BluetoothGattCallback mGattCallbacks = new BluetoothGattCallback() {
         @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status,
-                                            int newState) {
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (mBluetoothGatt == null) {
                 // Log.e(TAG, "mBluetoothGatt not created!");
                 return;
@@ -243,8 +247,10 @@ public class BLEUtil {
                         mBluetoothGatt.discoverServices();
                         break;
                     case BluetoothProfile.STATE_DISCONNECTED:
-                        String address = device.getAddress();
-                        broadcastUpdate(ACTION_GATT_DISCONNECTED, address, status);
+                        if(mDisconnectCB!=null) {
+                            mDisconnectCB.run();
+                            mDisconnectCB=null;
+                        }
                         break;
                     default:
                         Log.e(TAG, "New state not processed: " + newState);
@@ -267,9 +273,10 @@ public class BLEUtil {
             }
             if(bt_gatt_service == null) {
                 Log.e(TAG, "Did not find the meter service!");
+            } else {
+                finishRunningBlock(bt_gatt_service.getUuid(), status, null);
+                printGattError(status);
             }
-            finishRunningBlock(bt_gatt_service.getUuid(), status, null);
-            printGattError(status);
         }
 
         @Override

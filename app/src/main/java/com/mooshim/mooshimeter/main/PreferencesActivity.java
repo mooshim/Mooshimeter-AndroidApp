@@ -133,7 +133,7 @@ public class PreferencesActivity extends FragmentActivity {
                 })
                 .setNegativeButton("Cancel",new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog,int id) {
-                        // if this button is clicked, just close
+                        // if this button is clicked, just clear
                         // the dialog box and do nothing
                         dialog.cancel();
                     }

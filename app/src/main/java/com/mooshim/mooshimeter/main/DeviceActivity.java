@@ -161,7 +161,7 @@ public class DeviceActivity extends FragmentActivity {
                             @Override
                             public void run() {
                                 Log.d(TAG,"Paused");
-                                //mMeter.close();
+                                //mMeter.clear();
                                 startTrendActivity();
                             }
                         });
@@ -179,7 +179,8 @@ public class DeviceActivity extends FragmentActivity {
         orientation_listener.disable();
 		finishActivity(PREF_ACT_REQ);
 		finishActivity(FWUPDATE_ACT_REQ);
-        // FIXME: This should be destroyed in onActivityResult in MainActivity, but for some reason the right case is not getting called there
+        finishActivity(TREND_ACT_REQ);
+        // FIXME: This should be destroyed in onActivityResult in ScanActivity, but for some reason the right case is not getting called there
         MooshimeterDevice.Destroy();
         setResult(RESULT_OK);
 	}
@@ -213,7 +214,6 @@ public class DeviceActivity extends FragmentActivity {
 
 	@Override
 	protected void onResume() {
-		// Log.d(TAG, "onResume");
 		super.onResume();
         mMeter = MooshimeterDevice.getInstance();
         if(mMeter == null) {

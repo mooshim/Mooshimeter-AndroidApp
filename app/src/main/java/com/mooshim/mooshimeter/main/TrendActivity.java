@@ -84,7 +84,7 @@ public class TrendActivity extends Activity {
                                         mMeter.pauseStream(new Runnable() {
                                             @Override
                                             public void run() {
-                                                //mMeter.close();
+                                                //mMeter.clear();
                                                 orientation_listener.disable();
                                                 setResult(RESULT_OK);
                                                 finish();

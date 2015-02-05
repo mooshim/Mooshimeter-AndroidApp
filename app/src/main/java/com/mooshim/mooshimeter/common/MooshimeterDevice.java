@@ -1,12 +1,8 @@
 package com.mooshim.mooshimeter.common;
 
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -478,7 +474,7 @@ public class MooshimeterDevice {
     }
 
     public void close() {
-        mBLEUtil.close();
+        mBLEUtil.clear();
     }
 
     ////////////////////////////////

@@ -15,10 +15,13 @@
         style="@style/devlistStyle"
         android:layout_width="fill_parent"
         android:layout_height="0dp"
-        android:layout_margin="10dp"
         android:layout_weight="2"
         android:choiceMode="singleChoice"
-        android:padding="3dp" />
+        android:padding="3dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:layout_marginRight="0dp"
+        android:layout_marginLeft="0dp" />
 
     <TextView
         android:id="@+id/no_device"
