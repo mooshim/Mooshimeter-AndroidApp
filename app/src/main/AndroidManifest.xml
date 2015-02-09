@@ -20,7 +20,7 @@
     <application
         android:name=".main.MyApplication"
         android:allowBackup="false"
-        android:icon="@drawable/mstar"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Holo.Light" >
 
