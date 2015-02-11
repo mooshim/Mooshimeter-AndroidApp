@@ -73,6 +73,7 @@ import android.view.MenuItem;
 import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -227,6 +228,7 @@ public class DeviceActivity extends FragmentActivity {
             onMeterInitialized();
         }
         orientation_listener.enable();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
 
     private void onMeterInitialized() {
@@ -265,6 +267,7 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onPause() {
 		// Log.d(TAG, "onPause");
         super.onPause();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
 
 	BluetoothGattService getOadService() {

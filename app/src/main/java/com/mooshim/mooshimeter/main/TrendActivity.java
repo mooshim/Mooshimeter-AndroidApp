@@ -9,6 +9,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.OrientationEventListener;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -134,6 +135,7 @@ public class TrendActivity extends Activity {
         super.onResume();
 
         getActionBar().hide();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         if(!mPlaying) {
             mMeter = MooshimeterDevice.getInstance();
@@ -356,6 +358,7 @@ public class TrendActivity extends Activity {
         // Log.d(TAG, "onPause");
         super.onPause();
         getActionBar().show();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     ///////////////
