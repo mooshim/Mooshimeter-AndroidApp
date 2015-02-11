@@ -721,6 +721,9 @@ public class DeviceActivity extends FragmentActivity {
                 if((other_setting & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK) == 0x09 ) {
                     setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
                     setting |= 0x04;
+                    setting &=~MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK;
+                    setting |= 0x10;
+                    mMeter.disp_ac[c] = false;
                 } else {
                     setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
                     setting |= 0x09;
@@ -730,6 +733,9 @@ public class DeviceActivity extends FragmentActivity {
                 // CH3 input
                 setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
                 setting |= 0x04;
+                setting &=~MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK;
+                setting |= 0x10;
+                mMeter.disp_ac[c] = false;
                 break;
             case 0x04:
                 // Temp input
