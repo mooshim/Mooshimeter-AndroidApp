@@ -1,8 +1,11 @@
 package com.mooshim.mooshimeter.common;
 
+import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.Context;
+import android.os.Handler;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -34,7 +37,7 @@ public class MooshimeterDevice {
 
                 OAD_SERVICE_UUID    = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4"),
                 OAD_IMAGE_NOTIFY    = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
-                OAD_IMAGE_Runnable_REQ = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
+                OAD_IMAGE_REQ = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
                 OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
     }
 
@@ -143,6 +146,9 @@ public class MooshimeterDevice {
                     }
                 }
             });
+        }
+        public void setWriteType(int wtype){
+            mBLEUtil.setWriteType(getUUID(),wtype);
         }
         public abstract byte[] pack();
         public abstract void unpack(byte[] in);
@@ -557,6 +563,37 @@ public class MooshimeterDevice {
                 meter_settings.send(cb);
             }
         }, on_notify);
+    }
+
+    public void reconnectInOADMode(final Runnable cb) {
+        // Reboot the meter and reconnect
+        meter_settings.target_meter_state = METER_SHUTDOWN;
+        // The meter shuts down immediately upon receiving the setting change, don't wait for a response
+        meter_settings.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+        meter_settings.send( new Runnable() {
+            @Override
+            public void run() {
+                final String addr = mBLEUtil.getBTAddress();
+                mBLEUtil.disconnect(new Runnable() {
+                    @Override
+                    public void run() {
+                        // Gymnastics to run connect from UI thread
+                        Handler mainHandler = new Handler(mContext.getMainLooper());
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                mBLEUtil.connect(addr, new BLEUtil.BLEUtilCB() {
+                                    @Override
+                                    public void run() {
+                                        cb.run();
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
     }
 
     //////////////////////////////////////

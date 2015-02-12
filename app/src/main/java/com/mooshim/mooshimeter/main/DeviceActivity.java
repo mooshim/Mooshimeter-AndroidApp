@@ -90,7 +90,6 @@ public class DeviceActivity extends FragmentActivity {
 
 	// BLE
 	private List<BluetoothGattService> mServiceList = null;
-	private boolean mServicesRdy = false;
     private MooshimeterDevice mMeter = null;
 
 	private BluetoothGattService mOadService = null;
@@ -205,8 +204,6 @@ public class DeviceActivity extends FragmentActivity {
 		case R.id.opt_fwupdate:
 			startOadActivity();
 			break;
-		case R.id.opt_about:
-			break;
 		default:
 			return super.onOptionsItemSelected(item);
 		}
@@ -279,24 +276,18 @@ public class DeviceActivity extends FragmentActivity {
 	}
 
 	private void startOadActivity() {
-    // For the moment OAD does not work on Galaxy S3 (disconnects on parameter update)
-    if (Build.MODEL.contains("I9300")) {
-			Toast.makeText(this, "OAD not available on this Android device",
-			    Toast.LENGTH_LONG).show();
-			return;
-    }
-    	
-		if (mOadService != null && mConnControlService != null) {
-			// Disable sensors and notifications when the OAD dialog is open
-			//enableDataCollection(false);
-			// Launch OAD
-			final Intent i = new Intent(this, FwUpdateActivity.class);
-			startActivityForResult(i, FWUPDATE_ACT_REQ);
-		} else {
-			Toast.makeText(this, "OAD not available on this BLE device",
-			    Toast.LENGTH_LONG).show();
-		}
+        mMeter.reconnectInOADMode(new Runnable() {
+            @Override
+            public void run() {
+                launchOAD();
+            }
+        });
 	}
+
+    private void launchOAD() {
+        final Intent i = new Intent(this, FwUpdateActivity.class);
+        startActivityForResult(i, FWUPDATE_ACT_REQ);
+    }
 
 	private void startPreferenceActivity() {
 		// Disable sensors and notifications when the settings dialog is open
@@ -311,23 +302,6 @@ public class DeviceActivity extends FragmentActivity {
         final Intent i = new Intent(this, TrendActivity.class);
         startActivityForResult(i, TREND_ACT_REQ);
     }
-
-	private void checkOad() {
-		// Check if OAD is supported (needs OAD and Connection Control service)
-		mOadService = null;
-		mConnControlService = null;
-
-		for (int i = 0; i < mServiceList.size()
-		    && (mOadService == null || mConnControlService == null); i++) {
-			BluetoothGattService srv = mServiceList.get(i);
-			if (srv.getUuid().equals(GattInfo.OAD_SERVICE_UUID)) {
-				mOadService = srv;
-			}
-			if (srv.getUuid().equals(GattInfo.CC_SERVICE_UUID)) {
-				mConnControlService = srv;
-			}
-		}
-	}
 
 	private void setBusy(boolean b) {
 		//mDeviceView.setBusy(b);

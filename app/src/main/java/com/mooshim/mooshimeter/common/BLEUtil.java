@@ -24,13 +24,12 @@ import java.util.UUID;
 public class BLEUtil {
     public final static String EXTRA_STATUS                     = "com.mooshim.mooshimeter.EXTRA_STATUS";
     public final static String EXTRA_ADDRESS                    = "com.mooshim.mooshimeter.EXTRA_ADDRESS";
-    public final static String ACTION_GATT_DISCONNECTED         = "com.mooshim.mooshimeter.ACTION_GATT_DISCONNECTED";
     private static final String TAG="BLEUtil";
 
     private Context              mContext;   // Global application context
     private BluetoothAdapter     mBtAdapter;
     private BluetoothGatt        mBluetoothGatt;
-    private BluetoothGattService bt_gatt_service;
+    private BluetoothGattService mPrimaryService;
 
     private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
     private BLEUtilRequest mRunning = null;
@@ -128,6 +127,10 @@ public class BLEUtil {
     // Accessors
     ////////////////////////////////
 
+    public String getBTAddress() {
+        return mBluetoothGatt.getDevice().getAddress();
+    }
+
     public void connect(final String address, final BLEUtilCB cb, final Runnable disconnectCB) {
         mDisconnectCB = disconnectCB;
         connect(address,cb);
@@ -146,11 +149,21 @@ public class BLEUtil {
 
     public void disconnect() {
         mBluetoothGatt.disconnect();
-        bt_gatt_service = null;
+        mPrimaryService = null;
+    }
+
+    public void disconnect(final Runnable disconnectCB) {
+        mDisconnectCB = disconnectCB;
+        disconnect();
+    }
+
+    public void setWriteType(UUID uuid, int wtype) {
+        final BluetoothGattCharacteristic c = mPrimaryService.getCharacteristic(uuid);
+        c.setWriteType(wtype);
     }
 
     public void req(UUID uuid, BLEUtilCB on_complete) {
-        final BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
+        final BluetoothGattCharacteristic c = mPrimaryService.getCharacteristic(uuid);
         BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
             @Override
             public void run() {
@@ -160,7 +173,7 @@ public class BLEUtil {
         serviceExecuteQueue(r);
     }
     public void send(final UUID uuid, final byte[] value, final BLEUtilCB on_complete) {
-        final BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
+        final BluetoothGattCharacteristic c = mPrimaryService.getCharacteristic(uuid);
         BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
             @Override
             public void run() {
@@ -179,7 +192,7 @@ public class BLEUtil {
     }
 
     public void enableNotify(final UUID uuid, final boolean enable, final BLEUtilCB on_complete, final BLEUtilCB on_notify) {
-        final BluetoothGattCharacteristic c = bt_gatt_service.getCharacteristic(uuid);
+        final BluetoothGattCharacteristic c = mPrimaryService.getCharacteristic(uuid);
         // Set up the notify callback
         if(on_notify != null) {
             mNotifyCB.put(uuid, on_notify);
@@ -231,6 +244,18 @@ public class BLEUtil {
         mContext.sendBroadcast(intent);
     }
 
+    public boolean setPrimaryService(final UUID sUUID) {
+        // Sets the GATT service to which all communications are directed
+        mPrimaryService = null;
+        for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
+            if(s.getUuid().equals(sUUID)) {
+                mPrimaryService = s;
+                break;
+            }
+        }
+        return mPrimaryService != null;
+    }
+
     private BluetoothGattCallback mGattCallbacks = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -263,19 +288,14 @@ public class BLEUtil {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
-                // FIXME: Should be able to specify the service to attach to instead of hardcode
-                if(s.getUuid().equals(MooshimeterDevice.mUUID.METER_SERVICE)) {
-                    Log.i(TAG, "Found the meter service");
-                    bt_gatt_service = s;
-                    break;
-                }
-            }
-            if(bt_gatt_service == null) {
-                Log.e(TAG, "Did not find the meter service!");
-            } else {
-                finishRunningBlock(bt_gatt_service.getUuid(), status, null);
+            // FIXME: not good hardcoded default
+            if( setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE) ) {
+                Log.i(TAG, "Found the meter service");
+                finishRunningBlock(mPrimaryService.getUuid(), status, null);
                 printGattError(status);
+            } else {
+                Log.e(TAG, "Did not find the meter service!");
+                finishRunningBlock(null, status, null);
             }
         }
 
