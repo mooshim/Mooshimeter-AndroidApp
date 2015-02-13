@@ -42,7 +42,6 @@ public class ScanActivity extends FragmentActivity {
         CONNECTING,
     };
     private static final int NO_DEVICE = -1;
-
     private static final int REQ_ENABLE_BT = 0;
     private static final int REQ_DEVICE_ACT = 1;
 
