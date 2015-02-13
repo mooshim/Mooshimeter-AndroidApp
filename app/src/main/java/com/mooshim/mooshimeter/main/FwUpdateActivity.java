@@ -60,18 +60,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Semaphore;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.Html;
@@ -135,8 +131,8 @@ public class FwUpdateActivity extends Activity {
   private TimerTask mTimerTask = null;
 
   // Housekeeping
-  private boolean mServiceOk = false;
   private boolean mProgramming = false;
+  private final Semaphore pacer = new Semaphore(1);
 
 
   public FwUpdateActivity() {
@@ -213,12 +209,6 @@ public class FwUpdateActivity extends Activity {
   protected void onResume()
   {
     super.onResume();
-    if (mServiceOk) {
-  		// Connection interval is too low by default
-	  	setConnectionParameters();
-    } else {
-      Toast.makeText(this, "OAD service initialisation failed", Toast.LENGTH_LONG).show();
-    }
   }
 
   @Override
@@ -239,24 +229,51 @@ public class FwUpdateActivity extends Activity {
     mProgramming = true;
     updateGui();
 
-    // Send image notification
-    final byte[] buf = mFileImgHdr.pack();
-    mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_NOTIFY, buf, new BLEUtil.BLEUtilCB() {
+    // Update connection parameters
+    mBLEUtil.setConnectionInterval((short)20, (short)1000, new BLEUtil.BLEUtilCB() {
         @Override
         public void run() {
-
+            // Send image notification
+            final byte[] buf = mFileImgHdr.pack();
+            mBLEUtil.enableNotify(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, true, new BLEUtil.BLEUtilCB() {
+                @Override
+                public void run() {
+                    mBLEUtil.enableNotify(MooshimeterDevice.mUUID.OAD_IMAGE_IDENTIFY, true, new BLEUtil.BLEUtilCB() {
+                        @Override
+                        public void run() {
+                            mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_IDENTIFY, buf, new BLEUtil.BLEUtilCB() {
+                                @Override
+                                public void run() {
+                                    if (error != BluetoothGatt.GATT_SUCCESS) {
+                                        Log.e(TAG, "Error sending identify");
+                                    } else {
+                                        // Initialize stats
+                                        mProgInfo.reset();
+                                        mTimer = new Timer();
+                                        mTimerTask = new ProgTimerTask();
+                                        mTimer.scheduleAtFixedRate(mTimerTask, 0, TIMER_INTERVAL);
+                                        programBlock();
+                                    }
+                                }
+                            });
+                        }
+                    }, new BLEUtil.BLEUtilCB() {
+                        @Override
+                        public void run() {
+                            Log.d(TAG,"OAD Image identify notification!");
+                        }
+                    });
+                }
+            }, new BLEUtil.BLEUtilCB() {
+                @Override
+                public void run() {
+                    // After each block notify, release the pacer and allow the next block to fly
+                    pacer.release();
+                }
+            });
         }
     });
 
-    // Initialize stats
-    mProgInfo.reset();
-
-    // Start the programming thread
-    new Thread(new OadTask()).start();
-
-    mTimer = new Timer();
-    mTimerTask = new ProgTimerTask();
-    mTimer.scheduleAtFixedRate(mTimerTask, 0, TIMER_INTERVAL);
   }
 
   private void stopProgramming() {
@@ -357,16 +374,6 @@ public class FwUpdateActivity extends Activity {
     mProgressInfo.setText(txt);
   }
 
-  private void setConnectionParameters() {
-    /*// Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
-    byte[] value = { Conversion.loUint16(OAD_CONN_INTERVAL), Conversion.hiUint16(OAD_CONN_INTERVAL), Conversion.loUint16(OAD_CONN_INTERVAL),
-        Conversion.hiUint16(OAD_CONN_INTERVAL), 0, 0, Conversion.loUint16(OAD_SUPERVISION_TIMEOUT), Conversion.hiUint16(OAD_SUPERVISION_TIMEOUT) };
-    mCharConnReq.setValue(value);
-    mLeService.writeCharacteristic(mCharConnReq);
-    */
-  }
-
-
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     // Check which request we're responding to
@@ -389,7 +396,6 @@ public class FwUpdateActivity extends Activity {
   	
     if (mProgInfo.iBlocks < mProgInfo.nBlocks) {
       mProgramming = true;
-      String msg = new String();
 
       // Prepare block
       mOadBuffer[0] = Conversion.loUint16(mProgInfo.iBlocks);
@@ -397,7 +403,7 @@ public class FwUpdateActivity extends Activity {
       System.arraycopy(mFileBuffer, mProgInfo.iBytes, mOadBuffer, 2, OAD_BLOCK_SIZE);
 
       // Send block
-      mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_REQ, mOadBuffer, new BLEUtil.BLEUtilCB() {
+      mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, mOadBuffer, new BLEUtil.BLEUtilCB() {
           @Override
           public void run() {
               if (error == BluetoothGatt.GATT_SUCCESS) {
@@ -405,6 +411,7 @@ public class FwUpdateActivity extends Activity {
                   mProgInfo.iBlocks++;
                   mProgInfo.iBytes += OAD_BLOCK_SIZE;
                   mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
+                  programBlock();
               } else {
                   mProgramming = false;
                   mLog.append("GATT writeCharacteristic failed\n");
@@ -424,30 +431,6 @@ public class FwUpdateActivity extends Activity {
       });
     }
   }
-  
-	private class OadTask implements Runnable {
-		@Override
-		public void run() {
-			while (mProgramming) {
-				try {
-	        Thread.sleep(SEND_INTERVAL);
-        } catch (InterruptedException e) {
-	        e.printStackTrace();
-        }
-				for (int i=0; i<BLOCKS_PER_CONNECTION & mProgramming; i++) {
-					programBlock();
-				}
-				if ((mProgInfo.iBlocks % 100) == 0) {
-					// Display statistics each 100th block
-					runOnUiThread(new Runnable() {
-						public void run() {
-							displayStats();
-						}
-					});
-				}
-			}
-		}
-	}
 
 	private class ProgTimerTask extends TimerTask {
     @Override
@@ -460,7 +443,7 @@ public class FwUpdateActivity extends Activity {
         short crc0;
         short crc1;
         short ver;
-        short len;
+        int len;
         int build_time;
         byte[] res = new byte[4];
         public void unpack(byte[] fbuf) {
@@ -469,7 +452,7 @@ public class FwUpdateActivity extends Activity {
             crc0        = b.getShort();
             crc1        = b.getShort();
             ver         = b.getShort();
-            len         = b.getShort();
+            len         = 0xFFFF&((int)b.getShort());
             build_time  = b.getInt();
             for(int i=0;i<4;i++) {
                 res[i] = b.get();
@@ -482,7 +465,7 @@ public class FwUpdateActivity extends Activity {
             b.putShort(crc0);
             b.putShort(crc1);
             b.putShort(ver);
-            b.putShort(len);
+            b.putShort((short)len);
             b.putInt(build_time);
             for(int i=0;i<4;i++) {
                 b.put(res[i]);

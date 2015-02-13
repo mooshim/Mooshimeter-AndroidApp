@@ -12,6 +12,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import com.mooshim.mooshimeter.util.Conversion;
+
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.UUID;
@@ -24,12 +27,14 @@ import java.util.UUID;
 public class BLEUtil {
     public final static String EXTRA_STATUS                     = "com.mooshim.mooshimeter.EXTRA_STATUS";
     public final static String EXTRA_ADDRESS                    = "com.mooshim.mooshimeter.EXTRA_ADDRESS";
+    public final static UUID   CC_SERVICE_UUID                  = UUID.fromString("f000ccc0-0451-4000-b000-000000000000");
     private static final String TAG="BLEUtil";
 
     private Context              mContext;   // Global application context
     private BluetoothAdapter     mBtAdapter;
     private BluetoothGatt        mBluetoothGatt;
     private BluetoothGattService mPrimaryService;
+    private BluetoothGattService mCCService;
 
     private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
     private BLEUtilRequest mRunning = null;
@@ -142,9 +147,14 @@ public class BLEUtil {
             public void run() {
                 final BluetoothDevice device = mBtAdapter.getRemoteDevice(address);
                 mBluetoothGatt = device.connectGatt(mContext,false,mGattCallbacks);
+                refreshDeviceCache();
             }
         }, cb);
         serviceExecuteQueue(r);
+    }
+
+    public void setDisconnectCB(final Runnable disconnectCB) {
+        mDisconnectCB=disconnectCB;
     }
 
     public void disconnect() {
@@ -160,6 +170,25 @@ public class BLEUtil {
     public void setWriteType(UUID uuid, int wtype) {
         final BluetoothGattCharacteristic c = mPrimaryService.getCharacteristic(uuid);
         c.setWriteType(wtype);
+    }
+
+    public void setConnectionInterval(short msec, short timeout, BLEUtilCB on_complete) {
+        // Make sure connection interval is long enough for OAD (Android default connection interval is 7.5 ms)
+        /*
+        final byte[] value = { Conversion.loUint16(msec), Conversion.hiUint16(msec), Conversion.loUint16(msec),
+                Conversion.hiUint16(msec), 0, 0, Conversion.loUint16(timeout), Conversion.hiUint16(timeout) };
+        final BluetoothGattCharacteristic cc_char = mCCService.getCharacteristic( CC_SERVICE_UUID );
+
+        BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
+            @Override
+            public void run() {
+                cc_char.setValue(value);
+                mBluetoothGatt.writeCharacteristic(cc_char);
+            }
+        }, on_complete);
+        serviceExecuteQueue(r);*/
+        // Skip for now
+        on_complete.run();
     }
 
     public void req(UUID uuid, BLEUtilCB on_complete) {
@@ -228,6 +257,22 @@ public class BLEUtil {
     // GATT Callbacks
     ////////////////////////////////
 
+    private boolean refreshDeviceCache(){
+        try {
+            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh", new Class[0]);
+            if (localMethod != null) {
+                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt, new Object[0])).booleanValue();
+                return b;
+            } else {
+                Log.e(TAG, "Unable to wipe the GATT Cache");
+            }
+        }
+        catch (Exception localException) {
+            Log.e(TAG, "An exception occured while refreshing device");
+        }
+        return false;
+    }
+
     private static void printGattError(int s) {
         if (s != BluetoothGatt.GATT_SUCCESS) {
             // GATT Error 133 seems to be coming up from time to time.  I don't think we're doing anything wrong,
@@ -244,15 +289,18 @@ public class BLEUtil {
         mContext.sendBroadcast(intent);
     }
 
-    public boolean setPrimaryService(final UUID sUUID) {
-        // Sets the GATT service to which all communications are directed
-        mPrimaryService = null;
+    private BluetoothGattService getService(final UUID sUUID) {
         for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
             if(s.getUuid().equals(sUUID)) {
-                mPrimaryService = s;
-                break;
+                return s;
             }
         }
+        return null;
+    }
+
+    public boolean setPrimaryService(final UUID sUUID) {
+        // Sets the GATT service to which all communications are directed
+        mPrimaryService = getService(sUUID);
         return mPrimaryService != null;
     }
 
@@ -297,6 +345,7 @@ public class BLEUtil {
                 Log.e(TAG, "Did not find the meter service!");
                 finishRunningBlock(null, status, null);
             }
+            mCCService = getService(CC_SERVICE_UUID);
         }
 
         @Override

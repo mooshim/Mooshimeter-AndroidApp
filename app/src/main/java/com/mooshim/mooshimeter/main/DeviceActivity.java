@@ -285,8 +285,18 @@ public class DeviceActivity extends FragmentActivity {
 	}
 
     private void launchOAD() {
-        final Intent i = new Intent(this, FwUpdateActivity.class);
-        startActivityForResult(i, FWUPDATE_ACT_REQ);
+        final BLEUtil bleUtil = BLEUtil.getInstance();
+        if( bleUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID) ) {
+            final Intent i = new Intent(this, FwUpdateActivity.class);
+            startActivityForResult(i, FWUPDATE_ACT_REQ);
+        } else {
+            setError("Failed to find OAD service, not launching firmware update");
+            if(!bleUtil.setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE)) {
+                // We can't find the OAD service, and for some reason can't connect back to the meter service.
+                // Abort
+                finish();
+            }
+        }
     }
 
 	private void startPreferenceActivity() {

@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
@@ -36,8 +37,8 @@ public class MooshimeterDevice {
                 METER_BAT          = fromString("1BC5FFAC-0200-62AB-E411-F254E005DBD4"),
 
                 OAD_SERVICE_UUID    = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4"),
-                OAD_IMAGE_NOTIFY    = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
-                OAD_IMAGE_REQ = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
+                OAD_IMAGE_IDENTIFY  = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
+                OAD_IMAGE_BLOCK     = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
                 OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
     }
 
@@ -566,34 +567,33 @@ public class MooshimeterDevice {
     }
 
     public void reconnectInOADMode(final Runnable cb) {
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
         // Reboot the meter and reconnect
         meter_settings.target_meter_state = METER_SHUTDOWN;
-        // The meter shuts down immediately upon receiving the setting change, don't wait for a response
+        // The meter shuts down immediately upon receiving the setting change, don't expect a response
+        mBLEUtil.setDisconnectCB(null);
         meter_settings.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-        meter_settings.send( new Runnable() {
+        meter_settings.send( null );
+        // Wait before calling disconnect
+        mainHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
                 final String addr = mBLEUtil.getBTAddress();
-                mBLEUtil.disconnect(new Runnable() {
+                mBLEUtil.disconnect();
+                mainHandler.postDelayed( new Runnable() {
                     @Override
                     public void run() {
-                        // Gymnastics to run connect from UI thread
-                        Handler mainHandler = new Handler(mContext.getMainLooper());
-                        mainHandler.post(new Runnable() {
+                        mBLEUtil.clear();
+                        mBLEUtil.connect(addr, new BLEUtil.BLEUtilCB() {
                             @Override
                             public void run() {
-                                mBLEUtil.connect(addr, new BLEUtil.BLEUtilCB() {
-                                    @Override
-                                    public void run() {
-                                        cb.run();
-                                    }
-                                });
+                                cb.run();
                             }
                         });
                     }
-                });
+                }, 1000 );
             }
-        });
+        }, 200);
     }
 
     //////////////////////////////////////
