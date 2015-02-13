@@ -234,7 +234,7 @@ public class FwUpdateActivity extends Activity {
         @Override
         public void run() {
             // Send image notification
-            final byte[] buf = mFileImgHdr.pack();
+            final byte[] buf = mFileImgHdr.packForIdentify();
             mBLEUtil.enableNotify(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, true, new BLEUtil.BLEUtilCB() {
                 @Override
                 public void run() {
@@ -269,6 +269,15 @@ public class FwUpdateActivity extends Activity {
                 public void run() {
                     // After each block notify, release the pacer and allow the next block to fly
                     pacer.release();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            short block_num = 0;
+                            block_num |= value[0];
+                            block_num |= value[1]<<8;
+                            mLog.append("Sent block " + block_num + "\n");
+                        }
+                    });
                 }
             });
         }
@@ -288,7 +297,7 @@ public class FwUpdateActivity extends Activity {
     updateGui();
 
     if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
-      mLog.setText("Programming complete!\n");
+      mLog.append("Programming complete!\n");
     } else {
       mLog.append("Programming cancelled\n");
     }
@@ -470,6 +479,15 @@ public class FwUpdateActivity extends Activity {
             for(int i=0;i<4;i++) {
                 b.put(res[i]);
             }
+            return retval;
+        }
+        public byte[] packForIdentify() {
+            byte[] retval = new byte[8];
+            ByteBuffer b = ByteBuffer.wrap(retval);
+            b.order(ByteOrder.LITTLE_ENDIAN);
+            b.putShort(ver);
+            b.putShort((short)len);
+            b.putInt(build_time);
             return retval;
         }
     }
