@@ -114,9 +114,7 @@ public class FwUpdateActivity extends Activity {
     // BLE
     private BLEUtil mBLEUtil = null;
     private ImgHdr mFileImgHdr = new ImgHdr();
-    private Timer mTimer = null;
     private ProgInfo mProgInfo = new ProgInfo();
-    private TimerTask mTimerTask = null;
     // Housekeeping
     private boolean mProgramming = false;
 
@@ -161,11 +159,7 @@ public class FwUpdateActivity extends Activity {
 
     @Override
     public void onDestroy() {
-        Log.d(TAG, "onDestroy");
         super.onDestroy();
-        if (mTimerTask != null)
-            mTimerTask.cancel();
-        mTimer = null;
     }
 
     @Override
@@ -201,13 +195,21 @@ public class FwUpdateActivity extends Activity {
         super.onPause();
     }
 
-    public void onStart(View v) {
-        if (mProgramming) {
-            stopProgramming();
-        } else {
-            startProgramming();
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // Check which request we're responding to
+        if (requestCode == FILE_ACTIVITY_REQ) {
+            // Make sure the request was successful
+            if (resultCode == RESULT_OK) {
+                String filename = data.getStringExtra(FileActivity.EXTRA_FILENAME);
+                loadFile(filename, false);
+            }
         }
     }
+
+    ////////////////////////////////
+    // State transitions
+    ////////////////////////////////
 
     private void startProgramming() {
         mLog.append("Programming started\n");
@@ -234,9 +236,6 @@ public class FwUpdateActivity extends Activity {
                                         } else {
                                             // Initialize stats
                                             mProgInfo.reset();
-                                            mTimer = new Timer();
-                                            mTimerTask = new ProgTimerTask();
-                                            mTimer.scheduleAtFixedRate(mTimerTask, 0, TIMER_INTERVAL);
                                             programBlock();
                                         }
                                     }
@@ -271,11 +270,6 @@ public class FwUpdateActivity extends Activity {
     }
 
     private void stopProgramming() {
-        mTimer.cancel();
-        mTimer.purge();
-        mTimerTask.cancel();
-        mTimerTask = null;
-
         mProgramming = false;
         mProgressInfo.setText("");
         mProgressBar.setProgress(0);
@@ -288,6 +282,22 @@ public class FwUpdateActivity extends Activity {
         }
     }
 
+    /////////////////////////////////
+    // GUI Callbacks
+    /////////////////////////////////
+
+    public void onStart(View v) {
+        if (mProgramming) {
+            stopProgramming();
+        } else {
+            startProgramming();
+        }
+    }
+
+    ////////////////////////////
+    // GUI Refreshers
+    ////////////////////////////
+
     private void updateGui() {
         if (mProgramming) {
             // Busy: stop label, progress bar, disabled file selector
@@ -298,6 +308,35 @@ public class FwUpdateActivity extends Activity {
             mBtnStart.setText(R.string.start_prog);
         }
     }
+
+    private void displayImageInfo(TextView v, ImgHdr h) {
+        int imgSize = h.len * 4;
+        String s = String.format("Ver.: %d Build: %d Size: %d", h.ver, h.build_time, imgSize);
+        v.setText(Html.fromHtml(s));
+    }
+
+    private void displayStats() {
+        String txt;
+        int byteRate;
+        int sec = mProgInfo.iTimeElapsed / 1000;
+        if (sec > 0) {
+            byteRate = mProgInfo.iBytes / sec;
+        } else {
+            byteRate = 0;
+            return;
+        }
+        float timeEstimate;
+
+        timeEstimate = ((float) (mFileImgHdr.len * 4) / (float) mProgInfo.iBytes) * sec;
+
+        txt = String.format("Time: %d / %d sec", sec, (int) timeEstimate);
+        txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, byteRate);
+        mProgressInfo.setText(txt);
+    }
+
+    /////////////////////////////
+    // Utility
+    /////////////////////////////
 
     private boolean loadFile(String filepath, boolean isAsset) {
         boolean fSuccess = false;
@@ -341,43 +380,6 @@ public class FwUpdateActivity extends Activity {
         updateGui();
 
         return fSuccess;
-    }
-
-    private void displayImageInfo(TextView v, ImgHdr h) {
-        int imgSize = h.len * 4;
-        String s = String.format("Ver.: %d Build: %d Size: %d", h.ver, h.build_time, imgSize);
-        v.setText(Html.fromHtml(s));
-    }
-
-    private void displayStats() {
-        String txt;
-        int byteRate;
-        int sec = mProgInfo.iTimeElapsed / 1000;
-        if (sec > 0) {
-            byteRate = mProgInfo.iBytes / sec;
-        } else {
-            byteRate = 0;
-            return;
-        }
-        float timeEstimate;
-
-        timeEstimate = ((float) (mFileImgHdr.len * 4) / (float) mProgInfo.iBytes) * sec;
-
-        txt = String.format("Time: %d / %d sec", sec, (int) timeEstimate);
-        txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, byteRate);
-        mProgressInfo.setText(txt);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // Check which request we're responding to
-        if (requestCode == FILE_ACTIVITY_REQ) {
-            // Make sure the request was successful
-            if (resultCode == RESULT_OK) {
-                String filename = data.getStringExtra(FileActivity.EXTRA_FILENAME);
-                loadFile(filename, false);
-            }
-        }
     }
 
   /*
@@ -426,12 +428,9 @@ public class FwUpdateActivity extends Activity {
         }
     }
 
-    private class ProgTimerTask extends TimerTask {
-        @Override
-        public void run() {
-            mProgInfo.iTimeElapsed += TIMER_INTERVAL;
-        }
-    }
+    /////////////////////////
+    // Convenience classes
+    /////////////////////////
 
     private class ImgHdr {
         short crc0;
