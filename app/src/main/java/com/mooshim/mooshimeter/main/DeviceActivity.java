@@ -58,12 +58,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.graphics.Color;
 import android.hardware.SensorManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -87,6 +85,8 @@ public class DeviceActivity extends FragmentActivity {
 	private static final int PREF_ACT_REQ = 0;
 	private static final int FWUPDATE_ACT_REQ = 1;
     private static final int TREND_ACT_REQ = 2;
+
+    public static final int METER_DISCONNECTED_RES = 0;
 
 	// BLE
 	private List<BluetoothGattService> mServiceList = null;
@@ -120,7 +120,7 @@ public class DeviceActivity extends FragmentActivity {
 		mServiceList = new ArrayList<BluetoothGattService>();
 
         // GUI
-        setContentView(R.layout.meter_view);
+        setContentView(R.layout.activity_meter);
 
         // Bind the GUI elements
         value_labels[0] = (TextView) findViewById(R.id.ch1_value_label);
@@ -211,16 +211,7 @@ public class DeviceActivity extends FragmentActivity {
 	protected void onResume() {
 		super.onResume();
         mMeter = MooshimeterDevice.getInstance();
-        if(mMeter == null) {
-            mMeter = MooshimeterDevice.Initialize(this, new Runnable() {
-                @Override
-                public void run() {
-                    onMeterInitialized();
-                }
-            });
-        } else {
-            onMeterInitialized();
-        }
+        onMeterInitialized();
         orientation_listener.enable();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
@@ -289,11 +280,7 @@ public class DeviceActivity extends FragmentActivity {
     }
 
 	private void startPreferenceActivity() {
-		// Disable sensors and notifications when the settings dialog is open
-		//enableDataCollection(false);
-		// Launch preferences
 		final Intent i = new Intent(this, PreferencesActivity.class);
-		//i.putExtra(PreferencesActivity.EXTRA_METER, mMeter);
 		startActivityForResult(i, PREF_ACT_REQ);
 	}
 
@@ -315,7 +302,6 @@ public class DeviceActivity extends FragmentActivity {
 		Toast.makeText(this, txt, Toast.LENGTH_SHORT).show();
 	}
 
-	// Activity result handling
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
 

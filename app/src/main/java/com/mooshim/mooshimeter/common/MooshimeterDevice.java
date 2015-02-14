@@ -452,12 +452,16 @@ public class MooshimeterDevice {
         return mInstance;
     }
 
+    public static void clearInstance() {
+        mInstance = null;
+    }
+
     public static void Destroy() {
         // Clear the global instance
         if(mInstance != null) {
             mInstance.close();
             mInstance.mBLEUtil.disconnect();
-            mInstance = null;
+            clearInstance();
         }
     }
 
@@ -588,27 +592,32 @@ public class MooshimeterDevice {
         // The meter shuts down immediately upon receiving the setting change, don't expect a response
         mBLEUtil.setDisconnectCB(null);
         meter_settings.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-        meter_settings.send( null );
-        // Wait before calling disconnect
-        mainHandler.postDelayed(new Runnable() {
+        mainHandler.post(new Runnable() {
             @Override
             public void run() {
-                final String addr = mBLEUtil.getBTAddress();
-                mBLEUtil.disconnect();
-                mainHandler.postDelayed( new Runnable() {
+                meter_settings.send( null );
+                // Wait before calling disconnect
+                mainHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        mBLEUtil.clear();
-                        mBLEUtil.connect(addr, new BLEUtil.BLEUtilCB() {
+                        final String addr = mBLEUtil.getBTAddress();
+                        mBLEUtil.disconnect();
+                        mainHandler.postDelayed( new Runnable() {
                             @Override
                             public void run() {
-                                cb.run();
+                                mBLEUtil.clear();
+                                mBLEUtil.connect(addr, new BLEUtil.BLEUtilCB() {
+                                    @Override
+                                    public void run() {
+                                        cb.run();
+                                    }
+                                });
                             }
-                        });
+                    }, 1000 );
                     }
-                }, 1000 );
+                }, 200);
             }
-        }, 200);
+        });
     }
 
     //////////////////////////////////////

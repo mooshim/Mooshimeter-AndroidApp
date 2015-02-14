@@ -29,6 +29,9 @@ import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -62,7 +65,7 @@ public class ScanActivity extends FragmentActivity {
     private static final int NO_DEVICE = -1;
     private static final int REQ_ENABLE_BT = 0;
     private static final int REQ_DEVICE_ACT = 1;
-    private static final int REQ_OAD_ACT = 1;
+    private static final int REQ_OAD_ACT = 2;
 
     final static byte[] mMeterServiceUUID = uuidToBytes(MooshimeterDevice.mUUID.METER_SERVICE);
     final static byte[] mOADServiceUUID   = uuidToBytes(MooshimeterDevice.mUUID.OAD_SERVICE_UUID);
@@ -71,6 +74,7 @@ public class ScanActivity extends FragmentActivity {
     private ScanViewState mScanViewState = ScanViewState.IDLE;
     private Timer mTimer = null;
 
+    private boolean mUpdateFirmwareFlag = false;// Update the firmware of the selected meter
     private int mConnIndex = NO_DEVICE;         // The list index of the connected device
     private List<BleDeviceInfo> mDeviceInfoList;// The list of detected Mooshimeters
     private BLEUtil mBleUtil = null;            // The singleton BLEUtil.  Used for managing connection
@@ -129,9 +133,41 @@ public class ScanActivity extends FragmentActivity {
         moveState(ScanViewState.SCANNING);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_actions, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle presses on the action bar items
+        switch (item.getItemId()) {
+            case R.id.opt_prefs:
+                break;
+            case R.id.opt_fwupdate:
+                mUpdateFirmwareFlag ^= true;
+                if(mUpdateFirmwareFlag) {
+                    setStatus("Select a meter to update firmware");
+                } else {
+                    setStatus("");
+                }
+                break;
+            case R.id.opt_exit:
+                Toast.makeText(this, "Goodbye!", Toast.LENGTH_LONG).show();
+                finish();
+                break;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+        return true;
+    }
+
     // Master state machine for the scan view
 
     private void moveState(ScanViewState newState) {
+        ScanViewState tail = null;
         switch(mScanViewState) {
             case IDLE:
                 switch(newState) {
@@ -181,10 +217,29 @@ public class ScanActivity extends FragmentActivity {
                         mBleUtil.connect(bluetoothDevice.getAddress(), new BLEUtil.BLEUtilCB() {
                             @Override
                             public void run() {
-                                stopTimer();
                                 if (error == BluetoothGatt.GATT_SUCCESS) {
+                                    stopTimer();
                                     if(mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE)) {
-                                        startDeviceActivity();
+                                        // Initialize the meter
+                                        MooshimeterDevice.clearInstance();
+                                        MooshimeterDevice.Initialize(getApplicationContext(), new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                if(mUpdateFirmwareFlag) {
+                                                    // The user has indicated they want to load firmware
+                                                    // Reboot the meter and connect in OAD mode
+                                                    final MooshimeterDevice meter = MooshimeterDevice.getInstance();
+                                                    meter.reconnectInOADMode(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            startOADActivity();
+                                                        }
+                                                    });
+                                                } else {
+                                                    startDeviceActivity();
+                                                }
+                                            }
+                                        });
                                     } else if( mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
                                         startOADActivity();
                                     } else {
@@ -260,11 +315,6 @@ public class ScanActivity extends FragmentActivity {
             mStatus.setTextAppearance(this, R.style.statusStyle_Busy);
             mStatus.setText("Scanning...");
             mEmptyMsg.setText(R.string.nodevice);
-            if(mDeviceInfoList.size() == 0) {
-                mEmptyMsg.setVisibility(View.VISIBLE);
-            } else {
-                mEmptyMsg.setVisibility(View.GONE);
-            }
         } else {
             // Indicate that scanning has stopped
             mStatus.setTextAppearance(this, R.style.statusStyle_Success);
@@ -272,6 +322,12 @@ public class ScanActivity extends FragmentActivity {
             mBtnScan.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_action_refresh, 0);
             mEmptyMsg.setText(R.string.scan_advice);
             mDeviceAdapter.notifyDataSetChanged();
+        }
+        if(mDeviceInfoList.size() == 0) {
+            mEmptyMsg.setVisibility(View.VISIBLE);
+            mStatus.setText("No devices found");
+        } else {
+            mEmptyMsg.setVisibility(View.GONE);
         }
     }
 
@@ -327,6 +383,21 @@ public class ScanActivity extends FragmentActivity {
     private void startOADActivity() {
         final Intent i = new Intent(this, FwUpdateActivity.class);
         startActivityForResult(i, REQ_OAD_ACT);
+    }
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch (requestCode) {
+            case REQ_DEVICE_ACT:
+                moveState(ScanViewState.IDLE);
+                break;
+            case REQ_OAD_ACT:
+                moveState(ScanViewState.IDLE);
+                break;
+            default:
+                setError("Unknown request code");
+                break;
+        }
     }
 
     /////////////////////////////
@@ -515,10 +586,10 @@ public class ScanActivity extends FragmentActivity {
             if(deviceInfo.mBuildTime == 0) {
                 build = "Invalid firmware";
             } else {
-                build = ""+deviceInfo.mBuildTime;
+                build = "Build: "+deviceInfo.mBuildTime;
             }
 
-            String descr = name + "\nBuild: " + build + "\nRssi: " + rssi + " dBm";
+            String descr = name + "\n" + build + "\nRssi: " + rssi + " dBm";
             ((TextView) vg.findViewById(R.id.descr)).setText(descr);
 
             // Disable connect button when connecting or connected

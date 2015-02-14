@@ -300,14 +300,6 @@ public class BLEUtil {
         }
     }
 
-    private void broadcastUpdate(final String action, final String address,
-                                 final int status) {
-        final Intent intent = new Intent(action);
-        intent.putExtra(EXTRA_ADDRESS, address);
-        intent.putExtra(EXTRA_STATUS, status);
-        mContext.sendBroadcast(intent);
-    }
-
     private BluetoothGattService getService(final UUID sUUID) {
         for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
             if(s.getUuid().equals(sUUID)) {
