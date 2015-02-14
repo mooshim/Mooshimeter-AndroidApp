@@ -61,11 +61,13 @@ public class BleDeviceInfo {
   private BluetoothDevice mBtDevice;
   private int mRssi;
   public int mBuildTime;
+  public boolean mOADMode;
 
-  public BleDeviceInfo(BluetoothDevice device, int rssi, int build_time) {
+  public BleDeviceInfo(BluetoothDevice device, int rssi, int build_time, boolean oad_mode) {
     mBtDevice = device;
     mRssi = rssi;
     mBuildTime = build_time;
+    mOADMode = oad_mode;
   }
 
   public BluetoothDevice getBluetoothDevice() {
@@ -79,5 +81,4 @@ public class BleDeviceInfo {
   public void updateRssi(int rssiValue) {
     mRssi = rssiValue;
   }
-
 }

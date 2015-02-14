@@ -23,12 +23,14 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.BLEUtil;
 import com.mooshim.mooshimeter.common.BleDeviceInfo;
+import com.mooshim.mooshimeter.common.MooshimeterDevice;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 
 /**
  * Created by First on 2/4/2015.
@@ -44,6 +46,10 @@ public class ScanActivity extends FragmentActivity {
     private static final int NO_DEVICE = -1;
     private static final int REQ_ENABLE_BT = 0;
     private static final int REQ_DEVICE_ACT = 1;
+    private static final int REQ_OAD_ACT = 1;
+
+    final static byte[] mMeterServiceUUID = uuidToBytes(MooshimeterDevice.mUUID.METER_SERVICE);
+    final static byte[] mOADServiceUUID   = uuidToBytes(MooshimeterDevice.mUUID.OAD_SERVICE_UUID);
 
     // Housekeeping
     private ScanViewState mScanViewState = ScanViewState.IDLE;
@@ -161,7 +167,13 @@ public class ScanActivity extends FragmentActivity {
                             public void run() {
                                 stopTimer();
                                 if (error == BluetoothGatt.GATT_SUCCESS) {
-                                    startDeviceActivity();
+                                    if(mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE)) {
+                                        startDeviceActivity();
+                                    } else if( mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
+                                        startOADActivity();
+                                    } else {
+                                        Log.e(TAG, "Couldn't find a service I recognized!");
+                                    }
                                 } else	{
                                     setError("Connect failed. Status: " + error);
                                     moveState(ScanViewState.IDLE);
@@ -296,9 +308,41 @@ public class ScanActivity extends FragmentActivity {
         finishActivity(REQ_DEVICE_ACT);
     }
 
+    private void startOADActivity() {
+        final Intent i = new Intent(this, FwUpdateActivity.class);
+        startActivityForResult(i, REQ_OAD_ACT);
+    }
+
     /////////////////////////////
     // Listeners for BLE Events
     /////////////////////////////
+
+    private static byte[] uuidToBytes(final UUID arg) {
+        final byte[] s = arg.toString().getBytes();
+        byte[] rval = new byte[16];
+        for(int i = 0; i < 16; i++){ rval[i]=0; }
+        // We expect 16 bytes, but UUID strings are reverse order from byte arrays
+        int i = 31;
+        for(byte b:s) {
+            if( b >= 0x30 && b < 0x3A ) {
+                b -= 0x30;
+            } else if( b >= 0x41 && b < 0x47 ) {
+                b -= 0x41;
+                b += 10;
+            } else if( b >= 0x61 && b < 0x67) {
+                b -= 0x61;
+                b += 10;
+            } else {
+                // Unrecognized symbol, probably a dash
+                continue;
+            }
+            // Is this the top or bottom nibble?
+            b <<= (i%2 == 0)?0:4;
+            rval[i/2] |= b;
+            i--;
+        }
+        return rval;
+    }
 
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 
@@ -309,6 +353,7 @@ public class ScanActivity extends FragmentActivity {
                     // FIXME: Android doesn't seem to be filtering devices correctly based on UUIDs
                     // FIXME: For now I will examine the scan record manually
                     boolean is_meter = false;
+                    boolean oad_mode = false;
                     int build_time = 0;
                     int field_length = 0;
                     int field_id = 0;
@@ -325,18 +370,20 @@ public class ScanActivity extends FragmentActivity {
                         } else {
                             switch(field_id) {
                                 case 6:
-                                    // This is a UUID listing
-                                    // TODO: Move these hardcoded values to a seperate file
-                                    final byte[] moosh_service_uuid = {(byte)0xd4, (byte)0xdb, (byte)0x05, (byte)0xe0, (byte)0x54, (byte)0xf2, (byte)0x11, (byte)0xe4, (byte)0xab, (byte)0x62, (byte)0x00, (byte)0x02, (byte)0xa0, (byte)0xff, (byte)0xc5, (byte)0x1b};
+                                    // Type 6: This is a UUID listing
                                     // Check expected length
                                     if(field_length != 16) { break; }
                                     // Check that there's enough data in the buffer
                                     if(i+field_length >= scanRecord.length) {break;}
                                     // Check the value against the expected service UUID
                                     byte[] received_uuid = Arrays.copyOfRange(scanRecord, i, i + field_length);
-                                    if(Arrays.equals(received_uuid, moosh_service_uuid)) {
+                                    if(Arrays.equals(received_uuid, mMeterServiceUUID)) {
                                         Log.i(null, "Mooshimeter found");
                                         is_meter = true;
+                                    } else if(Arrays.equals(received_uuid, mOADServiceUUID)) {
+                                        Log.i(null, "Mooshimeter found in OAD mode");
+                                        is_meter = true;
+                                        oad_mode = true;
                                     } else {
                                         Log.i(null, "Scanned device is not a meter");
                                     }
@@ -366,7 +413,7 @@ public class ScanActivity extends FragmentActivity {
                     if(is_meter) {
                         if (!deviceInfoExists(device.getAddress())) {
                             // New device
-                            BleDeviceInfo deviceInfo = new BleDeviceInfo(device, rssi, build_time);
+                            BleDeviceInfo deviceInfo = new BleDeviceInfo(device, rssi, build_time, oad_mode);
                             addDevice(deviceInfo);
                         } else {
                             // Already in list, update RSSI info
@@ -439,12 +486,23 @@ public class ScanActivity extends FragmentActivity {
             BluetoothDevice device = deviceInfo.getBluetoothDevice();
             int rssi = deviceInfo.getRssi();
             String name;
-            name = device.getName();
-            if (name == null) {
-                name = new String("Unknown device");
+            String build;
+            if(deviceInfo.mOADMode) {
+                name = "Bootloader";
+            } else {
+                name = device.getName();
+                if (name == null) {
+                    name = new String("Unknown device");
+                }
             }
 
-            String descr = name + "\n" + device.getAddress() + "\nRssi: " + rssi + " dBm";
+            if(deviceInfo.mBuildTime == 0) {
+                build = "Invalid firmware";
+            } else {
+                build = ""+deviceInfo.mBuildTime;
+            }
+
+            String descr = name + "\nBuild: " + build + "\nRssi: " + rssi + " dBm";
             ((TextView) vg.findViewById(R.id.descr)).setText(descr);
 
             // Disable connect button when connecting or connected

@@ -56,10 +56,10 @@ package com.mooshim.mooshimeter.main;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.text.Html;
 import android.util.Log;
 import android.view.MenuItem;
@@ -81,8 +81,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.Semaphore;
 
 public class FwUpdateActivity extends Activity {
@@ -100,12 +98,10 @@ public class FwUpdateActivity extends Activity {
     private static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
     private final byte[] mOadBuffer = new byte[OAD_BUFFER_SIZE];
     private static final int HAL_FLASH_WORD_SIZE = 4;
-    private static final long TIMER_INTERVAL = 1000;
     // Log
     private static String TAG = "FwUpdateActivity";
     private final Semaphore pacer = new Semaphore(1);
     // GUI
-    private TextView mTargImage;
     private TextView mFileImage;
     private TextView mProgressInfo;
     private TextView mLog;
@@ -117,24 +113,16 @@ public class FwUpdateActivity extends Activity {
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
-
-
-    public FwUpdateActivity() {
-        mBLEUtil = BLEUtil.getInstance(this);
-        if (!mBLEUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
-            Log.e(TAG, "Failed to find OAD service");
-            finish();
-        }
-
-        // Service information
-        //mConnControlService = mDeviceActivity.getConnControlService();
-    }
+    private Handler mWatchdog = null;
+    private Runnable mWatchdogCB = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
 
         super.onCreate(savedInstanceState);
+
+        // GUI init
         setContentView(R.layout.activity_fwupdate);
 
         // Icon padding
@@ -145,16 +133,29 @@ public class FwUpdateActivity extends Activity {
         setTitle(R.string.title_oad);
 
         // Initialize widgets
-        mProgressInfo = (TextView) findViewById(R.id.tw_info);
-        mTargImage = (TextView) findViewById(R.id.tw_target);
-        mFileImage = (TextView) findViewById(R.id.tw_file);
-        mLog = (TextView) findViewById(R.id.tw_log);
-        mProgressBar = (ProgressBar) findViewById(R.id.pb_progress);
-        mBtnStart = (Button) findViewById(R.id.btn_start);
+        mProgressInfo = (TextView)    findViewById(R.id.tw_info);
+        mFileImage    = (TextView)    findViewById(R.id.tw_file);
+        mLog          = (TextView)    findViewById(R.id.tw_log);
+        mProgressBar  = (ProgressBar) findViewById(R.id.pb_progress);
+        mBtnStart     = (Button)      findViewById(R.id.btn_start);
         mBtnStart.setEnabled(false);
 
+        // Housekeeping variables
+        mBLEUtil = BLEUtil.getInstance(this);
+        if (!mBLEUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
+            Log.e(TAG, "Failed to find OAD service");
+            finish();
+        }
         loadFile(FW_FILE_A, true);
-        updateGui();
+        mWatchdog = new Handler();
+        mWatchdogCB = new Runnable() {
+            @Override
+            public void run() {
+                watchdogCB();
+            }
+        };
+
+        updateStartButton();
     }
 
     @Override
@@ -188,6 +189,13 @@ public class FwUpdateActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        mBLEUtil.setDisconnectCB(new Runnable() {
+            @Override
+            public void run() {
+                stopProgramming();
+                finish();
+            }
+        });
     }
 
     @Override
@@ -212,9 +220,15 @@ public class FwUpdateActivity extends Activity {
     ////////////////////////////////
 
     private void startProgramming() {
+        if(mProgramming) {
+            Log.e(TAG, "startProgramming called, but programming already underway!");
+            return;
+        }
         mLog.append("Programming started\n");
         mProgramming = true;
-        updateGui();
+        updateStartButton();
+
+        startDog();
 
         // Update connection parameters
         mBLEUtil.setConnectionInterval((short) 20, (short) 1000, new BLEUtil.BLEUtilCB() {
@@ -253,15 +267,6 @@ public class FwUpdateActivity extends Activity {
                     public void run() {
                         // After each block notify, release the pacer and allow the next block to fly
                         pacer.release();
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                short block_num = 0;
-                                block_num |= value[0];
-                                block_num |= value[1] << 8;
-                                mLog.append("Sent block " + block_num + "\n");
-                            }
-                        });
                     }
                 });
             }
@@ -270,10 +275,15 @@ public class FwUpdateActivity extends Activity {
     }
 
     private void stopProgramming() {
+        if(!mProgramming) {
+            Log.e(TAG, "stopProgramming called, but programming already stopped!");
+            return;
+        }
+        stopDog();
         mProgramming = false;
         mProgressInfo.setText("");
         mProgressBar.setProgress(0);
-        updateGui();
+        updateStartButton();
 
         if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
             mLog.append("Programming complete!\n");
@@ -298,14 +308,14 @@ public class FwUpdateActivity extends Activity {
     // GUI Refreshers
     ////////////////////////////
 
-    private void updateGui() {
+    private void updateStartButton() {
         if (mProgramming) {
-            // Busy: stop label, progress bar, disabled file selector
             mBtnStart.setText(R.string.cancel);
+            mProgressInfo.setText("Programming...");
         } else {
-            // Idle: program label, enable file selector
             mProgressBar.setProgress(0);
             mBtnStart.setText(R.string.start_prog);
+            mProgressInfo.setText("Idle");
         }
     }
 
@@ -317,26 +327,40 @@ public class FwUpdateActivity extends Activity {
 
     private void displayStats() {
         String txt;
-        int byteRate;
-        int sec = mProgInfo.iTimeElapsed / 1000;
-        if (sec > 0) {
-            byteRate = mProgInfo.iBytes / sec;
+        final double byteRate;
+        final double elapsed = (System.currentTimeMillis() - mProgInfo.timeStart) / 1000.0;
+        if (elapsed > 0) {
+            byteRate = ((double)mProgInfo.iBytes) / elapsed;
         } else {
             byteRate = 0;
-            return;
         }
-        float timeEstimate;
+        final double timeEstimate = ((double) (mFileImgHdr.len * 4) / (double) mProgInfo.iBytes) * elapsed;
 
-        timeEstimate = ((float) (mFileImgHdr.len * 4) / (float) mProgInfo.iBytes) * sec;
-
-        txt = String.format("Time: %d / %d sec", sec, (int) timeEstimate);
-        txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, byteRate);
+        txt = String.format("Time: %d / %d sec", (int) elapsed, (int) timeEstimate);
+        txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, (int) byteRate);
         mProgressInfo.setText(txt);
     }
 
     /////////////////////////////
     // Utility
     /////////////////////////////
+
+    private void startDog() {
+        mWatchdog.postDelayed(mWatchdogCB, 1000);
+    }
+
+    private void feedDog() {
+        stopDog();
+        startDog();
+    }
+
+    private void stopDog() {
+        mWatchdog.removeCallbacks(mWatchdogCB);
+    }
+
+    private void watchdogCB() {
+        stopProgramming();
+    }
 
     private boolean loadFile(String filepath, boolean isAsset) {
         boolean fSuccess = false;
@@ -377,14 +401,10 @@ public class FwUpdateActivity extends Activity {
         mLog.setText("Image Loaded.\n");
         mLog.append("Ready to program device!\n");
 
-        updateGui();
+        updateStartButton();
 
         return fSuccess;
     }
-
-  /*
-   * Called when a notification with the current image info has been received
-   */
 
     private void programBlock() {
         if (!mProgramming)
@@ -404,9 +424,18 @@ public class FwUpdateActivity extends Activity {
                 public void run() {
                     if (error == BluetoothGatt.GATT_SUCCESS) {
                         // Update stats
+                        feedDog();
                         mProgInfo.iBlocks++;
                         mProgInfo.iBytes += OAD_BLOCK_SIZE;
                         mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
+                        if(mProgInfo.iBlocks%64 == 0){
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    displayStats();
+                                }
+                            });
+                        }
                         programBlock();
                     } else {
                         mProgramming = false;
@@ -483,12 +512,12 @@ public class FwUpdateActivity extends Activity {
         int iBytes = 0; // Number of bytes programmed
         short iBlocks = 0; // Number of blocks programmed
         short nBlocks = 0; // Total number of blocks
-        int iTimeElapsed = 0; // Time elapsed in milliseconds
+        long timeStart = System.currentTimeMillis();
 
         void reset() {
             iBytes = 0;
             iBlocks = 0;
-            iTimeElapsed = 0;
+            long timeStart = System.currentTimeMillis();
             nBlocks = (short) (mFileImgHdr.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }

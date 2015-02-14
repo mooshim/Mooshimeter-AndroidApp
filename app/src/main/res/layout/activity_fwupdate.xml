@@ -19,31 +19,6 @@
             android:layout_height="fill_parent"
             android:layout_gravity="left|center_vertical"
             android:layout_weight="1"
-            android:text="@string/cur_image" />
-
-        <TextView
-            android:id="@+id/tw_target"
-            style="@style/dataStyle1"
-            android:layout_width="0dp"
-            android:layout_height="fill_parent"
-            android:layout_weight="1.5"
-            android:text="@string/no_image" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:gravity="left"
-        android:orientation="horizontal"
-        android:paddingBottom="10dp"
-        android:paddingTop="10dp" >
-
-        <TextView
-            style="@style/nameStyle"
-            android:layout_width="0dp"
-            android:layout_height="fill_parent"
-            android:layout_gravity="left|center_vertical"
-            android:layout_weight="1"
             android:text="@string/new_image" />
 
         <TextView
@@ -88,7 +63,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:layout_weight="1"
-        android:lines="10"
+        android:lines="20"
         android:padding="5dp" />
 
     <Button

@@ -92,9 +92,6 @@ public class DeviceActivity extends FragmentActivity {
 	private List<BluetoothGattService> mServiceList = null;
     private MooshimeterDevice mMeter = null;
 
-	private BluetoothGattService mOadService = null;
-	private BluetoothGattService mConnControlService = null;
-
     // GUI
     private final TextView[] value_labels = new TextView[2];
 
@@ -265,14 +262,6 @@ public class DeviceActivity extends FragmentActivity {
 		// Log.d(TAG, "onPause");
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-	}
-
-	BluetoothGattService getOadService() {
-		return mOadService;
-	}
-
-	BluetoothGattService getConnControlService() {
-		return mConnControlService;
 	}
 
 	private void startOadActivity() {
