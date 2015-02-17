@@ -59,7 +59,6 @@ import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.text.Html;
 import android.util.Log;
 import android.view.MenuItem;
@@ -82,7 +81,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.concurrent.Semaphore;
 
 public class FwUpdateActivity extends Activity {
     public final static String EXTRA_MESSAGE = "com.example.ti.ble.sensortag.MESSAGE";
@@ -101,7 +99,6 @@ public class FwUpdateActivity extends Activity {
     private static final int HAL_FLASH_WORD_SIZE = 4;
     // Log
     private static String TAG = "FwUpdateActivity";
-    private final Semaphore pacer = new Semaphore(1);
     // GUI
     private TextView mFileImage;
     private TextView mProgressInfo;
@@ -264,8 +261,26 @@ public class FwUpdateActivity extends Activity {
                 }, new BLEUtil.BLEUtilCB() {
                     @Override
                     public void run() {
-                        // After each block notify, release the pacer and allow the next block to fly
-                        pacer.release();
+                        // After each block notify, allow the next block to fly
+                        if (error == BluetoothGatt.GATT_SUCCESS) {
+                            // Update stats
+                            mWatchdog.feed();
+                            mProgInfo.iBlocks++;
+                            mProgInfo.iBytes += OAD_BLOCK_SIZE;
+                            mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
+                            if(mProgInfo.iBlocks%64 == 0){
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        displayStats();
+                                    }
+                                });
+                            }
+                            programBlock();
+                        } else {
+                            mProgramming = false;
+                            mLog.append("GATT writeCharacteristic failed\n");
+                        }
                     }
                 });
             }
@@ -388,7 +403,7 @@ public class FwUpdateActivity extends Activity {
         return fSuccess;
     }
 
-    private void programBlock() {
+    private synchronized void programBlock(){
         if (!mProgramming)
             return;
 
@@ -400,28 +415,11 @@ public class FwUpdateActivity extends Activity {
             mOadBuffer[1] = Conversion.hiUint16(mProgInfo.iBlocks);
             System.arraycopy(mFileBuffer, mProgInfo.iBytes, mOadBuffer, 2, OAD_BLOCK_SIZE);
 
-            // Send block
             mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, mOadBuffer, new BLEUtil.BLEUtilCB() {
                 @Override
                 public void run() {
-                    if (error == BluetoothGatt.GATT_SUCCESS) {
-                        // Update stats
-                        mWatchdog.feed();
-                        mProgInfo.iBlocks++;
-                        mProgInfo.iBytes += OAD_BLOCK_SIZE;
-                        mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
-                        if(mProgInfo.iBlocks%64 == 0){
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    displayStats();
-                                }
-                            });
-                        }
-                        programBlock();
-                    } else {
-                        mProgramming = false;
-                        mLog.append("GATT writeCharacteristic failed\n");
+                    if(error != BluetoothGatt.GATT_SUCCESS) {
+                        Log.e(TAG, "Write fail!");
                     }
                 }
             });
@@ -499,7 +497,7 @@ public class FwUpdateActivity extends Activity {
         void reset() {
             iBytes = 0;
             iBlocks = 0;
-            long timeStart = System.currentTimeMillis();
+            timeStart = System.currentTimeMillis();
             nBlocks = (short) (mFileImgHdr.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }
