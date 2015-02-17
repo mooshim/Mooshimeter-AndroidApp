@@ -66,8 +66,6 @@ public class MooshimeterDevice {
     public static final byte METER_HIBERNATE = 4;
 
     private BLEUtil mBLEUtil;
-    private Context mContext;
-    private BluetoothGattService bt_gatt_service;
     private int rssi;
     public int adv_build_time;
 
@@ -468,7 +466,6 @@ public class MooshimeterDevice {
     protected MooshimeterDevice(Context context, final Runnable on_init) {
         // Initialize internal structures
         mBLEUtil = BLEUtil.getInstance(context);
-        mContext = context;
         meter_name          = new MeterName();
         meter_settings      = new MeterSettings();
         meter_log_settings  = new MeterLogSettings();
@@ -596,28 +593,26 @@ public class MooshimeterDevice {
             @Override
             public void run() {
                 meter_settings.send( null );
-                // Wait before calling disconnect
-                mainHandler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        final String addr = mBLEUtil.getBTAddress();
-                        mBLEUtil.disconnect();
-                        mainHandler.postDelayed( new Runnable() {
-                            @Override
-                            public void run() {
-                                mBLEUtil.clear();
-                                mBLEUtil.connect(addr, new BLEUtil.BLEUtilCB() {
-                                    @Override
-                                    public void run() {
-                                        cb.run();
-                                    }
-                                });
-                            }
-                    }, 1000 );
-                    }
-                }, 200);
             }
         });
+        mainHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mBLEUtil.disconnect();
+            }
+        }, 200);
+        mainHandler.postDelayed( new Runnable() {
+            @Override
+            public void run() {
+                mBLEUtil.clear();
+                mBLEUtil.connect(mBLEUtil.getBTAddress(), new BLEUtil.BLEUtilCB() {
+                    @Override
+                    public void run() {
+                        cb.run();
+                    }
+                });
+            }
+        }, 1200 );
     }
 
     //////////////////////////////////////

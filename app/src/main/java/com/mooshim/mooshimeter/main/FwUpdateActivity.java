@@ -74,6 +74,7 @@ import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.BLEUtil;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.util.Conversion;
+import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -113,8 +114,7 @@ public class FwUpdateActivity extends Activity {
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
-    private Handler mWatchdog = null;
-    private Runnable mWatchdogCB = null;
+    private WatchDog mWatchdog = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -147,13 +147,12 @@ public class FwUpdateActivity extends Activity {
             finish();
         }
         loadFile(FW_FILE_A, true);
-        mWatchdog = new Handler();
-        mWatchdogCB = new Runnable() {
+        mWatchdog = new WatchDog(new Runnable() {
             @Override
             public void run() {
-                watchdogCB();
+                stopProgramming();
             }
-        };
+        }, 1000);
 
         updateStartButton();
     }
@@ -228,7 +227,7 @@ public class FwUpdateActivity extends Activity {
         mProgramming = true;
         updateStartButton();
 
-        startDog();
+        mWatchdog.feed();
 
         // Update connection parameters
         mBLEUtil.setConnectionInterval((short) 20, (short) 1000, new BLEUtil.BLEUtilCB() {
@@ -279,7 +278,7 @@ public class FwUpdateActivity extends Activity {
             Log.e(TAG, "stopProgramming called, but programming already stopped!");
             return;
         }
-        stopDog();
+        mWatchdog.stop();
         mProgramming = false;
         mProgressInfo.setText("");
         mProgressBar.setProgress(0);
@@ -345,23 +344,6 @@ public class FwUpdateActivity extends Activity {
     // Utility
     /////////////////////////////
 
-    private void startDog() {
-        mWatchdog.postDelayed(mWatchdogCB, 1000);
-    }
-
-    private void feedDog() {
-        stopDog();
-        startDog();
-    }
-
-    private void stopDog() {
-        mWatchdog.removeCallbacks(mWatchdogCB);
-    }
-
-    private void watchdogCB() {
-        stopProgramming();
-    }
-
     private boolean loadFile(String filepath, boolean isAsset) {
         boolean fSuccess = false;
 
@@ -424,7 +406,7 @@ public class FwUpdateActivity extends Activity {
                 public void run() {
                     if (error == BluetoothGatt.GATT_SUCCESS) {
                         // Update stats
-                        feedDog();
+                        mWatchdog.feed();
                         mProgInfo.iBlocks++;
                         mProgInfo.iBytes += OAD_BLOCK_SIZE;
                         mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);

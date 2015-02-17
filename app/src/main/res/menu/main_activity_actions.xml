@@ -13,9 +13,10 @@
         android:icon="@drawable/ic_action_bluetooth"
         android:title="@string/bt" 
         />
+    <!-- Remove this option until the Android Disconnect-Reconnect error 133 bug is fixed
     <item
         android:id="@+id/opt_fwupdate"
-        android:title="@string/fwupdate"/>
+        android:title="@string/fwupdate"/>-->
     <item
         android:id="@+id/opt_exit"
         android:title="@string/exit"/>

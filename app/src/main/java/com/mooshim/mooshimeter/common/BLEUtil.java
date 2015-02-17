@@ -177,7 +177,10 @@ public class BLEUtil {
     }
 
     public void disconnect() {
-        mBluetoothGatt.disconnect();
+        if(mBluetoothGatt!=null) {
+            mBluetoothGatt.disconnect();
+            mBluetoothGatt.close();
+        }
         mPrimaryService = null;
     }
 
@@ -323,8 +326,6 @@ public class BLEUtil {
                 return;
             }
 
-            BluetoothDevice device = gatt.getDevice();
-
             try {
                 switch (newState) {
                     case BluetoothProfile.STATE_CONNECTED:
@@ -347,7 +348,6 @@ public class BLEUtil {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            // FIXME: not good hardcoded default
             if( setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE) ) {
                 Log.i(TAG, "Found the meter service");
                 finishRunningBlock(mPrimaryService.getUuid(), status, null);

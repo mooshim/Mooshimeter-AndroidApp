@@ -19,6 +19,7 @@
 
 package com.mooshim.mooshimeter.main;
 
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -27,6 +28,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.support.v7.internal.view.menu.MenuWrapperFactory;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -46,6 +48,7 @@ import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.BLEUtil;
 import com.mooshim.mooshimeter.common.BleDeviceInfo;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,7 +75,7 @@ public class ScanActivity extends FragmentActivity {
 
     // Housekeeping
     private ScanViewState mScanViewState = ScanViewState.IDLE;
-    private Timer mTimer = null;
+    private WatchDog mWatchDog = null;
 
     private boolean mUpdateFirmwareFlag = false;// Update the firmware of the selected meter
     private int mConnIndex = NO_DEVICE;         // The list index of the connected device
@@ -121,6 +124,7 @@ public class ScanActivity extends FragmentActivity {
         mDeviceListView.setClickable(true);
         mDeviceListView.setOnItemClickListener(mDeviceClickListener);
 
+        mWatchDog = new WatchDog();
         mBleUtil = BLEUtil.getInstance(this);
         mDeviceInfoList = new ArrayList<BleDeviceInfo>();
         mDeviceAdapter = new DeviceListAdapter(this);
@@ -146,14 +150,14 @@ public class ScanActivity extends FragmentActivity {
         switch (item.getItemId()) {
             case R.id.opt_prefs:
                 break;
-            case R.id.opt_fwupdate:
-                mUpdateFirmwareFlag ^= true;
-                if(mUpdateFirmwareFlag) {
-                    setStatus("Select a meter to update firmware");
-                } else {
-                    setStatus("");
-                }
-                break;
+            //case R.id.opt_fwupdate:
+            //    mUpdateFirmwareFlag ^= true;
+            //    if(mUpdateFirmwareFlag) {
+            //        setStatus("Select a meter to update firmware");
+            //    } else {
+            //        setStatus("");
+            //    }
+            //    break;
             case R.id.opt_exit:
                 Toast.makeText(this, "Goodbye!", Toast.LENGTH_LONG).show();
                 finish();
@@ -166,15 +170,13 @@ public class ScanActivity extends FragmentActivity {
 
     // Master state machine for the scan view
 
-    private void moveState(ScanViewState newState) {
+    private synchronized void moveState(ScanViewState newState) {
         ScanViewState tail = null;
         switch(mScanViewState) {
             case IDLE:
                 switch(newState) {
                     case SCANNING:
-                        stopTimer();
-                        mTimer = new Timer();
-                        mTimer.schedule(new TimerTask() {
+                        mWatchDog.setCB(new Runnable() {
                             @Override
                             public void run() {
                                 runOnUiThread(new Runnable() {
@@ -184,7 +186,8 @@ public class ScanActivity extends FragmentActivity {
                                     }
                                 });
                             }
-                        }, 10000);
+                        });
+                        mWatchDog.feed(10000);
                         updateScanningButton(true);
                         mDeviceInfoList.clear();
                         mDeviceAdapter.notifyDataSetChanged();
@@ -192,23 +195,24 @@ public class ScanActivity extends FragmentActivity {
                         if( !bluetoothAdapter.startLeScan(mLeScanCallback) ) {
                             // Starting the scan failed!
                             Log.e(TAG,"Failed to start BLE Scan");
+                            setError("Failed to start scan");
+                            mWatchDog.feed(500); // FIXME: There should be a way to abort state change
                         }
                         break;
                     case CONNECTING:
-                        stopTimer();
-                        mTimer = new Timer();
-                        mTimer.schedule(new TimerTask() {
+                        mWatchDog.setCB( new Runnable() {
                             @Override
                             public void run() {
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
                                         moveState(ScanViewState.IDLE);
-                                        setStatus("Connection timed out.");
+                                        setError("Connection timed out.");
                                     }
                                 });
                             }
-                        }, 10000);
+                        } );
+                        mWatchDog.feed(10000);
                         mBtnScan.setEnabled(false);
                         mDeviceAdapter.notifyDataSetChanged(); // Force disabling of all Connect buttons
                         setStatus("Connecting...");
@@ -218,7 +222,8 @@ public class ScanActivity extends FragmentActivity {
                             @Override
                             public void run() {
                                 if (error == BluetoothGatt.GATT_SUCCESS) {
-                                    stopTimer();
+                                    mWatchDog.feed();
+                                    mWatchDog.stop();
                                     if(mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE)) {
                                         // Initialize the meter
                                         MooshimeterDevice.clearInstance();
@@ -229,18 +234,23 @@ public class ScanActivity extends FragmentActivity {
                                                     // The user has indicated they want to load firmware
                                                     // Reboot the meter and connect in OAD mode
                                                     final MooshimeterDevice meter = MooshimeterDevice.getInstance();
+                                                    setStatus("Booting to OAD mode...");
                                                     meter.reconnectInOADMode(new Runnable() {
                                                         @Override
                                                         public void run() {
+                                                            setStatus("Success!  Starting firmware update");
+                                                            mWatchDog.stop();
                                                             startOADActivity();
                                                         }
                                                     });
                                                 } else {
+                                                    mWatchDog.stop();
                                                     startDeviceActivity();
                                                 }
                                             }
                                         });
                                     } else if( mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
+                                        mWatchDog.stop();
                                         startOADActivity();
                                     } else {
                                         Log.e(TAG, "Couldn't find a service I recognized!");
@@ -253,15 +263,12 @@ public class ScanActivity extends FragmentActivity {
                         }, new Runnable() {
                             @Override
                             public void run() {
-                                mBleUtil.clear();
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        setError("Device disconnected!");
-                                        moveState(ScanViewState.IDLE);
-                                        stopDeviceActivity();
-                                    }
-                                });
+                                if(mScanViewState == ScanViewState.CONNECTING) {
+                                    mBleUtil.clear();
+                                    setError("Device disconnected!");
+                                    moveState(ScanViewState.IDLE);
+                                    stopDeviceActivity();
+                                }
                             }
                         });
                         break;
@@ -331,14 +338,26 @@ public class ScanActivity extends FragmentActivity {
         }
     }
 
-    void setStatus(String txt) {
-        mStatus.setText(txt);
-        mStatus.setTextAppearance(this, R.style.statusStyle_Success);
+    void setStatus(final String txt) {
+        final Activity a = this;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mStatus.setText(txt);
+                mStatus.setTextAppearance(a, R.style.statusStyle_Success);
+            }
+        });
     }
 
-    void setError(String txt) {
-        mStatus.setText(txt);
-        mStatus.setTextAppearance(this, R.style.statusStyle_Failure);
+    void setError(final String txt) {
+        final Activity a = this;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mStatus.setText(txt);
+                mStatus.setTextAppearance(a, R.style.statusStyle_Failure);
+            }
+        });
     }
 
     private void addDevice(BleDeviceInfo device) {
@@ -366,10 +385,6 @@ public class ScanActivity extends FragmentActivity {
             }
         }
         return null;
-    }
-
-    void stopTimer() {
-        if(mTimer!=null){mTimer.cancel();}
     }
 
     private void startDeviceActivity() {

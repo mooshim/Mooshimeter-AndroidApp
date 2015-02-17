@@ -198,9 +198,6 @@ public class DeviceActivity extends FragmentActivity {
 		case R.id.opt_prefs:
 			startPreferenceActivity();
 			break;
-		case R.id.opt_fwupdate:
-			startOadActivity();
-			break;
 		default:
 			return super.onOptionsItemSelected(item);
 		}
