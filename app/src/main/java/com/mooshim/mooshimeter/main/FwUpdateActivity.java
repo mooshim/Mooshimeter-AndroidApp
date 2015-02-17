@@ -152,7 +152,7 @@ public class FwUpdateActivity extends Activity {
             public void run() {
                 stopProgramming();
             }
-        }, 1000);
+        }, 5000);
 
         updateStartButton();
     }
