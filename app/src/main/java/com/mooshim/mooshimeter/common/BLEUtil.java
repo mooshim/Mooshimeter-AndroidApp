@@ -29,9 +29,12 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.mooshim.mooshimeter.util.Conversion;
+import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -55,8 +58,10 @@ public class BLEUtil {
     private BluetoothGattService mPrimaryService;
     private BluetoothGattService mCCService;
 
-    private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
+    private WatchDog mWatchdog;
+
     private BLEUtilRequest mRunning = null;
+    private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
     private HashMap<UUID,BLEUtilCB> mNotifyCB= new HashMap<UUID,BLEUtilCB>();
 
     private Runnable mDisconnectCB = null;
@@ -109,7 +114,6 @@ public class BLEUtil {
     public void clear() {
         mExecuteQueue.clear();
         mNotifyCB.clear();
-        mRunning = null;
     }
 
     ////////////////////////////////
@@ -123,28 +127,31 @@ public class BLEUtil {
             }
             mExecuteQueue.addLast(add);
         }
-        if(mRunning == null) {
-            if(!mExecuteQueue.isEmpty()) {
-                mRunning = mExecuteQueue.remove();
-                mRunning.payload.run();
-            }
+        if(mExecuteQueue.size() > 0) {
+            mRunning = mExecuteQueue.remove(0);
+            mRunning.payload.run();
         }
     }
     synchronized private void finishRunningBlock(final UUID uuid, final int error, final byte[] value) {
-        if(mRunning==null) {
+        if(mRunning == null) {
             Log.e(TAG,"ERROR: Asked to finish a task but no task running");
             return;
         }
+        // Run this on the main thread, don't block BluetoothGATT for any longer than necessary.
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
         final BLEUtilCB cb = mRunning.callback;
-        mRunning = null;
-        if(cb == null) {
-            return;
+        if(cb != null) {
+            cb.uuid  = uuid;
+            cb.error = error;
+            cb.value = value;
+            mainHandler.post(cb);
         }
-        cb.uuid  = uuid;
-        cb.error = error;
-        cb.value = value;
-        cb.run();
-        serviceExecuteQueue(null);
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                serviceExecuteQueue(null);
+            }
+        });
     }
 
     ////////////////////////////////
