@@ -54,15 +54,11 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.main;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
-import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Color;
-import android.hardware.SensorManager;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -86,8 +82,6 @@ public class DeviceActivity extends FragmentActivity {
 	private static final int FWUPDATE_ACT_REQ = 1;
     private static final int TREND_ACT_REQ = 2;
 
-    public static final int METER_DISCONNECTED_RES = 0;
-
 	// BLE
     private MooshimeterDevice mMeter = null;
 
@@ -107,6 +101,12 @@ public class DeviceActivity extends FragmentActivity {
     private Button depth_button;
     private Button zero_button;
 
+    // GUI housekeeping
+    private final static GradientDrawable AUTO_GRADIENT    = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFF00FF00,0xFF00CC00});
+    private final static GradientDrawable MANUAL_GRADIENT  = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFF0000,0xFFCC0000});
+    private final static GradientDrawable DISABLE_GRADIENT = new GradientDrawable( GradientDrawable.Orientation.BOTTOM_TOP, new int[] {0xFFBBBBBB,0xFF888888});
+    private final static GradientDrawable ENABLE_GRADIENT  = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFFFFFF,0xFFCCCCCC});
+
     private boolean trend_view_running = false;
 
 	@Override
@@ -116,6 +116,11 @@ public class DeviceActivity extends FragmentActivity {
 
         // GUI
         setContentView(R.layout.activity_meter);
+
+        AUTO_GRADIENT   .setStroke(1,0xFF999999);
+        MANUAL_GRADIENT .setStroke(1,0xFF999999);
+        DISABLE_GRADIENT.setStroke(1,0xFF999999);
+        ENABLE_GRADIENT .setStroke(1,0xFF999999);
 
         // Bind the GUI elements
         value_labels[0] = (TextView) findViewById(R.id.ch1_value_label);
@@ -351,6 +356,12 @@ public class DeviceActivity extends FragmentActivity {
         });
     }
 
+    private void disableableButtonRefresh(Button b, String title, boolean en) {
+        final GradientDrawable bg = en?ENABLE_GRADIENT:DISABLE_GRADIENT;
+        b.setText(title);
+        b.setBackground(bg);
+    }
+
     private void rate_auto_button_refresh() {
         styleAutoButton(rate_auto_button,mMeter.disp_rate_auto);
     }
@@ -359,9 +370,7 @@ public class DeviceActivity extends FragmentActivity {
         byte rate_setting = (byte)(mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK);
         int rate = 125 * (1<<rate_setting);
         String title = String.format("%dHz", rate);
-        int color = mMeter.disp_rate_auto?Color.GRAY:Color.WHITE;
-        rate_button.setText(title);
-        rate_button.setBackgroundColor(color);
+        disableableButtonRefresh(rate_button, title, !mMeter.disp_depth_auto);
     }
 
     private void depth_auto_button_refresh() {
@@ -372,9 +381,7 @@ public class DeviceActivity extends FragmentActivity {
         byte depth_setting = (byte)(mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2);
         int depth = (1<<depth_setting);
         String title = String.format("%dsmpl", depth);
-        int color = mMeter.disp_depth_auto?Color.GRAY:Color.WHITE;
-        depth_button.setText(title);
-        depth_button.setBackgroundColor(color);
+        disableableButtonRefresh(depth_button, title, !mMeter.disp_rate_auto);
     }
 
     private void logging_button_refresh() {
@@ -382,15 +389,15 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void zero_button_refresh() {
-        int color    = mMeter.offset_on?Color.GREEN:Color.RED;
-        zero_button.setBackgroundColor(color);
+        final GradientDrawable bg = mMeter.offset_on?AUTO_GRADIENT:MANUAL_GRADIENT;
+        zero_button.setBackground(bg);
     }
 
     private void styleAutoButton(Button button, boolean auto) {
-        int color    = auto?Color.GREEN:Color.RED;
+        final GradientDrawable bg = auto?AUTO_GRADIENT:MANUAL_GRADIENT;
         String title = auto?"A":"M";
         button.setText(title);
-        button.setBackgroundColor(color);
+        button.setBackground(bg);
     }
 
     private void autoRangeButtonRefresh(final int c) {
@@ -512,12 +519,7 @@ public class DeviceActivity extends FragmentActivity {
             }
             break;
         }
-        range_buttons[c].setText(lval);
-        if(mMeter.disp_range_auto[c]) {
-            range_buttons[c].setBackgroundColor(Color.GRAY);
-        } else {
-            range_buttons[c].setBackgroundColor(Color.WHITE);
-        }
+        disableableButtonRefresh(range_buttons[c],lval,!mMeter.disp_range_auto[c]);
     }
 
     private void valueLabelRefresh(final int c) {
