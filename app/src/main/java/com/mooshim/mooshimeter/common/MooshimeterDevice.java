@@ -377,7 +377,7 @@ public class MooshimeterDevice {
                     floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),0);
                 }
             }
-            String s = String.format("Progress: %d of %d", buf_i, nBytes);
+            String s = String.format("CH1 Progress: %d of %d", buf_i, nBytes);
             Log.i(TAG,s);
         }
     }
@@ -422,7 +422,7 @@ public class MooshimeterDevice {
                     buf_full_cb.run();
                 }
             }
-            String s = String.format("Progress: %d of %d", buf_i, nBytes);
+            String s = String.format("CH2 Progress: %d of %d", buf_i, nBytes);
             Log.i(TAG,s);
         }
     }

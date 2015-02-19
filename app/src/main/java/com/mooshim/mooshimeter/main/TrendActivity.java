@@ -63,12 +63,19 @@ public class TrendActivity extends Activity {
     private MooshimeterDevice mMeter;
     private final LineGraphSeries[] dataSeries = new LineGraphSeries[2];
     private double start_time;
-    private boolean cleaning_up = false;
+
+    ///////////////////
+    // Mode control variables
+    ///////////////////
 
     private boolean mBufferMode = false;
     private final boolean mCHXOn[] = {true,true};
     private boolean mXYMode = false;
     private boolean mPlaying = false;
+
+    ///////////////////
+    // Lifecycle management
+    ///////////////////
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,11 +113,6 @@ public class TrendActivity extends Activity {
         return super.onOptionsItemSelected(item);
     }
 
-    private double milliTime() {
-        Calendar cal = Calendar.getInstance();
-        return (double)(cal.getTimeInMillis())/1000.;
-    }
-
     @Override
     protected void onResume() {
         // Log.d(TAG, "onResume");
@@ -127,28 +129,22 @@ public class TrendActivity extends Activity {
             mGraph.getViewport().setXAxisBoundsManual(true);
             mGraph.getViewport().setYAxisBoundsManual(true);
             mGraph.setExplicitRefreshMode(true);
-            final SecondScale ss = mGraph.getSecondScale();
 
             mGraph.setKeepScreenOn(true);
             mGraph.setBackgroundColor(Color.BLACK);
-            GridLabelRenderer r = mGraph.getGridLabelRenderer();
-            r.setGridColor(Color.GRAY);
-            r.setHorizontalAxisTitle("Time [s]");
-            r.setHorizontalAxisTitleColor(Color.WHITE);
-            r.setHorizontalLabelsColor(Color.WHITE);
-            r.setGridStyle(GridLabelRenderer.GridStyle.BOTH);
-            r.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(0), mMeter.getUnits(0)));
-            r.setVerticalAxisTitleColor(Color.RED);
-            r.setVerticalLabelsColor(Color.RED);
 
-            ss.setVerticalAxisTitle(String.format("%s [%s]", mMeter.getDescriptor(1), mMeter.getUnits(1)));
-            ss.setVerticalAxisTitleColor(Color.GREEN);
-            r.setVerticalLabelsSecondScaleColor(Color.GREEN);
-
-            r.setNumVerticalLabels(7);
+            setupAxisTitles();
 
             trendViewPlay(null);
         }
+    }
+
+    @Override
+    protected void onPause() {
+        // Log.d(TAG, "onPause");
+        super.onPause();
+        getActionBar().show();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
@@ -175,6 +171,15 @@ public class TrendActivity extends Activity {
         }
     }
 
+    ///////////////////
+    // Graph Control Helpers
+    ///////////////////
+
+    private double milliTime() {
+        Calendar cal = Calendar.getInstance();
+        return (double)(cal.getTimeInMillis())/1000.;
+    }
+
     private void resetViewBounds() {
         final Viewport vp = mGraph.getViewport();
 
@@ -182,7 +187,7 @@ public class TrendActivity extends Activity {
         double min_x = dataSeries[0].getLowestValueX();
         double max_x = dataSeries[0].getHighestValueX();
 
-        if(!mBufferMode) {
+        if(!mXYMode && !mBufferMode) {
             // Round to the nearest second in trend mode
             min_x = Math.floor(min_x);
             max_x = Math.ceil(max_x);
@@ -203,6 +208,9 @@ public class TrendActivity extends Activity {
 
         mGraph.getSecondScale().setMinY(m2.min);
         mGraph.getSecondScale().setMaxY(m2.max);
+        // TODO: variable label widths, hardcoded now
+        mGraph.getGridLabelRenderer().setLabelVerticalWidth(120);
+        mGraph.getGridLabelRenderer().setSecondScaleLabelVerticalWidth(120);
     }
 
     private class MinMax {
@@ -227,7 +235,41 @@ public class TrendActivity extends Activity {
         return r;
     }
 
-    private void trendViewPlay(final Runnable cb) {
+    private void setupAxisTitles() {
+        final String timeLabel = "Time [s]";
+        final String ch0Label  = String.format("%s [%s]", mMeter.getDescriptor(0), mMeter.getUnits(0));
+        final String ch1Label  = String.format("%s [%s]", mMeter.getDescriptor(1), mMeter.getUnits(1));
+
+        final SecondScale ss = mGraph.getSecondScale();
+        final GridLabelRenderer r = mGraph.getGridLabelRenderer();
+
+        // Setup styles
+        r.setGridStyle(GridLabelRenderer.GridStyle.BOTH);
+        r.setGridColor(Color.GRAY);
+
+        r.setHorizontalAxisTitleColor(Color.WHITE);
+        r.setHorizontalLabelsColor(Color.WHITE);
+
+        r.setVerticalAxisTitleColor(Color.RED);
+        r.setVerticalLabelsColor(Color.RED);
+
+        ss.setVerticalAxisTitleColor(Color.GREEN);
+        r.setVerticalLabelsSecondScaleColor(Color.GREEN);
+
+        r.setNumVerticalLabels(7);
+
+        if(mXYMode) {
+            r.setHorizontalAxisTitle(ch1Label);
+            r.setVerticalAxisTitle(ch0Label);
+            ss.setVerticalAxisTitle("");
+        } else {
+            r.setHorizontalAxisTitle("Time [s]");
+            r.setVerticalAxisTitle(ch0Label);
+            ss.setVerticalAxisTitle(ch1Label);
+        }
+    }
+
+    private void initializeDataSeries() {
         final SecondScale ss = mGraph.getSecondScale();
         dataSeries[0] = new LineGraphSeries();
         dataSeries[1] = new LineGraphSeries();
@@ -237,13 +279,30 @@ public class TrendActivity extends Activity {
         dataSeries[1].setThickness(5);
         mGraph.removeAllSeries();
         ss.removeAllSeries();
-        if(mCHXOn[0]) {
+        if(mCHXOn[0] ||  mXYMode ) {
             mGraph.addSeries(dataSeries[0]);
         }
-        if(mCHXOn[1]) {
+        if(mCHXOn[1] && !mXYMode ) {
             ss.addSeries(dataSeries[1]);
         }
 
+    }
+
+    private void addDataPoint(double t, double v0, double v1) {
+        if(!mXYMode) {
+            dataSeries[0].appendData(new DataPoint( t, v0), false, 500);
+            dataSeries[1].appendData(new DataPoint( t, v1), false, 500);
+        } else {
+            dataSeries[0].appendData(new DataPoint(v1, v0), false, 500);
+        }
+    }
+
+    /////////////////////
+    // Graph Control
+    /////////////////////
+
+    private void trendViewPlay(final Runnable cb) {
+        initializeDataSeries();
         start_time = milliTime();
 
         mMeter.playSampleStream(new Runnable() {
@@ -272,32 +331,22 @@ public class TrendActivity extends Activity {
                         val[c] = mMeter.lsbToNativeUnits(lsb_int, c);
                     }
                     resetViewBounds();
-                    // TODO: find a more elegant way of handling label widths.  Hardcode for now.
-                    mGraph.getGridLabelRenderer().setLabelVerticalWidth(120);
-                    mGraph.getGridLabelRenderer().setSecondScaleLabelVerticalWidth(120);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            dataSeries[0].appendData(new DataPoint(new_time, val[0]), false, 500);
-                            dataSeries[1].appendData(new DataPoint(new_time, val[1]), false, 500);
-                            mGraph.forceRefresh(true, false);
-                        }
-                    });
+                    addDataPoint(new_time,val[0],val[1]);
+                    mGraph.forceRefresh(true, false);
                 }
             }
         });
     }
 
     private void trendViewPause(final Runnable cb) {
-        mMeter.pauseStream(new Runnable() {
+        mMeter.pauseStream(null);
+        mMeter.addToRunQueue(new Runnable() {
             @Override
             public void run() {
                 mPlaying = false;
-                if(cb!=null) {
-                    cb.run();
-                }
             }
         });
+        mMeter.addToRunQueue(cb);
     }
 
     private void streamBuffer() {
@@ -317,21 +366,9 @@ public class TrendActivity extends Activity {
                     return;
                 }
                 mPlaying = false;
-                final SecondScale ss = mGraph.getSecondScale();
-                dataSeries[0] = new LineGraphSeries();
-                dataSeries[1] = new LineGraphSeries();
-                dataSeries[0].setColor(Color.RED);
-                dataSeries[0].setThickness(5);
-                dataSeries[1].setColor(Color.GREEN);
-                dataSeries[1].setThickness(5);
-                mGraph.removeAllSeries();
-                ss.removeAllSeries();
-                if(mCHXOn[0]) {
-                    mGraph.addSeries(dataSeries[0]);
-                }
-                if(mCHXOn[1]) {
-                    ss.addSeries(dataSeries[1]);
-                }
+
+                initializeDataSeries();
+                setupAxisTitles();
 
                 final int buf_len = mMeter.getBufLen();
                 double dt = 1./125;
@@ -340,29 +377,15 @@ public class TrendActivity extends Activity {
                 }
                 double t = 0.0;
                 for(int i= 0; i < buf_len; i++) {
-                    dataSeries[0].appendData(new DataPoint(t,mMeter.meter_ch1_buf.floatBuf[i]),false,buf_len);
-                    dataSeries[1].appendData(new DataPoint(t,mMeter.meter_ch2_buf.floatBuf[i]),false,buf_len);
+                    addDataPoint(t,mMeter.meter_ch1_buf.floatBuf[i],mMeter.meter_ch2_buf.floatBuf[i]);
                     t+=dt;
                 }
 
                 resetViewBounds();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                    mProgressSpinner.setVisibility(View.INVISIBLE);
-                    mGraph.forceRefresh(false,false);
-                    }
-                });
+                mProgressSpinner.setVisibility(View.INVISIBLE);
+                mGraph.forceRefresh(false,false);
             }
         });
-    }
-
-    @Override
-    protected void onPause() {
-        // Log.d(TAG, "onPause");
-        super.onPause();
-        getActionBar().show();
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     ///////////////
@@ -441,9 +464,9 @@ public class TrendActivity extends Activity {
     }
     public void onXYButtonClick(View v) {
         Log.d(TAG, "XY Click");
-        Toast.makeText(this, "XY Feature coming soon",
-                Toast.LENGTH_LONG).show();
         mXYMode ^= true;
+        initializeDataSeries();
+        setupAxisTitles();
         if(mXYMode) {
             mXYButton.setText("XY Mode: ON");
         } else {

@@ -231,6 +231,7 @@ public class BLEUtil {
 
     public void addToRunQueue(final Runnable todo) {
         // Utility function - adds some code to the queue
+        if(todo==null){return;}
         BLEUtilRequest r = new BLEUtilRequest(null, new BLEUtilCB() {
             @Override
             public void run() {
@@ -392,11 +393,23 @@ public class BLEUtil {
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic c) {
             if(mNotifyCB.containsKey(c.getUuid())) {
-                BLEUtilCB cb = mNotifyCB.get(c.getUuid());
-                cb.uuid  = c.getUuid();
-                cb.error = 0; // fixme
-                cb.value = c.getValue();
-                cb.run();
+                // We need a wrapper around the callback to prevent data overwrite since cb
+                // is only instantiated once
+                final BLEUtilCB cb = mNotifyCB.get(c.getUuid());
+                BLEUtilCB wrapper = new BLEUtilCB() {
+                    @Override
+                    public void run() {
+                        cb.uuid  = uuid;
+                        cb.error = error;
+                        cb.value = value;
+                        cb.run();
+                    }
+                };
+                wrapper.uuid  = c.getUuid();
+                wrapper.error = 0;
+                wrapper.value = c.getValue();
+                final Handler mainHandler = new Handler(Looper.getMainLooper());
+                mainHandler.post(wrapper);
             }
         }
 

@@ -189,7 +189,7 @@ public class DeviceActivity extends FragmentActivity {
 	@Override
 	protected void onResume() {
 		super.onResume();
-        if(Configuration.ORIENTATION_PORTRAIT == handleOrientation()) {
+        if(Configuration.ORIENTATION_PORTRAIT == this.getResources().getConfiguration().orientation) {
             // If we're in Portrait, continue as normal
             // If we're in landscape, handleOrientation will have started the trend activity
             mMeter = MooshimeterDevice.getInstance();
@@ -223,9 +223,8 @@ public class DeviceActivity extends FragmentActivity {
         }
     }
 
-    private int handleOrientation() {
-        final int o = this.getResources().getConfiguration().orientation;
-        switch(o) {
+    private void handleOrientation() {
+        switch(this.getResources().getConfiguration().orientation) {
             case Configuration.ORIENTATION_LANDSCAPE:
                 // Start the trend view
                 if(!trend_view_running) {
@@ -244,7 +243,6 @@ public class DeviceActivity extends FragmentActivity {
                 // Do nothing, leave to external application
                 break;
         }
-        return o;
     }
 
     private void onMeterInitialized() {
