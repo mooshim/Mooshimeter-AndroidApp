@@ -117,10 +117,10 @@ public class DeviceActivity extends FragmentActivity {
         // GUI
         setContentView(R.layout.activity_meter);
 
-        AUTO_GRADIENT   .setStroke(1,0xFF999999);
-        MANUAL_GRADIENT .setStroke(1,0xFF999999);
+        AUTO_GRADIENT   .setStroke(1, 0xFF999999);
+        MANUAL_GRADIENT .setStroke(1, 0xFF999999);
         DISABLE_GRADIENT.setStroke(1,0xFF999999);
-        ENABLE_GRADIENT .setStroke(1,0xFF999999);
+        ENABLE_GRADIENT .setStroke(1, 0xFF999999);
 
         // Bind the GUI elements
         value_labels[0] = (TextView) findViewById(R.id.ch1_value_label);
@@ -231,7 +231,8 @@ public class DeviceActivity extends FragmentActivity {
                 if(!trend_view_running) {
                     Log.i(TAG, "Starting trend view.");
                     trend_view_running = true;
-                    mMeter.pauseStream(new Runnable() {
+                    mMeter.pauseStream(null);
+                    mMeter.addToRunQueue(new Runnable() {
                         @Override
                         public void run() {
                             startTrendActivity();

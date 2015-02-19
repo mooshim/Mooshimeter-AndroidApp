@@ -490,46 +490,16 @@ public class MooshimeterDevice {
     ////////////////////////////////
     // Convenience functions
     ////////////////////////////////
+    public void addToRunQueue(final Runnable todo) {
+        mBLEUtil.addToRunQueue(todo);
+    }
+
     public int getBufLen() {
         return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
     public void getBuffer(final Runnable onReceived) {
         // Set up for oneshot, turn off all math in firmware
-
-        final Runnable enable_notify_and_run = new Runnable() {
-            @Override
-            public void run() {
-                meter_sample.enableNotify(false,new Runnable() {
-                    @Override
-                    public void run() {
-                        meter_ch1_buf.enableNotify(true,new Runnable() {
-                            @Override
-                            public void run() {
-                                meter_ch2_buf.enableNotify(true,new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        meter_ch2_buf.buf_full_cb = onReceived;
-                                        meter_settings.target_meter_state = METER_RUNNING;
-                                        if((meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2) == 8) {
-                                            // FIXME: There is an issue where Android is refusing to download buffers of over 128 length
-                                            // It seems to stop getting the notifications halfway through the channel 2 buffer
-                                            // For now just cap the length
-                                            meter_settings.calc_settings &=~METER_CALC_SETTINGS_DEPTH_LOG2;
-                                            meter_settings.calc_settings |=7;
-                                        }
-                                        meter_ch1_buf.buf_i = 0;
-                                        meter_ch2_buf.buf_i = 0;
-                                        meter_settings.send(null);
-                                    }
-                                },null);
-                            }
-                        },null);
-                    }
-                }, null);
-            }
-        };
-
         if(0==(meter_settings.calc_settings & METER_CALC_SETTINGS_ONESHOT)) {
             // Avoid sending the same meter settings over and over - check and see if we're set up for oneshot
             // and if we are, don't send the meter settings again.  Due to a firmware bug in the wild (Feb 2 2015)
@@ -537,36 +507,46 @@ public class MooshimeterDevice {
             meter_settings.calc_settings &=~(METER_CALC_SETTINGS_MS|METER_CALC_SETTINGS_MEAN);
             meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
             meter_settings.target_meter_state = METER_PAUSED;
-            meter_settings.send(enable_notify_and_run);
-        } else {
-            enable_notify_and_run.run();
+            meter_settings.send(null);
         }
+        meter_sample.enableNotify(false,null,null);
+        meter_ch1_buf.enableNotify(true,null,null);
+        meter_ch2_buf.enableNotify(true,null,null);
+        mBLEUtil.addToRunQueue(new Runnable() {
+            @Override
+            public void run() {
+                meter_ch2_buf.buf_full_cb = onReceived;
+                meter_settings.target_meter_state = METER_RUNNING;
+                if((meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2) == 8) {
+                    // FIXME: There is an issue where Android is refusing to download buffers of over 128 length
+                    // It seems to stop getting the notifications halfway through the channel 2 buffer
+                    // For now just cap the length
+                    meter_settings.calc_settings &=~METER_CALC_SETTINGS_DEPTH_LOG2;
+                    meter_settings.calc_settings |=7;
+                }
+                meter_ch1_buf.buf_i = 0;
+                meter_ch2_buf.buf_i = 0;
+                meter_settings.send(null);
+            }
+        });
     }
 
     public void pauseStream(final Runnable cb) {
-        meter_sample.enableNotify(false, new Runnable() {
-            @Override
-            public void run() {
-                if(meter_settings.target_meter_state != METER_PAUSED) {
-                    meter_settings.target_meter_state = METER_PAUSED;
-                    meter_settings.send(cb);
-                } else {
-                    cb.run();
-                }
-            }
-        }, null);
+        meter_sample.enableNotify(false, null, null);
+        if(meter_settings.target_meter_state != METER_PAUSED) {
+            meter_settings.target_meter_state = METER_PAUSED;
+            meter_settings.send(null);
+        }
+        mBLEUtil.addToRunQueue(cb);
     }
 
     public void playSampleStream(final Runnable cb, final Runnable on_notify) {
         meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
 
-        meter_sample.enableNotify(true, new Runnable() {
-            @Override
-            public void run() {
-                meter_settings.send(cb);
-            }
-        }, on_notify);
+        meter_sample.enableNotify(true,null,on_notify);
+        meter_settings.send(null);
+        mBLEUtil.addToRunQueue(cb);
     }
 
     public void reconnectInOADMode(final Runnable cb) {

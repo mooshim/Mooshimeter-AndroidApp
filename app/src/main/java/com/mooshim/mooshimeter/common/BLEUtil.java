@@ -134,7 +134,11 @@ public class BLEUtil {
         }
         if(mRunning == null && mExecuteQueue.size() > 0) {
             mRunning = mExecuteQueue.remove(0);
-            mRunning.payload.run();
+            if(mRunning.payload!=null) {
+                mRunning.payload.run();
+            } else {
+                finishRunningBlock(null,0,null);
+            }
         }
     }
     synchronized private void finishRunningBlock(final UUID uuid, final int error, final byte[] value) {
@@ -223,6 +227,17 @@ public class BLEUtil {
         serviceExecuteQueue(r);*/
         // Skip for now
         on_complete.run();
+    }
+
+    public void addToRunQueue(final Runnable todo) {
+        // Utility function - adds some code to the queue
+        BLEUtilRequest r = new BLEUtilRequest(null, new BLEUtilCB() {
+            @Override
+            public void run() {
+                todo.run();
+            }
+        });
+        serviceExecuteQueue(r);
     }
 
     public void req(UUID uuid, BLEUtilCB on_complete) {
