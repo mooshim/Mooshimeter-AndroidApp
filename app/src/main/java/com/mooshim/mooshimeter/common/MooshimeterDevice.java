@@ -457,8 +457,6 @@ public class MooshimeterDevice {
     public static void Destroy() {
         // Clear the global instance
         if(mInstance != null) {
-            mInstance.close();
-            mInstance.mBLEUtil.disconnect();
             clearInstance();
         }
     }
@@ -494,10 +492,6 @@ public class MooshimeterDevice {
                 });
             }
         });
-    }
-
-    public void close() {
-        mBLEUtil.clear();
     }
 
     ////////////////////////////////
@@ -598,7 +592,7 @@ public class MooshimeterDevice {
         mainHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mBLEUtil.disconnect();
+                mBLEUtil.disconnect(null);
             }
         }, 200);
         mainHandler.postDelayed( new Runnable() {

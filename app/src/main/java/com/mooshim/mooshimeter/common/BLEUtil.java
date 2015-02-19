@@ -28,12 +28,10 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
-import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.util.Conversion;
 import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.lang.reflect.Method;
@@ -47,8 +45,6 @@ import java.util.UUID;
  * Anything more than that and everything gets buggy.
  */
 public class BLEUtil {
-    public final static String EXTRA_STATUS                     = "com.mooshim.mooshimeter.EXTRA_STATUS";
-    public final static String EXTRA_ADDRESS                    = "com.mooshim.mooshimeter.EXTRA_ADDRESS";
     public final static UUID   CC_SERVICE_UUID                  = UUID.fromString("f000ccc0-0451-4000-b000-000000000000");
     private static final String TAG="BLEUtil";
 
@@ -64,22 +60,31 @@ public class BLEUtil {
     private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
     private HashMap<UUID,BLEUtilCB> mNotifyCB= new HashMap<UUID,BLEUtilCB>();
 
-    private Runnable mDisconnectCB = null;
+    private Runnable mAccidentalDisconnectCB = null;
 
     public static abstract class BLEUtilCB implements Runnable {
         public UUID uuid;       // UUID
         public byte[] value;    // Value for the characteristic in question
-        public int error;       // Error from the BLE layer
+        public int error;       // Error code from the BLE layer (usually BluetoothGATT.GATT_SUCCESS)
         public abstract void run();
     };
 
     private static class BLEUtilRequest {
-        public Runnable  payload;
+        private static int next_id = 0; // Static mutexed member to keep track of ids
+        public Runnable  payload;       // Code to be run
         public BLEUtilCB callback;
-        protected BLEUtilRequest() {}
+        private final int id;
+        protected BLEUtilRequest() {
+            id = 0;
+        }
         public BLEUtilRequest(final Runnable p, final BLEUtilCB c) {
             payload  = p;
             callback = c;
+            id = getNextID();
+        }
+        private static synchronized int getNextID() {
+            next_id++;
+            return next_id;
         }
     }
 
@@ -99,8 +104,7 @@ public class BLEUtil {
     public static void Destroy() {
         // Clear the global instance
         if(mInstance != null) {
-            mInstance.disconnect();
-            mInstance.clear();
+            mInstance.disconnect(null);
             mInstance = null;
         }
     }
@@ -163,7 +167,7 @@ public class BLEUtil {
     }
 
     public void connect(final String address, final BLEUtilCB cb, final Runnable disconnectCB) {
-        mDisconnectCB = disconnectCB;
+        mAccidentalDisconnectCB = disconnectCB;
         connect(address,cb);
     }
 
@@ -180,20 +184,19 @@ public class BLEUtil {
     }
 
     public void setDisconnectCB(final Runnable disconnectCB) {
-        mDisconnectCB=disconnectCB;
+        mAccidentalDisconnectCB =disconnectCB;
     }
 
-    public void disconnect() {
-        if(mBluetoothGatt!=null) {
-            mBluetoothGatt.disconnect();
-            mBluetoothGatt.close();
-        }
-        mPrimaryService = null;
-    }
-
-    public void disconnect(final Runnable disconnectCB) {
-        mDisconnectCB = disconnectCB;
-        disconnect();
+    public void disconnect(BLEUtilCB on_complete) {
+        BLEUtilRequest r = new BLEUtilRequest(new Runnable() {
+            @Override
+            public void run() {
+                if(mBluetoothGatt!=null) {
+                    mBluetoothGatt.disconnect();
+                }
+            }
+        }, on_complete);
+        serviceExecuteQueue(r);
     }
 
     public void setWriteType(UUID uuid, int wtype) {
@@ -287,6 +290,9 @@ public class BLEUtil {
     ////////////////////////////////
 
     private boolean refreshDeviceCache(){
+        // Forces the BluetoothGATT layer to dump what it knows about the connected device
+        // If this is not called during connection, the GATT layer will simply return the last cached
+        // services and refuse to do the service discovery process.
         try {
             Method localMethod = mBluetoothGatt.getClass().getMethod("refresh", new Class[0]);
             if (localMethod != null) {
@@ -328,41 +334,39 @@ public class BLEUtil {
     private BluetoothGattCallback mGattCallbacks = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            if (mBluetoothGatt == null) {
-                // Log.e(TAG, "mBluetoothGatt not created!");
-                return;
-            }
-
-            try {
-                switch (newState) {
-                    case BluetoothProfile.STATE_CONNECTED:
-                        mBluetoothGatt.discoverServices();
-                        break;
-                    case BluetoothProfile.STATE_DISCONNECTED:
-                        if(mDisconnectCB!=null) {
-                            mDisconnectCB.run();
-                            mDisconnectCB=null;
-                        }
-                        break;
-                    default:
-                        Log.e(TAG, "New state not processed: " + newState);
-                        break;
-                }
-            } catch (NullPointerException e) {
-                e.printStackTrace();
+            switch (newState) {
+                case BluetoothProfile.STATE_CONNECTING:
+                    Log.d(TAG,"Connecting...");
+                    break;
+                case BluetoothProfile.STATE_CONNECTED:
+                    mBluetoothGatt.discoverServices();
+                    break;
+                case BluetoothProfile.STATE_DISCONNECTING:
+                    Log.d(TAG,"Disconnecting...");
+                    break;
+                case BluetoothProfile.STATE_DISCONNECTED:
+                    if(mAccidentalDisconnectCB !=null) {
+                        // If we are here, the disconnect was accidental
+                        mAccidentalDisconnectCB.run();
+                        mAccidentalDisconnectCB =null;
+                    } else {
+                        // The disconnect was intentional and
+                        finishRunningBlock(null, status, null);
+                    }
+                    // Whether intentional or not, the BluetoothGATT is now invalid
+                    mBluetoothGatt.close();
+                    mPrimaryService = null;
+                    mBluetoothGatt = null;
+                    break;
+                default:
+                    Log.e(TAG, "New state not processed: " + newState);
+                    break;
             }
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            if( setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE) ) {
-                Log.i(TAG, "Found the meter service");
-                finishRunningBlock(mPrimaryService.getUuid(), status, null);
-                printGattError(status);
-            } else {
-                Log.e(TAG, "Did not find the meter service!");
-                finishRunningBlock(null, status, null);
-            }
+            finishRunningBlock(null, status, null);
             mCCService = getService(CC_SERVICE_UUID);
         }
 

@@ -292,7 +292,7 @@ public class ScanActivity extends FragmentActivity {
             case CONNECTING:
                 switch(newState) {
                     case IDLE:
-                        mBleUtil.disconnect();
+                        mBleUtil.disconnect(null);
                         mBtnScan.setEnabled(true);
                         mDeviceAdapter.notifyDataSetChanged(); // Force enabling of all Connect buttons
                         break;
