@@ -60,6 +60,7 @@ import java.util.List;
 
 import android.bluetooth.BluetoothGattService;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.hardware.SensorManager;
 import android.os.Bundle;
@@ -68,7 +69,6 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -89,7 +89,6 @@ public class DeviceActivity extends FragmentActivity {
     public static final int METER_DISCONNECTED_RES = 0;
 
 	// BLE
-	private List<BluetoothGattService> mServiceList = null;
     private MooshimeterDevice mMeter = null;
 
     // GUI
@@ -108,16 +107,12 @@ public class DeviceActivity extends FragmentActivity {
     private Button depth_button;
     private Button zero_button;
 
-    private OrientationEventListener orientation_listener;
     private boolean trend_view_running = false;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
-
-		// BLE
-		mServiceList = new ArrayList<BluetoothGattService>();
 
         // GUI
         setContentView(R.layout.activity_meter);
@@ -144,28 +139,6 @@ public class DeviceActivity extends FragmentActivity {
         depth_auto_button = (Button) findViewById(R.id.depth_auto_button);
         depth_button      = (Button) findViewById(R.id.depth_button);
         zero_button = (Button) findViewById(R.id.zero_button);
-
-        // Catch orientation change
-        orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
-            @Override
-            public void onOrientationChanged(int i) {
-                if((i > 80 && i < 100) || (i>260 && i < 280)) {
-                    if(!trend_view_running) {
-                        Log.i(TAG, "LANDSCAPE!");
-                        trend_view_running = true;
-                        orientation_listener.disable();
-                        mMeter.pauseStream(new Runnable() {
-                            @Override
-                            public void run() {
-                                Log.d(TAG,"Paused");
-                                //mMeter.clear();
-                                startTrendActivity();
-                            }
-                        });
-                    }
-                }
-            }
-        };
 	}
 
 
@@ -173,12 +146,9 @@ public class DeviceActivity extends FragmentActivity {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-        orientation_listener.disable();
 		finishActivity(PREF_ACT_REQ);
 		finishActivity(FWUPDATE_ACT_REQ);
         finishActivity(TREND_ACT_REQ);
-        // FIXME: This should be destroyed in onActivityResult in ScanActivity, but for some reason the right case is not getting called there
-        MooshimeterDevice.Destroy();
         setResult(RESULT_OK);
 	}
 
@@ -199,19 +169,77 @@ public class DeviceActivity extends FragmentActivity {
 			startPreferenceActivity();
 			break;
 		default:
-			return super.onOptionsItemSelected(item);
+            setResult(RESULT_OK);
+            finish();
+            return true;
 		}
 		return true;
 	}
 
+    @Override
+    public void onBackPressed() {
+
+    }
+
 	@Override
 	protected void onResume() {
 		super.onResume();
-        mMeter = MooshimeterDevice.getInstance();
-        onMeterInitialized();
-        orientation_listener.enable();
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if(Configuration.ORIENTATION_PORTRAIT == handleOrientation()) {
+            // If we're in Portrait, continue as normal
+            // If we're in landscape, handleOrientation will have started the trend activity
+            mMeter = MooshimeterDevice.getInstance();
+            onMeterInitialized();
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
 	}
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        handleOrientation();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        switch (requestCode) {
+            case PREF_ACT_REQ:
+                Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
+                break;
+            case FWUPDATE_ACT_REQ:
+                break;
+            case TREND_ACT_REQ:
+                trend_view_running = false;
+                break;
+            default:
+                setError("Unknown request code");
+                break;
+        }
+    }
+
+    private int handleOrientation() {
+        final int o = this.getResources().getConfiguration().orientation;
+        switch(o) {
+            case Configuration.ORIENTATION_LANDSCAPE:
+                // Start the trend view
+                if(!trend_view_running) {
+                    Log.i(TAG, "Starting trend view.");
+                    trend_view_running = true;
+                    mMeter.pauseStream(new Runnable() {
+                        @Override
+                        public void run() {
+                            startTrendActivity();
+                        }
+                    });
+                }
+                break;
+            case Configuration.ORIENTATION_PORTRAIT:
+                // Do nothing, leave to external application
+                break;
+        }
+        return o;
+    }
 
     private void onMeterInitialized() {
         mMeter.playSampleStream(new Runnable() {
@@ -252,30 +280,6 @@ public class DeviceActivity extends FragmentActivity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	}
 
-	private void startOadActivity() {
-        mMeter.reconnectInOADMode(new Runnable() {
-            @Override
-            public void run() {
-                launchOAD();
-            }
-        });
-	}
-
-    private void launchOAD() {
-        final BLEUtil bleUtil = BLEUtil.getInstance();
-        if( bleUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID) ) {
-            final Intent i = new Intent(this, FwUpdateActivity.class);
-            startActivityForResult(i, FWUPDATE_ACT_REQ);
-        } else {
-            setError("Failed to find OAD service, not launching firmware update");
-            if(!bleUtil.setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE)) {
-                // We can't find the OAD service, and for some reason can't connect back to the meter service.
-                // Abort
-                finish();
-            }
-        }
-    }
-
 	private void startPreferenceActivity() {
 		final Intent i = new Intent(this, PreferencesActivity.class);
 		startActivityForResult(i, PREF_ACT_REQ);
@@ -297,24 +301,6 @@ public class DeviceActivity extends FragmentActivity {
 
 	private void setStatus(String txt) {
 		Toast.makeText(this, txt, Toast.LENGTH_SHORT).show();
-	}
-
-	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		super.onActivityResult(requestCode, resultCode, data);
-
-		switch (requestCode) {
-		case PREF_ACT_REQ:
-			Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
-			break;
-		case FWUPDATE_ACT_REQ:
-			break;
-        case TREND_ACT_REQ:
-            trend_view_running = false;
-            break;
-		default:
-			setError("Unknown request code");
-			break;
-		}
 	}
 
     public String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {

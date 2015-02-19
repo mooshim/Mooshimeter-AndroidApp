@@ -168,6 +168,22 @@ public class ScanActivity extends FragmentActivity {
         return true;
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch (requestCode) {
+            case REQ_DEVICE_ACT:
+                moveState(ScanViewState.IDLE);
+                break;
+            case REQ_OAD_ACT:
+                moveState(ScanViewState.IDLE);
+                break;
+            default:
+                setError("Unknown request code");
+                break;
+        }
+    }
+
     // Master state machine for the scan view
 
     private synchronized void moveState(ScanViewState newState) {
@@ -398,21 +414,6 @@ public class ScanActivity extends FragmentActivity {
     private void startOADActivity() {
         final Intent i = new Intent(this, FwUpdateActivity.class);
         startActivityForResult(i, REQ_OAD_ACT);
-    }
-
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        switch (requestCode) {
-            case REQ_DEVICE_ACT:
-                moveState(ScanViewState.IDLE);
-                break;
-            case REQ_OAD_ACT:
-                moveState(ScanViewState.IDLE);
-                break;
-            default:
-                setError("Unknown request code");
-                break;
-        }
     }
 
     /////////////////////////////

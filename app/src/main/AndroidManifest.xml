@@ -38,7 +38,8 @@
         <activity
             android:name=".main.DeviceActivity"
             android:parentActivityName=".main.ScanActivity"
-            android:screenOrientation="portrait" />
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="fullSensor" />
         <activity
             android:name=".main.FwUpdateActivity"
             android:parentActivityName=".main.DeviceActivity"
@@ -56,7 +57,8 @@
             android:name=".main.TrendActivity"
             android:label="@string/title_activity_trend"
             android:parentActivityName=".main.DeviceActivity"
-            android:screenOrientation="landscape" >
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="fullSensor" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="com.mooshim.mooshimeter.main.DeviceActivity" />

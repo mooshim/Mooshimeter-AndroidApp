@@ -454,11 +454,14 @@ public class MooshimeterDevice {
         mInstance = null;
     }
 
-    public static void Destroy() {
-        // Clear the global instance
-        if(mInstance != null) {
-            clearInstance();
-        }
+    public void disconnect(final Runnable cb) {
+        mBLEUtil.disconnect(new BLEUtil.BLEUtilCB() {
+            @Override
+            public void run() {
+                clearInstance();
+                cb.run();
+            }
+        });
     }
 
     protected MooshimeterDevice(Context context, final Runnable on_init) {
@@ -476,22 +479,12 @@ public class MooshimeterDevice {
         meter_settings.update(new Runnable() {
             @Override
             public void run() {
-                // FIXME: There should be a better place to reset the target meter state
                 meter_settings.target_meter_state = meter_settings.present_meter_state;
-                meter_log_settings.update(new Runnable() {
-                    @Override
-                    public void run() {
-                        meter_info.update(new Runnable() {
-                            @Override
-                            public void run() {
-                                meter_name.update(on_init);
-                                Log.i(TAG, "Meter initialization complete");
-                            }
-                        });
-                    }
-                });
             }
         });
+        meter_log_settings.update(null);
+        meter_info.update(null);
+        meter_name.update(on_init);
     }
 
     ////////////////////////////////

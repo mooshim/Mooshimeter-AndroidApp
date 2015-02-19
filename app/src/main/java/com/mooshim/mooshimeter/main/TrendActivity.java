@@ -20,13 +20,12 @@
 package com.mooshim.mooshimeter.main;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 import android.graphics.Color;
-import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -61,7 +60,6 @@ public class TrendActivity extends Activity {
     private Button mGraphPlayButton;
     private ProgressBar mProgressSpinner;
 
-    private OrientationEventListener orientation_listener;
     private MooshimeterDevice mMeter;
     private final LineGraphSeries[] dataSeries = new LineGraphSeries[2];
     private double start_time;
@@ -84,41 +82,6 @@ public class TrendActivity extends Activity {
         mXYButton     = (Button)       findViewById(R.id.xy_button);
         mGraphPlayButton=(Button)      findViewById(R.id.graph_play_button);
         mProgressSpinner=(ProgressBar) findViewById(R.id.graph_progress_spinner);
-
-        orientation_listener = new OrientationEventListener(this, SensorManager.SENSOR_DELAY_UI) {
-            @Override
-            public void onOrientationChanged(int i) {
-                if((i > 170 && i < 190) || (i>0 && i < 10) || (i>350 && i < 360)) {
-                    // FIXME: I know there should be a better way to do this.
-                    if(!cleaning_up) {
-                        cleaning_up = true;
-                        orientation_listener.disable();
-                        Log.i(TAG, "PORTRAIT!");
-                        mProgressSpinner.setVisibility(View.VISIBLE);
-                        mMeter.meter_ch1_buf.enableNotify(false,new Runnable() {
-                            @Override
-                            public void run() {
-                                mMeter.meter_ch2_buf.enableNotify(false,new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        mMeter.pauseStream(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                //mMeter.clear();
-                                                orientation_listener.disable();
-                                                setResult(RESULT_OK);
-                                                finish();
-                                            }
-                                        });
-                                    }
-                                },null);
-                            }
-                        },null);
-                    }
-                }
-            }
-        };
-        orientation_listener.enable();
     }
 
     @Override
@@ -186,8 +149,30 @@ public class TrendActivity extends Activity {
 
             trendViewPlay(null);
         }
+    }
 
-        orientation_listener.enable();
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        final int o = this.getResources().getConfiguration().orientation;
+        switch(o) {
+            case Configuration.ORIENTATION_LANDSCAPE:
+                // Do nothing
+                break;
+            case Configuration.ORIENTATION_PORTRAIT:
+                // Return to DeviceActivity
+                mProgressSpinner.setVisibility(View.VISIBLE);
+                mMeter.meter_ch1_buf.enableNotify(false, null, null);
+                mMeter.meter_ch2_buf.enableNotify(false,null,null);
+                mMeter.pauseStream(new Runnable() {
+                    @Override
+                    public void run() {
+                        setResult(RESULT_OK);
+                        finish();
+                    }
+                });
+                break;
+        }
     }
 
     private void resetViewBounds() {

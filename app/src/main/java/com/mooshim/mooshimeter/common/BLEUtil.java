@@ -118,6 +118,7 @@ public class BLEUtil {
     public void clear() {
         mExecuteQueue.clear();
         mNotifyCB.clear();
+        mRunning = null;
     }
 
     ////////////////////////////////
@@ -131,7 +132,7 @@ public class BLEUtil {
             }
             mExecuteQueue.addLast(add);
         }
-        if(mExecuteQueue.size() > 0) {
+        if(mRunning == null && mExecuteQueue.size() > 0) {
             mRunning = mExecuteQueue.remove(0);
             mRunning.payload.run();
         }
@@ -150,6 +151,7 @@ public class BLEUtil {
             cb.value = value;
             mainHandler.post(cb);
         }
+        mRunning = null;
         mainHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -347,10 +349,11 @@ public class BLEUtil {
                 case BluetoothProfile.STATE_DISCONNECTED:
                     if(mAccidentalDisconnectCB !=null) {
                         // If we are here, the disconnect was accidental
-                        mAccidentalDisconnectCB.run();
-                        mAccidentalDisconnectCB =null;
+                        final Handler mainHandler = new Handler(Looper.getMainLooper());
+                        mainHandler.post(mAccidentalDisconnectCB);
+                        mAccidentalDisconnectCB = null;
                     } else {
-                        // The disconnect was intentional and
+                        // The disconnect was intentional
                         finishRunningBlock(null, status, null);
                     }
                     // Whether intentional or not, the BluetoothGATT is now invalid
