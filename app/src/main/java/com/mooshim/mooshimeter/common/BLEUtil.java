@@ -396,20 +396,26 @@ public class BLEUtil {
                 // We need a wrapper around the callback to prevent data overwrite since cb
                 // is only instantiated once
                 final BLEUtilCB cb = mNotifyCB.get(c.getUuid());
-                BLEUtilCB wrapper = new BLEUtilCB() {
-                    @Override
-                    public void run() {
-                        cb.uuid  = uuid;
-                        cb.error = error;
-                        cb.value = value;
-                        cb.run();
-                    }
-                };
-                wrapper.uuid  = c.getUuid();
-                wrapper.error = 0;
-                wrapper.value = c.getValue();
-                final Handler mainHandler = new Handler(Looper.getMainLooper());
-                mainHandler.post(wrapper);
+                cb.uuid  = c.getUuid();
+                cb.error = 0;
+                cb.value = c.getValue();
+                cb.run();
+                if(false) {
+                    BLEUtilCB wrapper = new BLEUtilCB() {
+                        @Override
+                        public void run() {
+                            cb.uuid = uuid;
+                            cb.error = error;
+                            cb.value = value;
+                            cb.run();
+                        }
+                    };
+                    wrapper.uuid = c.getUuid();
+                    wrapper.error = 0;
+                    wrapper.value = c.getValue().clone();
+                    final Handler mainHandler = new Handler(Looper.getMainLooper());
+                    mainHandler.post(wrapper);
+                }
             }
         }
 

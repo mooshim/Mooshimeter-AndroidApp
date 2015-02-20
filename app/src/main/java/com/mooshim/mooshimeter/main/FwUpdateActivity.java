@@ -95,7 +95,6 @@ public class FwUpdateActivity extends Activity {
 
     private static final int OAD_BLOCK_SIZE = 16;
     private static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
-    private final byte[] mOadBuffer = new byte[OAD_BUFFER_SIZE];
     private static final int HAL_FLASH_WORD_SIZE = 4;
     // Log
     private static String TAG = "FwUpdateActivity";
@@ -265,21 +264,26 @@ public class FwUpdateActivity extends Activity {
                         if (error == BluetoothGatt.GATT_SUCCESS) {
                             // Update stats
                             mWatchdog.feed();
-                            mProgInfo.iBlocks++;
-                            mProgInfo.iBytes += OAD_BLOCK_SIZE;
-                            mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
-                            if(mProgInfo.iBlocks%64 == 0){
+                            final ByteBuffer bn = ByteBuffer.wrap(value);
+                            bn.order(ByteOrder.LITTLE_ENDIAN);
+                            final short confirmed_block = bn.getShort();
+                            mProgInfo.confirmed[confirmed_block]++;
+                            mProgInfo.cBlocks++;
+                            if(mProgInfo.confirmed[confirmed_block] == 1) {
+                                Log.d(TAG,"Confirmed block " + confirmed_block);
+                            } else {
+                                Log.e(TAG,"OVERCONFIRMATION ON BLOCK " + confirmed_block);
                                 runOnUiThread(new Runnable() {
                                     @Override
                                     public void run() {
-                                        displayStats();
+                                        stopProgramming();
                                     }
                                 });
                             }
                             programBlock();
                         } else {
-                            mProgramming = false;
                             mLog.append("GATT writeCharacteristic failed\n");
+                            stopProgramming();
                         }
                     }
                 });
@@ -303,6 +307,25 @@ public class FwUpdateActivity extends Activity {
             mLog.append("Programming complete!\n");
         } else {
             mLog.append("Programming cancelled\n");
+        }
+        boolean all_confirmed = true;
+        for(int i = 0; i < mProgInfo.nBlocks; i++) {
+            if(mProgInfo.confirmed[i]!=1) {
+                if(all_confirmed) {
+                    mLog.append("WARNING: NOT ALL BLOCKS CONFIRMED\n");
+                }
+                all_confirmed = false;
+                if(mProgInfo.confirmed[i] == 0) {
+                    Log.e(TAG,"Block " + i + " unconfirmed");
+                } else {
+                    Log.e(TAG,"Block " + i + " OVERconfirmed");
+                }
+                break;
+
+            }
+        }
+        if(all_confirmed) {
+            mLog.append("All blocks confirmed!");
         }
     }
 
@@ -408,26 +431,30 @@ public class FwUpdateActivity extends Activity {
             return;
 
         if (mProgInfo.iBlocks < mProgInfo.nBlocks) {
-            mProgramming = true;
-
             // Prepare block
-            mOadBuffer[0] = Conversion.loUint16(mProgInfo.iBlocks);
-            mOadBuffer[1] = Conversion.hiUint16(mProgInfo.iBlocks);
-            System.arraycopy(mFileBuffer, mProgInfo.iBytes, mOadBuffer, 2, OAD_BLOCK_SIZE);
-
-            mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, mOadBuffer, new BLEUtil.BLEUtilCB() {
+            final byte oadBuffer[] = new byte[OAD_BUFFER_SIZE];
+            oadBuffer[0] = Conversion.loUint16(mProgInfo.iBlocks);
+            oadBuffer[1] = Conversion.hiUint16(mProgInfo.iBlocks);
+            System.arraycopy(mFileBuffer, mProgInfo.iBytes, oadBuffer, 2, OAD_BLOCK_SIZE);
+            Log.d(TAG,"Sending block " + mProgInfo.iBlocks);
+            mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, oadBuffer,null);
+            mBLEUtil.addToRunQueue(new Runnable() {
                 @Override
                 public void run() {
-                    if(error != BluetoothGatt.GATT_SUCCESS) {
-                        Log.e(TAG, "Write fail!");
+                    mProgInfo.iBytes += OAD_BLOCK_SIZE;
+                    mProgInfo.iBlocks++;
+                    mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
+                    if(mProgInfo.iBlocks%32 == 0){
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                displayStats();
+                            }
+                        });
                     }
                 }
             });
         } else {
-            mProgramming = false;
-        }
-
-        if (!mProgramming) {
             runOnUiThread(new Runnable() {
                 public void run() {
                     displayStats();
@@ -489,16 +516,21 @@ public class FwUpdateActivity extends Activity {
     }
 
     private class ProgInfo {
-        int iBytes = 0; // Number of bytes programmed
-        short iBlocks = 0; // Number of blocks programmed
+        int iBytes = 0;    // Number of bytes programmed
+        short iBlocks = 0; // Number of blocks sent
+        short cBlocks = 0; // Number of blocks confirmed
         short nBlocks = 0; // Total number of blocks
+        byte[] confirmed;
         long timeStart = System.currentTimeMillis();
 
         void reset() {
-            iBytes = 0;
+            iBytes  = 0;
             iBlocks = 0;
+            cBlocks = 0;
             timeStart = System.currentTimeMillis();
             nBlocks = (short) (mFileImgHdr.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
+            confirmed = new byte[nBlocks];
+            for(int i = 0; i < nBlocks; i++){confirmed[i]=0;}
         }
     }
 
