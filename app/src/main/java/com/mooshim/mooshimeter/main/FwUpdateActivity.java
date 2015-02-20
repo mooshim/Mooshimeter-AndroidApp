@@ -245,7 +245,7 @@ public class FwUpdateActivity extends Activity {
                                         } else {
                                             // Initialize stats
                                             mProgInfo.reset();
-                                            programBlock();
+                                            programBlock((short)0);
                                         }
                                     }
                                 });
@@ -266,21 +266,16 @@ public class FwUpdateActivity extends Activity {
                             mWatchdog.feed();
                             final ByteBuffer bn = ByteBuffer.wrap(value);
                             bn.order(ByteOrder.LITTLE_ENDIAN);
-                            final short confirmed_block = bn.getShort();
-                            mProgInfo.confirmed[confirmed_block]++;
+                            mProgInfo.requestedBlock = bn.getShort();
+                            final short rb = mProgInfo.requestedBlock;
+                            mProgInfo.requested[rb]++;
                             mProgInfo.cBlocks++;
-                            if(mProgInfo.confirmed[confirmed_block] == 1) {
-                                Log.d(TAG,"Confirmed block " + confirmed_block);
+                            if(mProgInfo.requested[rb] == 1) {
+                                Log.d(TAG,"Meter requested block " + rb);
                             } else {
-                                Log.e(TAG,"OVERCONFIRMATION ON BLOCK " + confirmed_block);
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        stopProgramming();
-                                    }
-                                });
+                                Log.e(TAG,"MULTIREQUEST ON BLOCK " + rb);
                             }
-                            programBlock();
+                            programBlock(rb);
                         } else {
                             mLog.append("GATT writeCharacteristic failed\n");
                             stopProgramming();
@@ -303,19 +298,19 @@ public class FwUpdateActivity extends Activity {
         mProgressBar.setProgress(0);
         updateStartButton();
 
-        if (mProgInfo.iBlocks == mProgInfo.nBlocks) {
+        if (mProgInfo.requestedBlock == mProgInfo.nBlocks) {
             mLog.append("Programming complete!\n");
         } else {
             mLog.append("Programming cancelled\n");
         }
         boolean all_confirmed = true;
         for(int i = 0; i < mProgInfo.nBlocks; i++) {
-            if(mProgInfo.confirmed[i]!=1) {
+            if(mProgInfo.requested[i]!=1) {
                 if(all_confirmed) {
                     mLog.append("WARNING: NOT ALL BLOCKS CONFIRMED\n");
                 }
                 all_confirmed = false;
-                if(mProgInfo.confirmed[i] == 0) {
+                if(mProgInfo.requested[i] == 0) {
                     Log.e(TAG,"Block " + i + " unconfirmed");
                 } else {
                     Log.e(TAG,"Block " + i + " OVERconfirmed");
@@ -364,17 +359,18 @@ public class FwUpdateActivity extends Activity {
 
     private void displayStats() {
         String txt;
+        final int iBytes = mProgInfo.requestedBlock*OAD_BLOCK_SIZE;
         final double byteRate;
         final double elapsed = (System.currentTimeMillis() - mProgInfo.timeStart) / 1000.0;
         if (elapsed > 0) {
-            byteRate = ((double)mProgInfo.iBytes) / elapsed;
+            byteRate = ((double)iBytes) / elapsed;
         } else {
             byteRate = 0;
         }
-        final double timeEstimate = ((double) (mFileImgHdr.len * 4) / (double) mProgInfo.iBytes) * elapsed;
+        final double timeEstimate = ((double) (mFileImgHdr.len * 4) / (double) iBytes) * elapsed;
 
         txt = String.format("Time: %d / %d sec", (int) elapsed, (int) timeEstimate);
-        txt += String.format("    Bytes: %d (%d/sec)", mProgInfo.iBytes, (int) byteRate);
+        txt += String.format("    Bytes: %d (%d/sec)", iBytes, (int) byteRate);
         mProgressInfo.setText(txt);
     }
 
@@ -426,39 +422,23 @@ public class FwUpdateActivity extends Activity {
         return fSuccess;
     }
 
-    private synchronized void programBlock(){
+    private synchronized void programBlock(final short bnum){
         if (!mProgramming)
             return;
 
-        if (mProgInfo.iBlocks < mProgInfo.nBlocks) {
-            // Prepare block
-            final byte oadBuffer[] = new byte[OAD_BUFFER_SIZE];
-            oadBuffer[0] = Conversion.loUint16(mProgInfo.iBlocks);
-            oadBuffer[1] = Conversion.hiUint16(mProgInfo.iBlocks);
-            System.arraycopy(mFileBuffer, mProgInfo.iBytes, oadBuffer, 2, OAD_BLOCK_SIZE);
-            Log.d(TAG,"Sending block " + mProgInfo.iBlocks);
-            mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, oadBuffer,null);
+        // Prepare block
+        final byte oadBuffer[] = new byte[OAD_BUFFER_SIZE];
+        oadBuffer[0] = Conversion.loUint16(bnum);
+        oadBuffer[1] = Conversion.hiUint16(bnum);
+        System.arraycopy(mFileBuffer, bnum*OAD_BLOCK_SIZE, oadBuffer, 2, OAD_BLOCK_SIZE);
+        Log.d(TAG,"Sending block " + bnum);
+        mBLEUtil.send(MooshimeterDevice.mUUID.OAD_IMAGE_BLOCK, oadBuffer,null);
+        if(bnum %32 == 0){
             mBLEUtil.addToRunQueue(new Runnable() {
                 @Override
                 public void run() {
-                    mProgInfo.iBytes += OAD_BLOCK_SIZE;
-                    mProgInfo.iBlocks++;
-                    mProgressBar.setProgress((mProgInfo.iBlocks * 100) / mProgInfo.nBlocks);
-                    if(mProgInfo.iBlocks%32 == 0){
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                displayStats();
-                            }
-                        });
-                    }
-                }
-            });
-        } else {
-            runOnUiThread(new Runnable() {
-                public void run() {
+                    mProgressBar.setProgress((bnum * 100) / mProgInfo.nBlocks);
                     displayStats();
-                    stopProgramming();
                 }
             });
         }
@@ -516,21 +496,18 @@ public class FwUpdateActivity extends Activity {
     }
 
     private class ProgInfo {
-        int iBytes = 0;    // Number of bytes programmed
-        short iBlocks = 0; // Number of blocks sent
+        short requestedBlock = 0; // Number of blocks sent
         short cBlocks = 0; // Number of blocks confirmed
         short nBlocks = 0; // Total number of blocks
-        byte[] confirmed;
+        byte[] requested;
         long timeStart = System.currentTimeMillis();
 
         void reset() {
-            iBytes  = 0;
-            iBlocks = 0;
             cBlocks = 0;
             timeStart = System.currentTimeMillis();
             nBlocks = (short) (mFileImgHdr.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
-            confirmed = new byte[nBlocks];
-            for(int i = 0; i < nBlocks; i++){confirmed[i]=0;}
+            requested = new byte[nBlocks];
+            for(int i = 0; i < nBlocks; i++){requested[i]=0;}
         }
     }
 
