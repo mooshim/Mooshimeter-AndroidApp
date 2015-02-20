@@ -517,13 +517,6 @@ public class MooshimeterDevice {
             public void run() {
                 meter_ch2_buf.buf_full_cb = onReceived;
                 meter_settings.target_meter_state = METER_RUNNING;
-                if((meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2) == 8) {
-                    // FIXME: There is an issue where Android is refusing to download buffers of over 128 length
-                    // It seems to stop getting the notifications halfway through the channel 2 buffer
-                    // For now just cap the length
-                    meter_settings.calc_settings &=~METER_CALC_SETTINGS_DEPTH_LOG2;
-                    meter_settings.calc_settings |=7;
-                }
                 meter_ch1_buf.buf_i = 0;
                 meter_ch2_buf.buf_i = 0;
                 meter_settings.send(null);
