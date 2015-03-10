@@ -35,6 +35,13 @@ import java.util.UUID;
 import static java.util.UUID.fromString;
 
 public class MooshimeterDevice {
+
+    /*
+    mUUID stores the UUID values of all the Mooshimeter fields.
+    Note that the OAD fields are only accessible when connected to the Mooshimeter in OAD mode
+    and the METER_ fields are only accessible when connected in meter mode.
+     */
+
     public static class mUUID {
         public final static UUID
                 METER_SERVICE      = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
@@ -58,6 +65,16 @@ public class MooshimeterDevice {
     }
 
     private static final String TAG="MooshimeterDevice";
+
+    /*
+    These are the run levels of the meter state machine.  By setting meter_settings.target_meter_state,
+    a run level change is requested.  The present state can be read from meter_settings.present_meter_state
+    SHUTDOWN = Requesting this state will reboot the meter.
+    STANDBY  = The meter will turn off the ADC and go to sleep but remains connectable over BLE.  The meter reverts to this state on disconnection.
+    PAUSED   = The meter keeps the MCU on and the ADC ready but not sampling.  When the meter is connected over BLE but not sampling, it is here
+    RUNNING  = The meter is actively sampling the ADC.  If notifications are enabled, samples will be sent when ready.  If ONESHOT is enabled, the meter will drop itself back to PAUSED when the sampling is complete
+    HIBERNATE= The meter is asleep and not connectable over BLE.  The meter wakes once every 10 seconds to check the resistance at the Active terminal, if low enough the meter will switch itself to STANDBY
+     */
 
     public static final byte METER_SHUTDOWN  = 0;
     public static final byte METER_STANDBY   = 1;
@@ -107,7 +124,19 @@ public class MooshimeterDevice {
         return tmp.getInt();
     }
 
+    /*
+    All fields in the Mooshimeter BLE profile are stored as structs
+    MeterStructure provides a common framework to access them.
+     */
+
     private abstract class MeterStructure {
+        /**
+         * Requests a read of the structure from the Mooshimeter, unpacks the response in to the
+         * member variables.  Unpacking and packing are implemented by the subclass.
+         * This function is asynchronous - the function returns before the structure is updated -
+         * you must wait for cb to be called.
+         * @param cb Code block to run on completion
+         */
         public void update(final Runnable cb) {
             mBLEUtil.req(getUUID(), new BLEUtil.BLEUtilCB() {
                 @Override
@@ -124,6 +153,13 @@ public class MooshimeterDevice {
                 }
             });
         }
+        /**
+         * Sends the struct to the Mooshimeter, unpacks the response in to the
+         * member variables.  Unpacking and packing are implemented by the subclass.
+         * This function is asynchronous - the function returns before the structure is updated -
+         * you must wait for cb to be called.
+         * @param cb Code block to run on completion
+         */
         public void send(final Runnable cb) {
             mBLEUtil.send(getUUID(), pack(), new BLEUtil.BLEUtilCB() {
                 @Override
@@ -138,6 +174,13 @@ public class MooshimeterDevice {
                 }
             });
         }
+
+        /**
+         * Enable or disable notifications on this field and set the callbacks.
+         * @param enable        If true, enable the notification.  If false, disable.
+         * @param on_complete   When the notification has been set, this is called.
+         * @param on_notify     When a notify event is received, this is called.
+         */
         public void enableNotify(boolean enable, final Runnable on_complete, final Runnable on_notify) {
             mBLEUtil.enableNotify(getUUID(),enable,new BLEUtil.BLEUtilCB() {
                 @Override
@@ -164,10 +207,78 @@ public class MooshimeterDevice {
         public void setWriteType(int wtype){
             mBLEUtil.setWriteType(getUUID(),wtype);
         }
+
+        /**
+         * Serialize the instance members
+         * @return  A byte[] suitable for transmission as a BLE payload
+         */
         public abstract byte[] pack();
+
+        /**
+         * Interpret a BLE payload and set the instance members
+         * @param in A byte[] received as a BLE payload
+         */
         public abstract void unpack(byte[] in);
+
+        /**
+         *
+         * @return The UUID of this structure
+         */
         public abstract UUID getUUID();
     }
+
+    /**
+     * MeterSettings
+     *
+     * This structure controls the sampling behavior of the Mooshimeter.
+     *
+     * present_meter_state
+     * Read-only - Writing to this value has no effect
+     * The present state of the Mooshimeter.  State values can be one of
+     * METER_SHUTDOWN
+     * METER_STANDBY
+     * METER_PAUSED
+     * METER_RUNNING
+     * METER_HIBERNATE
+     *
+     * target_meter_state
+     * The desired state of the Mooshimeter.  Write to this value to request a state change.  Valid
+     * values same as present_meter_state above.
+     *
+     * trigger_setting
+     * Unused
+     *
+     * trigger_x_offset
+     * Unused
+     *
+     * trigger_crossing
+     * Unused
+     *
+     * measure_settings
+     * Toggles the current source on the Active port and controls the current source level
+     * Bit 0x01   SET: Current source on
+     * Bit 0x01 UNSET: Current source off
+     * Bit 0x02   SET: Current source level 100uA
+     * Bit 0x02 UNSET: Current source level 100nA
+     *
+     * calc_settings
+     * Controls what processing is performs on the ADC samples.
+     * Bits 0x0F: Sample depth log2 - Sets how many ADC samples to take.
+     *  Value 0 = 1 sample
+     *  Value 4 = 16 samples
+     *  etc.
+     *  Valid up to 256 samples
+     * Bit 0x10: Turn on mean calculation
+     * Bit 0x20: Turn on ONESHOT mode - meter will fill the sample buffer once and then revert to METER_PAUSED state
+     * Bit 0x40: Turn on RMS calculation.  Note that the meter will not bother calculating RMS on buffers less than 8 samples long
+     *
+     * chset
+     * Channel input settings - these map directly to the CH1SET and CH2SET registers in the ADS1292
+     *
+     * adc_settings
+     * This register controls ADC sample rate and the high voltage resistor divider
+     *
+     */
     public class MeterSettings    extends MeterStructure {
         public byte present_meter_state;
         public byte target_meter_state;
@@ -437,10 +548,22 @@ public class MooshimeterDevice {
 
     private static MooshimeterDevice mInstance = null;
 
+    /**
+     * Accessor to the singleton
+     * @return The singleton instance.  Note that if it has not been initialized, null is returned.
+     */
     public static synchronized MooshimeterDevice getInstance() {
         return mInstance;
     }
 
+    /**
+     * Creates the singleton.  Synchronizes the data structures with the meter by calling each structure's
+     * "update" routine
+     * Asynchronous
+     * @param context Application context
+     * @param on_init Callback to run after initialization complete.
+     * @return
+     */
     public static synchronized MooshimeterDevice Initialize(Context context, final Runnable on_init) {
         if(mInstance==null) {
             mInstance = new MooshimeterDevice(context, on_init);
@@ -490,14 +613,29 @@ public class MooshimeterDevice {
     ////////////////////////////////
     // Convenience functions
     ////////////////////////////////
+
+    /**
+     * Adds a Runnable to be run at the end of the request queue.
+     * Note that callbacks are run on the UI thread.
+     * @param todo
+     */
     public void addToRunQueue(final Runnable todo) {
         mBLEUtil.addToRunQueue(todo);
     }
 
+    /**
+     * Returns the number of ADC samples that constitute a sample buffer
+     * @return number of samples
+     */
     public int getBufLen() {
         return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
+    /**
+     * Downloads the complete sample buffer from the Mooshimeter.
+     * This interaction spans many connection intervals, the exact length depends on the number of samples in the buffer
+     * @param onReceived Called when the complete buffer has been downloaded
+     */
     public void getBuffer(final Runnable onReceived) {
         // Set up for oneshot, turn off all math in firmware
         if(0==(meter_settings.calc_settings & METER_CALC_SETTINGS_ONESHOT)) {
@@ -524,6 +662,10 @@ public class MooshimeterDevice {
         });
     }
 
+    /**
+     * Stop the meter from sending samples.  Opposite of playSampleStream
+     * @param cb Called on completion
+     */
     public void pauseStream(final Runnable cb) {
         meter_sample.enableNotify(false, null, null);
         if(meter_settings.target_meter_state != METER_PAUSED) {
@@ -533,6 +675,11 @@ public class MooshimeterDevice {
         mBLEUtil.addToRunQueue(cb);
     }
 
+    /**
+     * Start streaming samples from the meter.  Samples will be streamed continuously until pauseStream is called
+     * @param cb Called on completion
+     * @param on_notify Called whenever a new sample is received
+     */
     public void playSampleStream(final Runnable cb, final Runnable on_notify) {
         meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
@@ -542,6 +689,11 @@ public class MooshimeterDevice {
         mBLEUtil.addToRunQueue(cb);
     }
 
+    /**
+     * DOES NOT WORK DUE TO ANDROID BLE BUG
+     * Shuts down the meter and immediately reconnects, aiming to reconnect while the mooshimeter is in OAD mode
+     * @param cb
+     */
     public void reconnectInOADMode(final Runnable cb) {
         final Handler mainHandler = new Handler(Looper.getMainLooper());
         // Reboot the meter and reconnect
@@ -579,8 +731,16 @@ public class MooshimeterDevice {
     // Autoranging
     //////////////////////////////////////
 
+    /**
+     * Reads a channel PGA setting and shifts the PGA gain
+     * @param chx_set   Either the CH1SET or CH2SET register
+     * @param inc       Whether to shift the gain up or down
+     * @param wrap      If at a maximum or minimum gain, whether to wrap over to the other side of the range
+     * @return          The modified CHXSET register
+     */
     byte pga_cycle(byte chx_set, boolean inc, boolean wrap) {
         // These are the PGA settings we will entertain
+        // { 12, 4, 1 }
         final byte ps[] = {0x60,0x40,0x10};
         byte i;
         // Find the index of the present PGA setting
@@ -611,6 +771,12 @@ public class MooshimeterDevice {
         chx_set |= ps[i];
         return chx_set;
     }
+
+    /**
+     * Returns the threshold, in LSB, below which the meter should shift its measurement settings down.
+     * @param channel   The channel index (0 or 1)
+     * @return          Threshold in LSB
+     */
 
     int getLowerRange(int channel) {
         int tmp;
@@ -677,6 +843,12 @@ public class MooshimeterDevice {
         return 0;
     }
 
+    /**
+     * Changes the measurement settings for a channel to expand or contract the measurement range
+     * @param channel   The channel index (0 or 1)
+     * @param raise     Expand (true) or contract (false)
+     * @param wrap      If at a maximum or minimum gain, whether to wrap over to the other side of the range
+     */
     private void bumpRange(int channel, boolean raise, boolean wrap) {
         byte channel_setting    = meter_settings.chset[channel];
         int tmp;
@@ -800,6 +972,12 @@ public class MooshimeterDevice {
         public int n_digits;
     }
 
+    /**
+     * Examines the measurement settings for the given channel and returns the effective number of bits
+     * @param channel The channel index (0 or 1)
+     * @return Effective number of bits
+     */
+
     private double getEnob(final int channel) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
@@ -835,6 +1013,13 @@ public class MooshimeterDevice {
         return enob;
     }
 
+    /**
+     * Based on the ENOB and the measurement range for the given channel, determine which digits are
+     * significant in the output.
+     * @param channel The channel index (0 or 1)
+     * @return  A SignificantDigits structure, "high" is the number of digits to the left of the decimal point and "digits" is the number of significant digits
+     */
+
     public SignificantDigits getSigDigits(final int channel) {
         SignificantDigits retval = new SignificantDigits();
         final double enob = getEnob(channel);
@@ -845,6 +1030,15 @@ public class MooshimeterDevice {
         retval.n_digits = (int) n_digits;
         return retval;
     }
+
+    /**
+     * Examines the measurement settings and converts the input (in LSB) to the voltage at the input
+     * of the AFE.  Note this is at the input of the AFE, not the input of the ADC (there is a PGA)
+     * between them
+     * @param reading_lsb   Input reading [LSB]
+     * @param channel       The channel index (0 or 1)
+     * @return  Voltage at AFE input [V]
+     */
 
     public double lsbToADCInVoltage(final int reading_lsb, final int channel) {
         // This returns the input voltage to the ADC,
@@ -866,6 +1060,13 @@ public class MooshimeterDevice {
         return ((double)reading_lsb/(double)(1<<23))*Vref/pga_gain;
     }
 
+    /**
+     * Converted the voltage at the input of the AFE to the voltage at the HV input by examining the
+     * meter settings
+     * @param adc_voltage   Voltage at the AFE [V]
+     * @return  Voltage at the HV input terminal [V]
+     */
+
     public double adcVoltageToHV(final double adc_voltage) {
         switch( (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK) >> 4 ) {
             case 0x00:
@@ -883,17 +1084,35 @@ public class MooshimeterDevice {
         }
     }
 
+    /**
+     * Convert voltage at the input of the AFE to current through the A terminal
+     * @param adc_voltage   Voltage at the AFE [V]
+     * @return              Current through the A terminal [A]
+     */
+
     public double adcVoltageToCurrent(final double adc_voltage) {
         final double rs = 1e-3;
         final double amp_gain = 80.0;
         return adc_voltage/(amp_gain*rs);
     }
 
+    /**
+     * Convert voltage at the input of the AFE to temperature
+     * @param adc_voltage   Voltage at the AFE [V]
+     * @return              Temperature [C]
+     */
+
     public double adcVoltageToTemp(double adc_voltage) {
         adc_voltage -= 145.3e-3; // 145.3mV @ 25C
         adc_voltage /= 490e-6;   // 490uV / C
         return 25.0 + adc_voltage;
     }
+
+    /**
+     * Examines the meter settings to determine how much current is flowing out of the current source
+     * (flows out the Active terminal)
+     * @return  Current from the active terminal [A]
+     */
 
     public double getIsrcCurrent() {
         if( 0 == (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_ON) ) {
@@ -905,6 +1124,13 @@ public class MooshimeterDevice {
             return 100e-9;
         }
     }
+
+    /**
+     * Converts an ADC reading to the reading at the terminal input
+     * @param lsb   Input reading in LSB
+     * @param ch    Channel index (0 or 1)
+     * @return      Value at the input terminal.  Depending on measurement settings, can be V, A or Ohms
+     */
 
     public double lsbToNativeUnits(int lsb, final int ch) {
         double adc_volts = 0;
@@ -960,6 +1186,12 @@ public class MooshimeterDevice {
         }
     }
 
+    /**
+     *
+     * @param channel The channel index (0 or 1)
+     * @return A string describing what the channel is measuring
+     */
+
     public String getDescriptor(final int channel) {
         final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
         switch( channel_setting ) {
@@ -995,6 +1227,12 @@ public class MooshimeterDevice {
         return "";
     }
 
+    /**
+     *
+     * @param channel The channel index (0 or 1)
+     * @return A string containing the units label for the channel
+     */
+
     public String getUnits(final int channel) {
         final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
         if(disp_hex[channel]) {
@@ -1026,6 +1264,12 @@ public class MooshimeterDevice {
                 return "";
         }
     }
+
+    /**
+     *
+     * @param channel The channel index (0 or 1)
+     * @return        A String containing the input label of the channel (V, A, Omega or Internal)
+     */
 
     public String getInputLabel(final int channel) {
         final byte channel_setting = (byte) (meter_settings.chset[channel] & METER_CH_SETTINGS_INPUT_MASK);
