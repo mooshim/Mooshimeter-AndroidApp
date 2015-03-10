@@ -331,8 +331,13 @@ public class TrendActivity extends Activity {
                         val[c] = mMeter.lsbToNativeUnits(lsb_int, c);
                     }
                     resetViewBounds();
-                    addDataPoint(new_time,val[0],val[1]);
-                    mGraph.forceRefresh(true, false);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            addDataPoint(new_time,val[0],val[1]);
+                            mGraph.forceRefresh(true, false);
+                        }
+                    });
                 }
             }
         });
@@ -382,8 +387,13 @@ public class TrendActivity extends Activity {
                 }
 
                 resetViewBounds();
-                mProgressSpinner.setVisibility(View.INVISIBLE);
-                mGraph.forceRefresh(false,false);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mProgressSpinner.setVisibility(View.INVISIBLE);
+                        mGraph.forceRefresh(false,false);
+                    }
+                });
             }
         });
     }

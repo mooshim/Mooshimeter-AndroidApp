@@ -108,6 +108,7 @@ public class DeviceActivity extends FragmentActivity {
     private final static GradientDrawable ENABLE_GRADIENT  = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFFFFFF,0xFFCCCCCC});
 
     private boolean trend_view_running = false;
+    private int count_since_settings_sent = 0;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -261,17 +262,23 @@ public class DeviceActivity extends FragmentActivity {
                 // Handle autoranging
                 // Save a local copy of settings
                 byte[] save = mMeter.meter_settings.pack();
-                mMeter.applyAutorange();
+                // This switch provides settling time
+                if(count_since_settings_sent > 0) {
+                    mMeter.applyAutorange();
+                }
                 byte[] compare = mMeter.meter_settings.pack();
                 // TODO: There must be a more efficient way to do this.  But I think like a c-person
                 // Check if anything changed, and if so apply changes
                 if(!Arrays.equals(save, compare)) {
+                    count_since_settings_sent = 0;
                     mMeter.meter_settings.send(new Runnable() {
                         @Override
                         public void run() {
                             refreshAllControls();
                         }
                     });
+                } else {
+                    count_since_settings_sent++;
                 }
             }
         });
@@ -369,7 +376,7 @@ public class DeviceActivity extends FragmentActivity {
         byte rate_setting = (byte)(mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK);
         int rate = 125 * (1<<rate_setting);
         String title = String.format("%dHz", rate);
-        disableableButtonRefresh(rate_button, title, !mMeter.disp_depth_auto);
+        disableableButtonRefresh(rate_button, title, !mMeter.disp_rate_auto);
     }
 
     private void depth_auto_button_refresh() {
@@ -380,11 +387,15 @@ public class DeviceActivity extends FragmentActivity {
         byte depth_setting = (byte)(mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2);
         int depth = (1<<depth_setting);
         String title = String.format("%dsmpl", depth);
-        disableableButtonRefresh(depth_button, title, !mMeter.disp_rate_auto);
+        disableableButtonRefresh(depth_button, title, !mMeter.disp_depth_auto);
     }
 
     private void logging_button_refresh() {
-        // TODO
+        final boolean b = mMeter.meter_log_settings.target_logging_state==MooshimeterDevice.LOGGING_SAMPLING;
+        final GradientDrawable bg = b?AUTO_GRADIENT:MANUAL_GRADIENT;
+        final String title = b?"Logging:ON":"Logging:OFF";
+        logging_button.setBackground(bg);
+        logging_button.setText(title);
     }
 
     private void zero_button_refresh() {
@@ -538,7 +549,7 @@ public class DeviceActivity extends FragmentActivity {
         } else {
             // If at the edge of your range, say overload
             // Remember the bounds are asymmetrical
-            final int upper_limit_lsb = (int) (1.3*(1<<22));
+            final int upper_limit_lsb = (int) (1.1*(1<<22));
             final int lower_limit_lsb = (int) (-0.9*(1<<22));
 
             if(   lsb_int > upper_limit_lsb
@@ -841,8 +852,18 @@ public class DeviceActivity extends FragmentActivity {
 
     public void onLoggingClick(View v) {
         Log.i(TAG,"onLoggingClick");
-        Toast.makeText(this, "Feature not finished, check for app update",
-                Toast.LENGTH_LONG).show();
+        if(mMeter.meter_log_settings.target_logging_state != MooshimeterDevice.LOGGING_SAMPLING) {
+            mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_SAMPLING;
+            Toast.makeText(this, "Logging will begin on disconnect if SD present",Toast.LENGTH_LONG).show();
+        } else {
+            mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_OFF;
+        }
+        mMeter.meter_log_settings.send(new Runnable() {
+            @Override
+            public void run() {
+                refreshAllControls();
+            }
+        });
     }
 
     public void onDepthAutoClick(View v) {
