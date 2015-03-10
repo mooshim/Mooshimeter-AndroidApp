@@ -59,11 +59,19 @@ public class MooshimeterDevice {
 
     private static final String TAG="MooshimeterDevice";
 
+    // Meter States
     public static final byte METER_SHUTDOWN  = 0;
     public static final byte METER_STANDBY   = 1;
     public static final byte METER_PAUSED    = 2;
     public static final byte METER_RUNNING   = 3;
     public static final byte METER_HIBERNATE = 4;
+
+    // Logging States
+    public static final byte LOGGING_OFF=0;     // No logging activity, revert here on error
+    public static final byte LOGGING_READY=1;   // Filesystem successfully mounted
+    public static final byte LOGGING_ACTIVE=2;  // Log file open and writable
+    public static final byte LOGGING_SAMPLING=3;// Meter is presently sampling for writing to the log
+    public static final byte LOGGING_ASLEEP=4;  // Asleep with settings stashed
 
     private BLEUtil mBLEUtil;
     private int rssi;
@@ -232,7 +240,7 @@ public class MooshimeterDevice {
 
         @Override
         public byte[] pack() {
-            byte[] retval = new byte[13];
+            byte[] retval = new byte[16];
             ByteBuffer b = ByteBuffer.wrap(retval);
 
             b.put(      sd_present );
@@ -741,8 +749,8 @@ public class MooshimeterDevice {
 
     public void applyAutorange() {
         final boolean ac_used = disp_ac[0] || disp_ac[1];
-        final int upper_limit_lsb = (int)( 0.9*(1<<22));
-        final int lower_limit_lsb = (int)(-0.9*(1<<22));
+        final int upper_limit_lsb = (int)( 0.85*(1<<22));
+        final int lower_limit_lsb = (int)(-0.85*(1<<22));
 
         // Autorange sample rate and buffer depth.
         // If anything is doing AC, we need a deep buffer and fast sample
