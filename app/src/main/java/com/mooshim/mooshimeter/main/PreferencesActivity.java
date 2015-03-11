@@ -55,12 +55,14 @@ package com.mooshim.mooshimeter.main;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -70,6 +72,9 @@ import com.mooshim.mooshimeter.common.*;
 public class PreferencesActivity extends FragmentActivity {
 
     public MooshimeterDevice mMeter;
+    final Button rateButtons[] = {null,null,null,null};
+    private final static GradientDrawable ON_GRADIENT    = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFF00FF00,0xFF00CC00});
+    private final static GradientDrawable OFF_GRADIENT     = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFF0000,0xFFCC0000});
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +83,11 @@ public class PreferencesActivity extends FragmentActivity {
       mMeter = MooshimeterDevice.getInstance();
       setContentView(R.layout.activity_meter_preference);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
+      rateButtons[0] = (Button)findViewById(R.id.rate_button0);
+      rateButtons[1] = (Button)findViewById(R.id.rate_button1);
+      rateButtons[2] = (Button)findViewById(R.id.rate_button2);
+      rateButtons[3] = (Button)findViewById(R.id.rate_button3);
+
       if(mMeter.meter_name.name != null) {
           name_editor.setText(mMeter.meter_name.name);
       } else {
@@ -99,6 +109,7 @@ public class PreferencesActivity extends FragmentActivity {
               return false;
           }
       });
+      rateButtonRefresh();
   }
 
   @Override
@@ -146,4 +157,34 @@ public class PreferencesActivity extends FragmentActivity {
         alertDialog.show();
     }
 
+    private void rateClick(int b) {
+        final int[] intervals = {0,1000,10000,60000};
+        mMeter.meter_log_settings.logging_period_ms = (short)intervals[b];
+        mMeter.meter_log_settings.send(null);
+        mMeter.addToRunQueue(new Runnable() {
+            @Override
+            public void run() {
+                rateButtonRefresh();
+            }
+        });
+    }
+
+    private void rateButtonRefresh() {
+        final int[] intervals = {0,1000,10000,60000};
+        byte highlighted=-1;
+        for( byte i = 0; i < intervals.length; i++) {
+            if((0xFFFF&((int)mMeter.meter_log_settings.logging_period_ms)) >= intervals[i]) {
+                highlighted = i;
+            }
+        }
+        for( byte i = 0; i < intervals.length; i++) {
+            if(i==highlighted) { rateButtons[i].setBackground(ON_GRADIENT); }
+            else               { rateButtons[i].setBackground(OFF_GRADIENT); }
+        }
+    }
+
+    public void Rate0Click(View v) { rateClick(0); }
+    public void Rate1Click(View v) { rateClick(1); }
+    public void Rate2Click(View v) { rateClick(2); }
+    public void Rate3Click(View v) { rateClick(3); }
 }
