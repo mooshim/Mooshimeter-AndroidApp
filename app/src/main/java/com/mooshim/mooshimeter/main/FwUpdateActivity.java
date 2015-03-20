@@ -57,8 +57,8 @@ package com.mooshim.mooshimeter.main;
 import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.text.Html;
 import android.util.Log;
 import android.view.MenuItem;
@@ -79,8 +79,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 public class FwUpdateActivity extends Activity {
     public final static String EXTRA_MESSAGE = "com.example.ti.ble.sensortag.MESSAGE";
@@ -90,7 +94,6 @@ public class FwUpdateActivity extends Activity {
 
     // Programming parameters
     private final byte[] mFileBuffer = new byte[FILE_BUFFER_SIZE];
-    private static final String FW_CUSTOM_DIRECTORY = Environment.DIRECTORY_DOWNLOADS;
     private static final String FW_FILE_A = "Mooshimeter.bin";
 
     private static final int OAD_BLOCK_SIZE = 16;
@@ -111,6 +114,54 @@ public class FwUpdateActivity extends Activity {
     // Housekeeping
     private boolean mProgramming = false;
     private WatchDog mWatchdog = null;
+
+    private class RetrieveFirmwareTask extends AsyncTask<Semaphore, Void, Void> {
+        private Semaphore sem;
+        public Boolean mSuccess = false;
+
+        protected void releaseSem(boolean success) {
+            mSuccess = success;
+            sem.release();
+        }
+
+        @Override
+        protected Void doInBackground(Semaphore... semaphores) {
+            URL fw_url = null;
+            final Void r = null;
+            sem = semaphores[0];
+            try {
+                fw_url = new URL("https://moosh.im/s/f/mooshimeter-firmware-latest.bin");
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+                releaseSem(false);
+                return r;
+            }
+            try {
+                InputStream stream = fw_url.openStream();
+                try {
+                    stream.read(mFileBuffer, 0, mFileBuffer.length);
+                    stream.close();
+                } catch (IOException e) {
+                    // Handle exceptions here
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mLog.setText("Network read failed \n");
+                        }
+                    });
+                    releaseSem(false);
+                    return r;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                releaseSem(false);
+                return r;
+            }
+            unpackFirmwareFileBuffer();
+            releaseSem(true);
+            return r;
+        }
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -142,7 +193,18 @@ public class FwUpdateActivity extends Activity {
             Log.e(TAG, "Failed to find OAD service");
             finish();
         }
-        loadFile(FW_FILE_A, true);
+        URL fw_url = null;
+        Semaphore network_wait = new Semaphore(0);
+        RetrieveFirmwareTask fw_task = new RetrieveFirmwareTask();
+        fw_task.execute(network_wait);
+        try {
+            network_wait.tryAcquire(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        if(!fw_task.mSuccess) {
+            loadFile(FW_FILE_A, true);
+        }
         mWatchdog = new WatchDog(new Runnable() {
             @Override
             public void run() {
@@ -379,26 +441,36 @@ public class FwUpdateActivity extends Activity {
     /////////////////////////////
 
     private boolean loadFile(String filepath, boolean isAsset) {
-        boolean fSuccess = false;
+        InputStream stream;
 
         // Load binary file
         try {
             // Read the file raw into a buffer
-            InputStream stream;
             if (isAsset) {
                 stream = getAssets().open(filepath);
             } else {
                 File f = new File(filepath);
                 stream = new FileInputStream(f);
             }
-            stream.read(mFileBuffer, 0, mFileBuffer.length);
-            stream.close();
         } catch (IOException e) {
             // Handle exceptions here
             mLog.setText("File open failed: " + filepath + "\n");
             return false;
         }
+        try {
+            stream.read(mFileBuffer, 0, mFileBuffer.length);
+            stream.close();
+        } catch (IOException e) {
+            // Handle exceptions here
+            mLog.setText("File read failed \n");
+            return false;
+        }
+        unpackFirmwareFileBuffer();
+        return true;
+    }
 
+    private void unpackFirmwareFileBuffer() {
+        boolean fSuccess = false;
         // Show image info
         mFileImgHdr.unpack(mFileBuffer);
         displayImageInfo(mFileImage, mFileImgHdr);
@@ -418,8 +490,6 @@ public class FwUpdateActivity extends Activity {
         mLog.append("Ready to program device!\n");
 
         updateStartButton();
-
-        return fSuccess;
     }
 
     private synchronized void programBlock(final short bnum){
