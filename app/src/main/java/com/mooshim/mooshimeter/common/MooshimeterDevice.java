@@ -131,6 +131,13 @@ public class MooshimeterDevice {
         return tmp.getInt();
     }
 
+    private static ByteBuffer wrap(byte[] in) {
+        // Generates a little endian byte buffer wrapping the byte[]
+        ByteBuffer b = ByteBuffer.wrap(in);
+        b.order(ByteOrder.LITTLE_ENDIAN);
+        return b;
+    }
+
     /*
     All fields in the Mooshimeter BLE profile are stored as structs
     MeterStructure provides a common framework to access them.
@@ -302,9 +309,7 @@ public class MooshimeterDevice {
 
         @Override
         public byte[] pack() {
-            byte[] retval = new byte[13];
-            ByteBuffer b = ByteBuffer.wrap(retval);
-
+            ByteBuffer b = wrap(new byte[13]);
             b.put(      present_meter_state);
             b.put(      target_meter_state);
             b.put(      trigger_setting);
@@ -316,13 +321,13 @@ public class MooshimeterDevice {
             b.put(      chset[1]);
             b.put(      adc_settings);
 
-            return retval;
+            return b.array();
         }
 
         @Override
         public void unpack(byte[] in) {
-            ByteBuffer b = ByteBuffer.wrap(in);
-            b.order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer b = wrap(in);
+
             present_meter_state = b.get();
             target_meter_state  = b.get();
             trigger_setting     = b.get();
@@ -350,9 +355,8 @@ public class MooshimeterDevice {
 
         @Override
         public byte[] pack() {
-            byte[] retval = new byte[16];
-            ByteBuffer b = ByteBuffer.wrap(retval);
-
+            ByteBuffer b = wrap(new byte[16]);
+            b.order(ByteOrder.LITTLE_ENDIAN);
             b.put(      sd_present );
             b.put(      present_logging_state );
             b.put(      logging_error );
@@ -362,13 +366,13 @@ public class MooshimeterDevice {
             b.putShort( logging_period_ms );
             b.putInt(   logging_n_cycles );
 
-            return retval;
+            return b.array();
         }
 
         @Override
         public void unpack(byte[] in) {
-            ByteBuffer b = ByteBuffer.wrap(in);
-            b.order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer b = wrap(in);
+
             sd_present              = b.get();
             present_logging_state   = b.get();
             logging_error           = b.get();
@@ -376,7 +380,7 @@ public class MooshimeterDevice {
             file_offset             = b.getInt();
             target_logging_state    = b.get();
             logging_period_ms       = b.getShort();
-            logging_n_cycles        = b.get();
+            logging_n_cycles        = b.getInt();
         }
     }
     public class MeterInfo        extends MeterStructure {
@@ -390,20 +394,19 @@ public class MooshimeterDevice {
 
         @Override
         public byte[] pack() {
-            byte[] retval = new byte[8];
-            ByteBuffer b = ByteBuffer.wrap(retval);
+            ByteBuffer b = ByteBuffer.wrap(new byte[8]);
 
             b.put     (pcb_version);
             b.put     (assembly_variant);
             b.putShort(lot_number);
             b.putInt  (build_time);
 
-            return retval;
+            return b.array();
         }
 
         @Override
         public void unpack(byte[] in) {
-            ByteBuffer b = ByteBuffer.wrap(in);
+            ByteBuffer b = wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             pcb_version      = b.get();
             assembly_variant = b.get();
@@ -420,21 +423,19 @@ public class MooshimeterDevice {
 
         @Override
         public byte[] pack() {
-            byte[] retval = new byte[16];
-            ByteBuffer b = ByteBuffer.wrap(retval);
+            ByteBuffer b = ByteBuffer.wrap(new byte[16]);
 
             putInt24(b, reading_lsb[0]);
             putInt24(b, reading_lsb[1]);
             b.putFloat( reading_ms[0]);
             b.putFloat( reading_ms[1]);
 
-            return retval;
+            return b.array();
         }
 
         @Override
         public void unpack(byte[] in) {
-            ByteBuffer b = ByteBuffer.wrap(in);
-            b.order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer b = wrap(in);
 
             reading_lsb[0] = getInt24(b);
             reading_lsb[1] = getInt24(b);
@@ -490,7 +491,7 @@ public class MooshimeterDevice {
                     return;
                 }
 
-                ByteBuffer bb = ByteBuffer.wrap(buf);
+                ByteBuffer bb = wrap(buf);
                 for(int i = 0; i < getBufLen(); i++) {
                     floatBuf[i] = (float)lsbToNativeUnits(getInt24(bb),0);
                 }
@@ -532,7 +533,7 @@ public class MooshimeterDevice {
                     return;
                 }
 
-                ByteBuffer bb = ByteBuffer.wrap(buf);
+                ByteBuffer bb = wrap(buf);
                 for (int i = 0; i < getBufLen(); i++) {
                     floatBuf[i] = (float) lsbToNativeUnits(getInt24(bb), 1);
                 }
