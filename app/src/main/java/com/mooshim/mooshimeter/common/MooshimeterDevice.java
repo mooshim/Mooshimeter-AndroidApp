@@ -342,10 +342,10 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
     }
     public class MeterInfo        extends MeterStructure {
-        byte  pcb_version;
-        byte  assembly_variant;
-        short lot_number;
-        int   build_time;
+        public byte  pcb_version;
+        public byte  assembly_variant;
+        public short lot_number;
+        public int   build_time;
 
         @Override
         public UUID getUUID() { return mUUID.METER_INFO; }
@@ -1070,7 +1070,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         // Oversampling adds 1 ENOB per factor of 4
         enob += ((double)buffer_depth_log2)/2.0;
         //
-        if(channel == 0 && (meter_settings.chset[0] & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
+        if(meter_info.pcb_version==7 && channel == 0 && (meter_settings.chset[0] & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
             // This is compensation for a bug in RevH, where current sense chopper noise dominates
             enob -= 2;
         }
@@ -1106,8 +1106,13 @@ public class MooshimeterDevice extends PeripheralWrapper {
 
     public double lsbToADCInVoltage(final int reading_lsb, final int channel) {
         // This returns the input voltage to the ADC,
-        final double Vref = 2.5;
+        final double Vref;
         final double pga_lookup[] = {6,1,2,3,4,8,12};
+        if(meter_info.pcb_version==7){
+            Vref=2.5;
+        } else if(meter_info.pcb_version==8){
+            Vref=2.42;
+        } else {Vref=0;}
         int pga_setting=0;
         switch(channel) {
             case 0:
@@ -1155,8 +1160,19 @@ public class MooshimeterDevice extends PeripheralWrapper {
      */
 
     public double adcVoltageToCurrent(final double adc_voltage) {
-        final double rs = 1e-3;
-        final double amp_gain = 80.0;
+        final double rs;
+        final double amp_gain;
+        if(meter_info.pcb_version==7){
+            rs = 1e-3;
+            amp_gain = 80.0;
+        } else if(meter_info.pcb_version==8) {
+            rs = 10e-3;
+            amp_gain = 1.0;
+        } else {
+            // We want to raise an error
+            rs=0;
+            amp_gain=0;
+        }
         return adc_voltage/(amp_gain*rs);
     }
 
@@ -1189,6 +1205,21 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
     }
 
+    public double getIsrcRes() {
+        int tmp = meter_settings.measure_settings & (METER_MEASURE_SETTINGS_ISRC_ON|METER_MEASURE_SETTINGS_ISRC_LVL);
+        if(tmp == 0) {
+            throw new Error();
+        } else if(tmp == METER_MEASURE_SETTINGS_ISRC_ON) {
+            return 10e6+10e3+7.9;
+        } else if(tmp == METER_MEASURE_SETTINGS_ISRC_LVL) {
+            return 300e3+10e3+7.9;
+        } else if(tmp == (METER_MEASURE_SETTINGS_ISRC_ON|METER_MEASURE_SETTINGS_ISRC_LVL)) {
+            return 10e3+7.9;
+        } else {
+            throw new Error();
+        }
+    }
+
     /**
      * Converts an ADC reading to the reading at the terminal input
      * @param lsb   Input reading in LSB
@@ -1208,12 +1239,18 @@ public class MooshimeterDevice extends PeripheralWrapper {
                 // Regular electrode input
                 switch(ch) {
                     case 0:
-                        // CH1 offset is treated as an extrinsic offset because it's dominated by drift in the isns amp
-                        adc_volts = lsbToADCInVoltage(lsb,ch);
-                        adc_volts -= offsets[0];
-                        return adcVoltageToCurrent(adc_volts);
+                        if(meter_info.pcb_version==7){
+                            // CH1 offset is treated as an extrinsic offset because it's dominated by drift in the isns amp
+                            adc_volts = lsbToADCInVoltage(lsb,ch);
+                            adc_volts -= offsets[0];
+                            return adcVoltageToCurrent(adc_volts);
+                        } else {
+                            lsb -= offsets[0];
+                            adc_volts = lsbToADCInVoltage(lsb,ch);
+                            return adcVoltageToCurrent(adc_volts);
+                        }
                     case 1:
-                        // CH2 offset is treaded as an intrinsic offset because it's dominated by offset in the ADC itself
+                        // CH2 offset is treated as an intrinsic offset because it's dominated by offset in the ADC itself
                         lsb -= offsets[1];
                         adc_volts = lsbToADCInVoltage(lsb,ch);
                         return adcVoltageToHV(adc_volts);
@@ -1227,20 +1264,32 @@ public class MooshimeterDevice extends PeripheralWrapper {
             case 0x09:
                 // CH3 is complicated.  When measuring aux voltage, offset is dominated by intrinsic offsets in the ADC
                 // When measuring resistance, offset is a resistance and must be treated as such
-                final double isrc_current = getIsrcCurrent();
-                if( isrc_current != 0 ) {
-                    // Current source is on, apply compensation for PTC drop
-                    adc_volts = lsbToADCInVoltage(lsb,ch);
-                    adc_volts -= ptc_resistance*isrc_current;
-                    adc_volts -= offsets[2]*isrc_current;
+                final double ohms;
+                if(0!=(meter_settings.measure_settings & (METER_MEASURE_SETTINGS_ISRC_ON|METER_MEASURE_SETTINGS_ISRC_LVL))) {
+                    if(meter_info.pcb_version==7) {
+                        final double isrc_current = getIsrcCurrent();
+                        adc_volts = lsbToADCInVoltage(lsb,ch);
+                        adc_volts -= ptc_resistance*isrc_current;
+                        adc_volts -= offsets[2]*isrc_current;
+                        ohms = adc_volts/isrc_current;
+                    } else if(meter_info.pcb_version==8) {
+                        final double isrc_res = getIsrcRes();
+                        final double avdd=3-1.21; // Make this better
+
+                        adc_volts = lsbToADCInVoltage(lsb,ch);
+                        ohms = ((adc_volts/(avdd-adc_volts))*isrc_res) - ptc_resistance;
+                    } else {
+                        throw new Error();
+                    }
                 } else {
                     // Current source is off, offset is intrinsic
                     lsb -= offsets[2];
                     adc_volts = lsbToADCInVoltage(lsb,ch);
+                    ohms = 0;
                 }
                 if( disp_ch3_mode == CH3_MODES.RESISTANCE ) {
                     // Convert to Ohms
-                    return adc_volts/isrc_current;
+                    return ohms;
                 } else {
                     return adc_volts;
                 }

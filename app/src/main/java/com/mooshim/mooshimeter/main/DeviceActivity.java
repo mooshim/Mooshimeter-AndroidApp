@@ -853,6 +853,7 @@ public class DeviceActivity extends FragmentActivity {
             final double isrc_current = mMeter.getIsrcCurrent();
             // Save aux offset as a resistance
             mMeter.offsets[2] = mMeter.lsbToNativeUnits(lsb, c);
+            // FIXME: Logic here for PCB version I diode mode
             if( mMeter.disp_ch3_mode != MooshimeterDevice.CH3_MODES.RESISTANCE ) {
                 mMeter.offsets[2] /= isrc_current;
             }
@@ -866,7 +867,7 @@ public class DeviceActivity extends FragmentActivity {
         Log.i(TAG,"onZeroClick");
         // TODO: Update firmware to allow saving of user offsets to flash
         // FIXME: Annoying special case: Channel 1 offset in current mode is stored as offset at the ADC
-        // because current sense amp drift dominates the offset.  Hardware fix this in Rev2.
+        // because current sense amp drift dominates the offset.  Hardware fix this in RevI.
         // FIXME: Annoyance number 2: When the ISRC is on, offset in the leads dominates
         // When iSRC is off, offset in the ADC dominates
 
@@ -876,7 +877,11 @@ public class DeviceActivity extends FragmentActivity {
             byte channel_setting = (byte) (mMeter.meter_settings.chset[0] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
             switch(channel_setting) {
                 case 0x00: // Electrode input
-                    mMeter.offsets[0] = mMeter.lsbToADCInVoltage(mMeter.meter_sample.reading_lsb[0],0);
+                    if(mMeter.meter_info.pcb_version == 7) {
+                        mMeter.offsets[0] = mMeter.lsbToADCInVoltage(mMeter.meter_sample.reading_lsb[0],0);
+                    } else {
+                        mMeter.offsets[0] = mMeter.meter_sample.reading_lsb[0];
+                    }
                     break;
                 case 0x09:
                     auxZero(0);
