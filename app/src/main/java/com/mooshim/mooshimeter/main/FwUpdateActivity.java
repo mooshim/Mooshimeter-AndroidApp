@@ -130,7 +130,8 @@ public class FwUpdateActivity extends Activity {
             final Void r = null;
             sem = semaphores[0];
             try {
-                fw_url = new URL("https://moosh.im/s/f/mooshimeter-firmware-latest.bin");
+                //fw_url = new URL("https://moosh.im/s/f/mooshimeter-firmware-latest.bin");
+                fw_url = new URL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
             } catch (MalformedURLException e) {
                 e.printStackTrace();
                 releaseSem(false);

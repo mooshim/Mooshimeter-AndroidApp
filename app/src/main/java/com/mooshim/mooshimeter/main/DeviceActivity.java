@@ -391,7 +391,7 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void logging_button_refresh() {
-        final boolean b = mMeter.meter_log_settings.target_logging_state==MooshimeterDevice.LOGGING_SAMPLING;
+        final boolean b = mMeter.meter_log_settings.target_logging_state!=MooshimeterDevice.LOGGING_OFF;
         final GradientDrawable bg = b?AUTO_GRADIENT:MANUAL_GRADIENT;
         final String title = b?"Logging:ON":"Logging:OFF";
         logging_button.setBackground(bg);
@@ -854,14 +854,18 @@ public class DeviceActivity extends FragmentActivity {
         Log.i(TAG,"onLoggingClick");
         if(mMeter.meter_log_settings.target_logging_state != MooshimeterDevice.LOGGING_SAMPLING) {
             mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_SAMPLING;
-            Toast.makeText(this, "Logging will begin on disconnect if SD present",Toast.LENGTH_LONG).show();
         } else {
             mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_OFF;
         }
         mMeter.meter_log_settings.send(new Runnable() {
             @Override
             public void run() {
-                refreshAllControls();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        refreshAllControls();
+                    }
+                });
             }
         });
     }

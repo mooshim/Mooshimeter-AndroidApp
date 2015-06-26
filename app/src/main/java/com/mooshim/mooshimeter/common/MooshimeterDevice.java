@@ -83,11 +83,11 @@ public class MooshimeterDevice {
     public static final byte METER_HIBERNATE = 4;
 
     // Logging States
+    // TODO: These states are deprecated in the newest version of firmware (June 22 2015)
+    // Only LOGGING_OFF and LOGGING_ON exist now, but the firmware will treat anything that's not
+    // LOGGING_OFF as LOGGING_ON so we can leave this for now and maintain backwards compatibility
     public static final byte LOGGING_OFF=0;     // No logging activity, revert here on error
-    public static final byte LOGGING_READY=1;   // Filesystem successfully mounted
-    public static final byte LOGGING_ACTIVE=2;  // Log file open and writable
     public static final byte LOGGING_SAMPLING=3;// Meter is presently sampling for writing to the log
-    public static final byte LOGGING_ASLEEP=4;  // Asleep with settings stashed
 
     private BLEUtil mBLEUtil;
     private int rssi;
@@ -691,6 +691,7 @@ public class MooshimeterDevice {
     public void playSampleStream(final Runnable cb, final Runnable on_notify) {
         meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
+        meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
 
         meter_sample.enableNotify(true,null,on_notify);
         meter_settings.send(null);
