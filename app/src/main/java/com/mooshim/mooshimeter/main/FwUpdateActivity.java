@@ -115,55 +115,6 @@ public class FwUpdateActivity extends Activity {
     private boolean mProgramming = false;
     private WatchDog mWatchdog = null;
 
-    private class RetrieveFirmwareTask extends AsyncTask<Semaphore, Void, Void> {
-        private Semaphore sem;
-        public Boolean mSuccess = false;
-
-        protected void releaseSem(boolean success) {
-            mSuccess = success;
-            sem.release();
-        }
-
-        @Override
-        protected Void doInBackground(Semaphore... semaphores) {
-            URL fw_url = null;
-            final Void r = null;
-            sem = semaphores[0];
-            try {
-                //fw_url = new URL("https://moosh.im/s/f/mooshimeter-firmware-latest.bin");
-                fw_url = new URL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-                releaseSem(false);
-                return r;
-            }
-            try {
-                InputStream stream = fw_url.openStream();
-                try {
-                    stream.read(mFileBuffer, 0, mFileBuffer.length);
-                    stream.close();
-                } catch (IOException e) {
-                    // Handle exceptions here
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mLog.setText("Network read failed \n");
-                        }
-                    });
-                    releaseSem(false);
-                    return r;
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                releaseSem(false);
-                return r;
-            }
-            unpackFirmwareFileBuffer();
-            releaseSem(true);
-            return r;
-        }
-    }
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
@@ -194,18 +145,7 @@ public class FwUpdateActivity extends Activity {
             Log.e(TAG, "Failed to find OAD service");
             finish();
         }
-        URL fw_url = null;
-        Semaphore network_wait = new Semaphore(0);
-        RetrieveFirmwareTask fw_task = new RetrieveFirmwareTask();
-        fw_task.execute(network_wait);
-        try {
-            network_wait.tryAcquire(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        if(!fw_task.mSuccess) {
-            loadFile(FW_FILE_A, true);
-        }
+        loadFile(FW_FILE_A, true);
         mWatchdog = new WatchDog(new Runnable() {
             @Override
             public void run() {
