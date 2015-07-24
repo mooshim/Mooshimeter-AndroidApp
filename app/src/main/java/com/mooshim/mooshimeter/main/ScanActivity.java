@@ -187,7 +187,6 @@ public class ScanActivity extends FragmentActivity {
     // Master state machine for the scan view
 
     private synchronized void moveState(ScanViewState newState) {
-        ScanViewState tail = null;
         switch(mScanViewState) {
             case IDLE:
                 switch(newState) {
