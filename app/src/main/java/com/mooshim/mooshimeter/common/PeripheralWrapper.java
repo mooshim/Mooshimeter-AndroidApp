@@ -81,8 +81,8 @@ public class PeripheralWrapper {
     // Anything that has to do with the BluetoothGatt needs to go through here
     private void protectedCall(Interruptable r) {
         try {
-            conditionLock.lock();
             bleLock.lock();
+            conditionLock.lock();
             r.call();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -167,10 +167,11 @@ public class PeripheralWrapper {
 
     private void connectionStateManager() {
         // Meant to be run in a thread
-        conditionLock.lock();
         while(true) {
             try {
+                conditionLock.lock();
                 bleStateCondition.await();
+                conditionLock.unlock();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -191,10 +192,11 @@ public class PeripheralWrapper {
 
     private void notificationManager() {
         // Meant to be run in a thread
-        conditionLock.lock();
         while(true) {
             try {
+                conditionLock.lock();
                 bleChangedCondition.await();
+                conditionLock.unlock();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
