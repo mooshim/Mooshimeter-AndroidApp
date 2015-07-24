@@ -81,13 +81,17 @@ public class PeripheralWrapper {
     // Anything that has to do with the BluetoothGatt needs to go through here
     private void protectedCall(Interruptable r) {
         try {
+            Log.d(TAG,"bLock");
             bleLock.lock();
+            Log.d(TAG,"cLock");
             conditionLock.lock();
             r.call();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
+            Log.d(TAG,"cUnlock");
             conditionLock.unlock();
+            Log.d(TAG,"bUnlock");
             bleLock.unlock();
         }
     }
@@ -116,8 +120,11 @@ public class PeripheralWrapper {
             @Override public void onConnectionStateChange(BluetoothGatt g, int stat, int newState)                { conditionLock.lock();bleStateCondition   .signalAll(); conditionLock.unlock();}
             @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { conditionLock.lock();bleReadCondition    .signalAll(); conditionLock.unlock();}
             @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) {
+                Log.d(TAG,"write cLock");
                 conditionLock.lock();
+                Log.d(TAG,"write signal");
                 bleWriteCondition   .signalAll();
+                Log.d(TAG,"write cUnlock");
                 conditionLock.unlock();}
             @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         { conditionLock.lock();bleChangedCondition .signalAll(); mChangedChar=c; conditionLock.unlock();}
             @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { conditionLock.lock();bleDReadCondition   .signalAll(); conditionLock.unlock();}
@@ -167,11 +174,14 @@ public class PeripheralWrapper {
 
     private void connectionStateManager() {
         // Meant to be run in a thread
+        Log.d(TAG,"conn cLock");
         while(true) {
             try {
+                Log.d(TAG,"conn await");
                 conditionLock.lock();
                 bleStateCondition.await();
                 conditionLock.unlock();
+                Log.d(TAG,"conn cLock");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -192,11 +202,14 @@ public class PeripheralWrapper {
 
     private void notificationManager() {
         // Meant to be run in a thread
+        Log.d(TAG,"noti cLock");
         while(true) {
             try {
+                Log.d(TAG,"noti await");
                 conditionLock.lock();
                 bleChangedCondition.await();
                 conditionLock.unlock();
+                Log.d(TAG,"noti cLock");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -240,7 +253,9 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 c.setValue(value);
+                Log.d(TAG,"Writing char...");
                 mBluetoothGatt.writeCharacteristic(c);
+                Log.d(TAG,"Awaiting signal...");
                 bleWriteCondition.await();
                 return null;
             }
