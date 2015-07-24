@@ -339,10 +339,9 @@ public class TrendActivity extends Activity {
         });
     }
 
-    private void trendViewPause(final Runnable cb) {
+    private void trendViewPause() {
         mMeter.pauseStream();
         mPlaying = false;
-        cb.run();
     }
 
     private void streamBuffer() {
@@ -410,7 +409,7 @@ public class TrendActivity extends Activity {
         mBufferMode ^= true;
         if(mBufferMode) {
             if(mPlaying) {
-                trendViewPause(null);
+                trendViewPause();
             }
             streamBuffer();
             mTrendButton.setText("Buffer Mode");
@@ -467,7 +466,7 @@ public class TrendActivity extends Activity {
         } else {
             if(mPlaying) {
                 mProgressSpinner.setVisibility(View.VISIBLE);
-                trendViewPause(null);
+                trendViewPause();
                 mProgressSpinner.setVisibility(View.INVISIBLE);
                 mGraphPlayButton.setText("Play");
             } else {

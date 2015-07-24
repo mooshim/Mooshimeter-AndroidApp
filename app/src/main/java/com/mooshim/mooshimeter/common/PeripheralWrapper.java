@@ -71,6 +71,8 @@ public class PeripheralWrapper {
     private Condition bleRWriteCondition   ;
     private Condition bleRSSICondition     ;
 
+    int mRssi;
+    int mConnectionState;
     BluetoothGattCharacteristic mChangedChar;
 
     private class Interruptable implements Callable<Void> {
@@ -104,6 +106,7 @@ public class PeripheralWrapper {
         mDevice = device;
         mManager = (BluetoothManager)context.getSystemService(context.BLUETOOTH_SERVICE);
         mAdapter = mManager.getAdapter();
+        mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
 
         mCharacteristics   = new HashMap<UUID, BluetoothGattCharacteristic>();
         mNotifyCB          = new HashMap<UUID, Runnable>();
@@ -121,7 +124,7 @@ public class PeripheralWrapper {
 
         mGattCallbacks = new BluetoothGattCallback() {
             @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { conditionLock.lock();bleDiscoverCondition.signalAll(); conditionLock.unlock();}
-            @Override public void onConnectionStateChange(BluetoothGatt g, int stat, int newState)                { conditionLock.lock();bleStateCondition   .signalAll(); conditionLock.unlock();}
+            @Override public void onConnectionStateChange(BluetoothGatt g, int stat, int newState)                { conditionLock.lock();mConnectionState = newState; bleStateCondition.signalAll(); conditionLock.unlock();}
             @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { conditionLock.lock();bleReadCondition    .signalAll(); conditionLock.unlock();}
             @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) {
                 Log.d(TAG,"write cLock");
@@ -134,7 +137,7 @@ public class PeripheralWrapper {
             @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { conditionLock.lock();bleDReadCondition   .signalAll(); conditionLock.unlock();}
             @Override public void onDescriptorWrite(BluetoothGatt g, BluetoothGattDescriptor d, int stat)         { conditionLock.lock();bleDWriteCondition  .signalAll(); conditionLock.unlock();}
             @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { conditionLock.lock();bleRWriteCondition  .signalAll(); conditionLock.unlock();}
-            @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { conditionLock.lock();bleRSSICondition    .signalAll(); conditionLock.unlock();}
+            @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { conditionLock.lock(); mRssi = rssi; bleRSSICondition    .signalAll(); conditionLock.unlock();}
         };
 
         mConnectionStateManagerThread = new Thread(new Runnable() {
@@ -169,8 +172,7 @@ public class PeripheralWrapper {
             protectedCall(new Interruptable() {
                 @Override
                 public Void call() throws InterruptedException {
-                    int state = mManager.getConnectionState(mDevice.getBluetoothDevice(), BluetoothProfile.GATT);
-                    Runnable cb = mConnectionStateCB.get(state);
+                    Runnable cb = mConnectionStateCB.get(mConnectionState);
                     if(cb != null) {
                         cb.run();
                     }
@@ -213,7 +215,7 @@ public class PeripheralWrapper {
                 mBluetoothGatt = mDevice.getBluetoothDevice().connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
 
-                while( mManager.getConnectionState(mDevice.getBluetoothDevice(), BluetoothProfile.GATT) != BluetoothProfile.STATE_CONNECTED ) {
+                while( mConnectionState != BluetoothProfile.STATE_CONNECTED ) {
                     bleStateCondition.await();
                 }
                 return null;

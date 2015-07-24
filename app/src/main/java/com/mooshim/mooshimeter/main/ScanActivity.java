@@ -614,7 +614,13 @@ public class ScanActivity extends FragmentActivity {
 
             // Disable connect button when connecting or connected
             Button bv = (Button)vg.findViewById(R.id.btnConnect);
-            bv.setEnabled(mScanViewState != ScanViewState.CONNECTING);
+
+            if(mConnectedDevices.containsKey(deviceInfo.getBluetoothDevice().getAddress())) {
+                // Device is connected, change icon of connect button
+                bv.setBackground(getResources().getDrawable(R.drawable.connected));
+            } else {
+                bv.setBackground(getResources().getDrawable(R.drawable.disconnected));
+            }
 
             return vg;
         }

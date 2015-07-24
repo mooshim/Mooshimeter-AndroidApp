@@ -30,13 +30,11 @@
 
     <Button
         android:id="@+id/btnConnect"
-        android:layout_width="wrap_content"
+        android:layout_width="50dp"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
-        android:layout_weight="0"
         android:clickable="false"
         android:focusable="false"
-        android:gravity="center"
-        android:text="@string/connect" />
+        android:background="@drawable/disconnected"/>
 
 </LinearLayout>

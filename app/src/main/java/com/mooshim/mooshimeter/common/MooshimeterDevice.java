@@ -174,7 +174,9 @@ public class MooshimeterDevice {
                 @Override
                 public void run() {
                     unpack(mPeri.getChar(getUUID()).getValue());
-                    on_notify.run();
+                    if(on_notify!=null) {
+                        on_notify.run();
+                    }
                 }
             });
         }
