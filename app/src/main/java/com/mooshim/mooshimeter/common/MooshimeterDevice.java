@@ -20,6 +20,7 @@
 package com.mooshim.mooshimeter.common;
 
 
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattService;
@@ -513,40 +514,12 @@ public class MooshimeterDevice {
     public MeterCH1Buf      meter_ch1_buf;
     public MeterCH2Buf      meter_ch2_buf;
 
-    private static MooshimeterDevice mInstance = null;
-
-    /**
-     * Accessor to the singleton
-     * @return The singleton instance.  Note that if it has not been initialized, null is returned.
-     */
-    public static synchronized MooshimeterDevice getInstance() {
-        return mInstance;
-    }
-
-    /**
-     * Creates the singleton.  Synchronizes the data structures with the meter by calling each structure's
-     * "update" routine
-     * @return
-     */
-    public static synchronized MooshimeterDevice Initialize(PeripheralWrapper peri) {
-        if(mInstance==null) {
-            mInstance = new MooshimeterDevice(peri);
-        } else {
-            Log.e(TAG, "Already initialized!");
-        }
-        return mInstance;
-    }
-
-    public static void clearInstance() {
-        mInstance = null;
-    }
-
     public void disconnect(final Runnable cb) {
         mPeri.disconnect();
         cb.run();
     }
 
-    protected MooshimeterDevice(PeripheralWrapper peri) {
+    public MooshimeterDevice(PeripheralWrapper peri) {
         mPeri = peri;
         // Initialize internal structures
         meter_name          = new MeterName();
@@ -565,6 +538,18 @@ public class MooshimeterDevice {
         meter_log_settings.update();
         meter_info.update();
         meter_name.update();
+    }
+
+    public String getAddress() {
+        return mPeri.getBTAddress();
+    }
+
+    public BluetoothDevice getBLEDevice() {
+        return mPeri.getBLEDevice();
+    }
+
+    public BleDeviceInfo getBLEDeviceInfo() {
+        return mPeri.getBLEDeviceInfo();
     }
 
     ////////////////////////////////
@@ -607,15 +592,13 @@ public class MooshimeterDevice {
 
     /**
      * Stop the meter from sending samples.  Opposite of playSampleStream
-     * @param cb Called on completion
      */
-    public void pauseStream(final Runnable cb) {
+    public void pauseStream() {
         meter_sample.enableNotify(false, null);
         if(meter_settings.target_meter_state != METER_PAUSED) {
             meter_settings.target_meter_state = METER_PAUSED;
             meter_settings.send();
         }
-        cb.run();
     }
 
     /**

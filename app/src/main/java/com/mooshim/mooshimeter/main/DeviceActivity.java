@@ -120,7 +120,7 @@ public class DeviceActivity extends FragmentActivity {
 
         AUTO_GRADIENT   .setStroke(1, 0xFF999999);
         MANUAL_GRADIENT .setStroke(1, 0xFF999999);
-        DISABLE_GRADIENT.setStroke(1,0xFF999999);
+        DISABLE_GRADIENT.setStroke(1, 0xFF999999);
         ENABLE_GRADIENT .setStroke(1, 0xFF999999);
 
         // Bind the GUI elements
@@ -187,13 +187,22 @@ public class DeviceActivity extends FragmentActivity {
 
     }
 
+    @Override
+    protected void onPause() {
+        Log.d(TAG, "onPause");
+        super.onPause();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        mMeter.pauseStream();
+    }
+
 	@Override
 	protected void onResume() {
 		super.onResume();
         if(Configuration.ORIENTATION_PORTRAIT == this.getResources().getConfiguration().orientation) {
             // If we're in Portrait, continue as normal
             // If we're in landscape, handleOrientation will have started the trend activity
-            mMeter = MooshimeterDevice.getInstance();
+            Intent intent = getIntent();
+            mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
             onMeterInitialized();
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
@@ -231,7 +240,7 @@ public class DeviceActivity extends FragmentActivity {
                 if(!trend_view_running) {
                     Log.i(TAG, "Starting trend view.");
                     trend_view_running = true;
-                    mMeter.pauseStream(null);
+                    mMeter.pauseStream();
                     startTrendActivity();
                 }
                 break;
@@ -275,20 +284,15 @@ public class DeviceActivity extends FragmentActivity {
         });
     }
 
-	@Override
-	protected void onPause() {
-		// Log.d(TAG, "onPause");
-        super.onPause();
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-	}
-
 	private void startPreferenceActivity() {
 		final Intent i = new Intent(this, PreferencesActivity.class);
+        i.putExtra("addr",mMeter.getAddress());
 		startActivityForResult(i, PREF_ACT_REQ);
 	}
 
     private void startTrendActivity() {
         final Intent i = new Intent(this, TrendActivity.class);
+        i.putExtra("addr",mMeter.getAddress());
         startActivityForResult(i, TREND_ACT_REQ);
     }
 

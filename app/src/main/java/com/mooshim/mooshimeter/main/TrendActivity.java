@@ -20,6 +20,7 @@
 package com.mooshim.mooshimeter.main;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -122,9 +123,8 @@ public class TrendActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         if(!mPlaying) {
-            mMeter = MooshimeterDevice.getInstance();
-
-            // FIXME: mMeter coming up null here sometimes
+            Intent intent = getIntent();
+            mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
 
             mGraph.getViewport().setXAxisBoundsManual(true);
             mGraph.getViewport().setYAxisBoundsManual(true);
@@ -160,13 +160,9 @@ public class TrendActivity extends Activity {
                 mProgressSpinner.setVisibility(View.VISIBLE);
                 mMeter.meter_ch1_buf.enableNotify(false, null);
                 mMeter.meter_ch2_buf.enableNotify(false, null);
-                mMeter.pauseStream(new Runnable() {
-                    @Override
-                    public void run() {
-                        setResult(RESULT_OK);
-                        finish();
-                    }
-                });
+                mMeter.pauseStream();
+                setResult(RESULT_OK);
+                finish();
                 break;
         }
     }
@@ -344,7 +340,7 @@ public class TrendActivity extends Activity {
     }
 
     private void trendViewPause(final Runnable cb) {
-        mMeter.pauseStream(null);
+        mMeter.pauseStream();
         mPlaying = false;
         cb.run();
     }

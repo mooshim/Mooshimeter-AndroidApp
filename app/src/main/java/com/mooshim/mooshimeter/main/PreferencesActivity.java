@@ -55,6 +55,7 @@ package com.mooshim.mooshimeter.main;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -80,7 +81,8 @@ public class PreferencesActivity extends FragmentActivity {
   protected void onCreate(Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
       final PreferencesActivity mThis = this;
-      mMeter = MooshimeterDevice.getInstance();
+      Intent intent = getIntent();
+      mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
       setContentView(R.layout.activity_meter_preference);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
       rateButtons[0] = (Button)findViewById(R.id.rate_button0);

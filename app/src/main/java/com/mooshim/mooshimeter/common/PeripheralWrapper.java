@@ -49,8 +49,10 @@ public class PeripheralWrapper {
     private static BluetoothManager mManager;
     private static BluetoothAdapter mAdapter;
 
+    private Context mContext;
+    private boolean mTerminateFlag;
     private BluetoothGatt mBluetoothGatt;
-    private BluetoothDevice mDevice;
+    private BleDeviceInfo mDevice;
     private BluetoothGattCallback mGattCallbacks;
     private Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
     private Map<UUID,Runnable> mNotifyCB;
@@ -96,7 +98,9 @@ public class PeripheralWrapper {
         }
     }
 
-    public PeripheralWrapper(final BluetoothDevice device, final Context context) {
+    public PeripheralWrapper(final BleDeviceInfo device, final Context context) {
+        mTerminateFlag = false;
+        mContext = context;
         mDevice = device;
         mManager = (BluetoothManager)context.getSystemService(context.BLUETOOTH_SERVICE);
         mAdapter = mManager.getAdapter();
@@ -133,49 +137,26 @@ public class PeripheralWrapper {
             @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { conditionLock.lock();bleRSSICondition    .signalAll(); conditionLock.unlock();}
         };
 
-        protectedCall(new Interruptable() {
+        mConnectionStateManagerThread = new Thread(new Runnable() {
             @Override
-            public Void call() throws InterruptedException {
-                // Try to connect and discover
-                mBluetoothGatt = mDevice.connectGatt(context.getApplicationContext(),false,mGattCallbacks);
-                refreshDeviceCache();
-
-                while( mManager.getConnectionState(mDevice, BluetoothProfile.GATT) != BluetoothProfile.STATE_CONNECTED ) {
-                    bleStateCondition.await();
-                }
-                // Discover services
-                mBluetoothGatt.discoverServices();
-                bleDiscoverCondition.await();
-                // Build a local dictionary of all characteristics and their UUIDs
-                for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
-                    for( BluetoothGattCharacteristic c : s.getCharacteristics() ) {
-                        mCharacteristics.put(c.getUuid(),c);
-                    }
-                }
-
-                mConnectionStateManagerThread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        connectionStateManager();
-                    }
-                });
-                mConnectionStateManagerThread.start();
-                mNotificationManagerThread = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            notificationManager();
-                        }
-                    });
-                    mNotificationManagerThread.start();
-                    return null;
+            public void run() {
+                connectionStateManager();
             }
         });
+        mConnectionStateManagerThread.start();
+        mNotificationManagerThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                notificationManager();
+            }
+        });
+        mNotificationManagerThread.start();
     }
 
     private void connectionStateManager() {
         // Meant to be run in a thread
         Log.d(TAG,"conn cLock");
-        while(true) {
+        while(!mTerminateFlag) {
             try {
                 Log.d(TAG,"conn await");
                 conditionLock.lock();
@@ -188,7 +169,7 @@ public class PeripheralWrapper {
             protectedCall(new Interruptable() {
                 @Override
                 public Void call() throws InterruptedException {
-                    int state = mManager.getConnectionState(mDevice, BluetoothProfile.GATT);
+                    int state = mManager.getConnectionState(mDevice.getBluetoothDevice(), BluetoothProfile.GATT);
                     Runnable cb = mConnectionStateCB.get(state);
                     if(cb != null) {
                         cb.run();
@@ -203,7 +184,7 @@ public class PeripheralWrapper {
     private void notificationManager() {
         // Meant to be run in a thread
         Log.d(TAG,"noti cLock");
-        while(true) {
+        while(!mTerminateFlag) {
             try {
                 Log.d(TAG,"noti await");
                 conditionLock.lock();
@@ -224,11 +205,46 @@ public class PeripheralWrapper {
         return mCharacteristics.get(uuid);
     }
 
+    public void connect() {
+        protectedCall(new Interruptable() {
+            @Override
+            public Void call() throws InterruptedException {
+                // Try to connect and discover
+                mBluetoothGatt = mDevice.getBluetoothDevice().connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
+                refreshDeviceCache();
+
+                while( mManager.getConnectionState(mDevice.getBluetoothDevice(), BluetoothProfile.GATT) != BluetoothProfile.STATE_CONNECTED ) {
+                    bleStateCondition.await();
+                }
+                return null;
+            }
+        });
+    }
+
+    public void discover() {
+        protectedCall(new Interruptable() {
+            @Override
+            public Void call() throws InterruptedException {
+                // Discover services
+                mBluetoothGatt.discoverServices();
+                bleDiscoverCondition.await();
+                // Build a local dictionary of all characteristics and their UUIDs
+                for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
+                    for( BluetoothGattCharacteristic c : s.getCharacteristics() ) {
+                        mCharacteristics.put(c.getUuid(),c);
+                    }
+                }
+                return null;
+            }
+        });
+    }
+
     public void disconnect() {
         protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
                 mBluetoothGatt.disconnect();
+                mTerminateFlag = true;
                 return null;
             }
         });
@@ -305,7 +321,15 @@ public class PeripheralWrapper {
     }
 
     public String getBTAddress() {
-        return mBluetoothGatt.getDevice().getAddress();
+        return getBLEDevice().getAddress();
+    }
+
+    public BluetoothDevice getBLEDevice() {
+        return mBluetoothGatt.getDevice();
+    }
+
+    public BleDeviceInfo getBLEDeviceInfo() {
+        return mDevice;
     }
 
     private boolean refreshDeviceCache(){

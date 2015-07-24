@@ -53,7 +53,9 @@ import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -73,6 +75,8 @@ public class ScanActivity extends FragmentActivity {
 
     final static byte[] mMeterServiceUUID = uuidToBytes(MooshimeterDevice.mUUID.METER_SERVICE);
     final static byte[] mOADServiceUUID   = uuidToBytes(MooshimeterDevice.mUUID.OAD_SERVICE_UUID);
+
+    private static final Map<String,MooshimeterDevice> mConnectedDevices = new HashMap<String, MooshimeterDevice>();
 
     // Housekeeping
     private ScanViewState mScanViewState = ScanViewState.IDLE;
@@ -185,6 +189,10 @@ public class ScanActivity extends FragmentActivity {
         }
     }
 
+    public static MooshimeterDevice getDeviceWithAddress(String addr) {
+        return mConnectedDevices.get(addr);
+    }
+
     // Master state machine for the scan view
 
     private synchronized void moveState(ScanViewState newState) {
@@ -206,6 +214,13 @@ public class ScanActivity extends FragmentActivity {
                         mWatchDog.feed(10000);
                         updateScanningButton(true);
                         mDeviceInfoList.clear();
+                        // Load the device info list with connected meters, since they are no longer
+                        // advertising and won't appear in the scan results
+                        for(MooshimeterDevice m : mConnectedDevices.values()) {
+                            BluetoothDevice d = m.getBLEDevice();
+                            BleDeviceInfo di = new BleDeviceInfo(d,0,1,false);
+                            mDeviceInfoList.add(m.getBLEDeviceInfo());
+                        }
                         mDeviceAdapter.notifyDataSetChanged();
                         final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
                         if( !bluetoothAdapter.startLeScan(mLeScanCallback) ) {
@@ -216,7 +231,7 @@ public class ScanActivity extends FragmentActivity {
                         }
                         break;
                     case CONNECTING:
-                        mWatchDog.setCB( new Runnable() {
+                        mWatchDog.setCB(new Runnable() {
                             @Override
                             public void run() {
                                 runOnUiThread(new Runnable() {
@@ -227,19 +242,28 @@ public class ScanActivity extends FragmentActivity {
                                     }
                                 });
                             }
-                        } );
+                        });
                         mWatchDog.feed(10000);
                         mBtnScan.setEnabled(false);
                         mDeviceAdapter.notifyDataSetChanged(); // Force disabling of all Connect buttons
                         setStatus("Connecting...");
-                        final BluetoothDevice bluetoothDevice   = mDeviceInfoList.get(mConnIndex).getBluetoothDevice();
+                        final BleDeviceInfo binfo = mDeviceInfoList.get(mConnIndex);
 
-                        PeripheralWrapper peri = new PeripheralWrapper(bluetoothDevice,this);
+                        MooshimeterDevice m = mConnectedDevices.get(binfo.getBluetoothDevice().getAddress());
 
-                        // Initialize the meter
-                        MooshimeterDevice.clearInstance();
-                        MooshimeterDevice.Initialize(peri);
-                        startDeviceActivity();
+                        // Check if we need to make a new connection or we're already connected
+                        if(m==null) {
+                            PeripheralWrapper peri = new PeripheralWrapper(binfo,this);
+                            peri.connect();
+                            setStatus("Discovering Services...");
+                            peri.discover();
+                            setStatus("Connected!");
+                            // Initialize the meter
+                            m = new MooshimeterDevice(peri);
+                            mConnectedDevices.put(m.getAddress(),m);
+                        }
+
+                        startDeviceActivity(m);
                         /*
                         if(mUpdateFirmwareFlag) {
                             // The user has indicated they want to load firmware
@@ -288,7 +312,6 @@ public class ScanActivity extends FragmentActivity {
             case CONNECTING:
                 switch(newState) {
                     case IDLE:
-                        //mBleUtil.disconnect(null);
                         mBtnScan.setEnabled(true);
                         mDeviceAdapter.notifyDataSetChanged(); // Force enabling of all Connect buttons
                         break;
@@ -383,8 +406,9 @@ public class ScanActivity extends FragmentActivity {
         return null;
     }
 
-    private void startDeviceActivity() {
+    private void startDeviceActivity(MooshimeterDevice d) {
         Intent deviceIntent = new Intent(this, DeviceActivity.class);
+        deviceIntent.putExtra("addr",d.getAddress());
         startActivityForResult(deviceIntent, REQ_DEVICE_ACT);
     }
     private void stopDeviceActivity() {
