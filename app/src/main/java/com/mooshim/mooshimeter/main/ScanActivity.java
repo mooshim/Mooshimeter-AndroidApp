@@ -48,6 +48,7 @@ import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.BLEUtil;
 import com.mooshim.mooshimeter.common.BleDeviceInfo;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.PeripheralWrapper;
 import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.util.ArrayList;
@@ -125,7 +126,7 @@ public class ScanActivity extends FragmentActivity {
         mDeviceListView.setOnItemClickListener(mDeviceClickListener);
 
         mWatchDog = new WatchDog();
-        mBleUtil = BLEUtil.getInstance(this);
+        //mBleUtil = BLEUtil.getInstance(this);
         mDeviceInfoList = new ArrayList<BleDeviceInfo>();
         mDeviceAdapter = new DeviceListAdapter(this);
         mDeviceListView.setAdapter(mDeviceAdapter);
@@ -232,65 +233,45 @@ public class ScanActivity extends FragmentActivity {
                         mDeviceAdapter.notifyDataSetChanged(); // Force disabling of all Connect buttons
                         setStatus("Connecting...");
                         final BluetoothDevice bluetoothDevice   = mDeviceInfoList.get(mConnIndex).getBluetoothDevice();
-                        mBleUtil.clear(); // fixme shouldn't be necessary
-                        mBleUtil.connect(bluetoothDevice.getAddress(), new BLEUtil.BLEUtilCB() {
-                            @Override
-                            public void run() {
-                                if (error == BluetoothGatt.GATT_SUCCESS) {
-                                    mWatchDog.feed();
+
+                        PeripheralWrapper peri = new PeripheralWrapper(bluetoothDevice,this);
+
+                        // Initialize the meter
+                        MooshimeterDevice.clearInstance();
+                        MooshimeterDevice.Initialize(peri);
+                        startDeviceActivity();
+                        /*
+                        if(mUpdateFirmwareFlag) {
+                            // The user has indicated they want to load firmware
+                            // Reboot the meter and connect in OAD mode
+                            final MooshimeterDevice meter = MooshimeterDevice.getInstance();
+                            setStatus("Booting to OAD mode...");
+                            meter.reconnectInOADMode(new Runnable() {
+                                @Override
+                                public void run() {
+                                    setStatus("Success!  Starting firmware update");
                                     mWatchDog.stop();
-                                    if(mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.METER_SERVICE)) {
-                                        // Initialize the meter
-                                        MooshimeterDevice.clearInstance();
-                                        MooshimeterDevice.Initialize(getApplicationContext(), new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                if(mUpdateFirmwareFlag) {
-                                                    // The user has indicated they want to load firmware
-                                                    // Reboot the meter and connect in OAD mode
-                                                    final MooshimeterDevice meter = MooshimeterDevice.getInstance();
-                                                    setStatus("Booting to OAD mode...");
-                                                    meter.reconnectInOADMode(new Runnable() {
-                                                        @Override
-                                                        public void run() {
-                                                            setStatus("Success!  Starting firmware update");
-                                                            mWatchDog.stop();
-                                                            startOADActivity();
-                                                        }
-                                                    });
-                                                } else {
-                                                    mWatchDog.stop();
-                                                    startDeviceActivity();
-                                                }
-                                            }
-                                        });
-                                    } else if( mBleUtil.setPrimaryService(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
-                                        mWatchDog.stop();
-                                        startOADActivity();
-                                    } else {
-                                        Log.e(TAG, "Couldn't find a service I recognized!");
-                                    }
-                                } else	{
-                                    setError("Connect failed. Status: " + error);
-                                    moveState(ScanViewState.IDLE);
+                                    startOADActivity();
                                 }
-                            }
-                        }, new Runnable() {
-                            @Override
-                            public void run() {
-                                if(mScanViewState == ScanViewState.CONNECTING) {
-                                    mBleUtil.clear();
-                                    setError("Device disconnected!");
-                                    moveState(ScanViewState.IDLE);
-                                    stopDeviceActivity();
-                                }
-                            }
-                        });
-                        break;
+                            });
+                        } else {
+                            mWatchDog.stop();
+                            startDeviceActivity();
+                        }
+                        if(mScanViewState == ScanViewState.CONNECTING) {
+                            mBleUtil.clear();
+                            setError("Device disconnected!");
+                            moveState(ScanViewState.IDLE);
+                            stopDeviceActivity();
+                        }
+                         */
+
+                    break;
                     default:
                         Log.e(TAG, "Illegal transition");
                         break;
                 }
+
                 break;
             case SCANNING:
                 switch(newState) {
@@ -307,7 +288,7 @@ public class ScanActivity extends FragmentActivity {
             case CONNECTING:
                 switch(newState) {
                     case IDLE:
-                        mBleUtil.disconnect(null);
+                        //mBleUtil.disconnect(null);
                         mBtnScan.setEnabled(true);
                         mDeviceAdapter.notifyDataSetChanged(); // Force enabling of all Connect buttons
                         break;

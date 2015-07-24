@@ -89,7 +89,7 @@ public class MooshimeterDevice {
     public static final byte LOGGING_OFF=0;     // No logging activity, revert here on error
     public static final byte LOGGING_SAMPLING=3;// Meter is presently sampling for writing to the log
 
-    private BLEUtil mBLEUtil;
+    private PeripheralWrapper mPeri;
     private int rssi;
     public int adv_build_time;
 
@@ -149,77 +149,36 @@ public class MooshimeterDevice {
          * member variables.  Unpacking and packing are implemented by the subclass.
          * This function is asynchronous - the function returns before the structure is updated -
          * you must wait for cb to be called.
-         * @param cb Code block to run on completion
          */
-        public void update(final Runnable cb) {
-            mBLEUtil.req(getUUID(), new BLEUtil.BLEUtilCB() {
-                @Override
-                public void run() {
-                    if(error != BluetoothGatt.GATT_SUCCESS) {
-                        final String s = String.format("Read has error code %d",error);
-                        Log.e(TAG,s);
-                    } else {
-                        unpack(value);
-                    }
-                    if(cb != null) {
-                        cb.run();
-                    }
-                }
-            });
+        public void update() {
+            unpack(mPeri.req(getUUID()));
         }
         /**
          * Sends the struct to the Mooshimeter, unpacks the response in to the
          * member variables.  Unpacking and packing are implemented by the subclass.
          * This function is asynchronous - the function returns before the structure is updated -
          * you must wait for cb to be called.
-         * @param cb Code block to run on completion
          */
-        public void send(final Runnable cb) {
-            mBLEUtil.send(getUUID(), pack(), new BLEUtil.BLEUtilCB() {
-                @Override
-                public void run() {
-                    if(cb != null) {
-                        if(error != BluetoothGatt.GATT_SUCCESS) {
-                            final String s = String.format("Write has error code %d",error);
-                            Log.e(TAG,s);
-                        }
-                        cb.run();
-                    }
-                }
-            });
+        public void send() {
+            mPeri.send(getUUID(),pack());
         }
 
         /**
          * Enable or disable notifications on this field and set the callbacks.
          * @param enable        If true, enable the notification.  If false, disable.
-         * @param on_complete   When the notification has been set, this is called.
          * @param on_notify     When a notify event is received, this is called.
          */
-        public void enableNotify(boolean enable, final Runnable on_complete, final Runnable on_notify) {
-            mBLEUtil.enableNotify(getUUID(),enable,new BLEUtil.BLEUtilCB() {
+        public void enableNotify(boolean enable, final Runnable on_notify) {
+            mPeri.enableNotify(getUUID(),enable,new Runnable() {
                 @Override
                 public void run() {
-                    if(on_complete != null) {
-                        on_complete.run();
-                    }
-                }
-            }, new BLEUtil.BLEUtilCB() {
-                @Override
-                public void run() {
-                    if(error != BluetoothGatt.GATT_SUCCESS) {
-                        final String s = String.format("Notification has error code %d",error);
-                        Log.e(TAG,s);
-                    } else {
-                        unpack(value);
-                    }
-                    if(on_notify != null) {
-                        on_notify.run();
-                    }
+                    unpack(mPeri.getChar(getUUID()).getValue());
+                    on_notify.run();
                 }
             });
         }
         public void setWriteType(int wtype){
-            mBLEUtil.setWriteType(getUUID(),wtype);
+            mPeri.setWriteType(getUUID(),wtype);
         }
 
         /**
@@ -567,14 +526,11 @@ public class MooshimeterDevice {
     /**
      * Creates the singleton.  Synchronizes the data structures with the meter by calling each structure's
      * "update" routine
-     * Asynchronous
-     * @param context Application context
-     * @param on_init Callback to run after initialization complete.
      * @return
      */
-    public static synchronized MooshimeterDevice Initialize(Context context, final Runnable on_init) {
+    public static synchronized MooshimeterDevice Initialize(PeripheralWrapper peri) {
         if(mInstance==null) {
-            mInstance = new MooshimeterDevice(context, on_init);
+            mInstance = new MooshimeterDevice(peri);
         } else {
             Log.e(TAG, "Already initialized!");
         }
@@ -586,18 +542,13 @@ public class MooshimeterDevice {
     }
 
     public void disconnect(final Runnable cb) {
-        mBLEUtil.disconnect(new BLEUtil.BLEUtilCB() {
-            @Override
-            public void run() {
-                clearInstance();
-                cb.run();
-            }
-        });
+        mPeri.disconnect();
+        cb.run();
     }
 
-    protected MooshimeterDevice(Context context, final Runnable on_init) {
+    protected MooshimeterDevice(PeripheralWrapper peri) {
+        mPeri = peri;
         // Initialize internal structures
-        mBLEUtil = BLEUtil.getInstance(context);
         meter_name          = new MeterName();
         meter_settings      = new MeterSettings();
         meter_log_settings  = new MeterLogSettings();
@@ -607,29 +558,18 @@ public class MooshimeterDevice {
         meter_ch2_buf       = new MeterCH2Buf();
 
         // Grab the initial settings
-        meter_settings.update(new Runnable() {
-            @Override
-            public void run() {
-                meter_settings.target_meter_state = meter_settings.present_meter_state;
-            }
-        });
-        meter_log_settings.update(null);
-        meter_info.update(null);
-        meter_name.update(on_init);
+        meter_settings.update();
+
+        meter_settings.target_meter_state = meter_settings.present_meter_state;
+
+        meter_log_settings.update();
+        meter_info.update();
+        meter_name.update();
     }
 
     ////////////////////////////////
     // Convenience functions
     ////////////////////////////////
-
-    /**
-     * Adds a Runnable to be run at the end of the request queue.
-     * Note that callbacks are run on the UI thread.
-     * @param todo
-     */
-    public void addToRunQueue(final Runnable todo) {
-        mBLEUtil.addToRunQueue(todo);
-    }
 
     /**
      * Returns the number of ADC samples that constitute a sample buffer
@@ -653,21 +593,16 @@ public class MooshimeterDevice {
             meter_settings.calc_settings &=~(METER_CALC_SETTINGS_MS|METER_CALC_SETTINGS_MEAN);
             meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
             meter_settings.target_meter_state = METER_PAUSED;
-            meter_settings.send(null);
+            meter_settings.send();
         }
-        meter_sample.enableNotify(false,null,null);
-        meter_ch1_buf.enableNotify(true,null,null);
-        meter_ch2_buf.enableNotify(true,null,null);
-        mBLEUtil.addToRunQueue(new Runnable() {
-            @Override
-            public void run() {
-                meter_ch2_buf.buf_full_cb = onReceived;
-                meter_settings.target_meter_state = METER_RUNNING;
-                meter_ch1_buf.buf_i = 0;
-                meter_ch2_buf.buf_i = 0;
-                meter_settings.send(null);
-            }
-        });
+        meter_sample.enableNotify(false,null);
+        meter_ch1_buf.enableNotify(true,null);
+        meter_ch2_buf.enableNotify(true,null);
+        meter_ch2_buf.buf_full_cb = onReceived;
+        meter_settings.target_meter_state = METER_RUNNING;
+        meter_ch1_buf.buf_i = 0;
+        meter_ch2_buf.buf_i = 0;
+        meter_settings.send();
     }
 
     /**
@@ -675,12 +610,12 @@ public class MooshimeterDevice {
      * @param cb Called on completion
      */
     public void pauseStream(final Runnable cb) {
-        meter_sample.enableNotify(false, null, null);
+        meter_sample.enableNotify(false, null);
         if(meter_settings.target_meter_state != METER_PAUSED) {
             meter_settings.target_meter_state = METER_PAUSED;
-            meter_settings.send(null);
+            meter_settings.send();
         }
-        mBLEUtil.addToRunQueue(cb);
+        cb.run();
     }
 
     /**
@@ -693,9 +628,9 @@ public class MooshimeterDevice {
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
         meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
 
-        meter_sample.enableNotify(true,null,on_notify);
-        meter_settings.send(null);
-        mBLEUtil.addToRunQueue(cb);
+        meter_sample.enableNotify(true,on_notify);
+        meter_settings.send();
+        cb.run();
     }
 
     /**
@@ -703,12 +638,13 @@ public class MooshimeterDevice {
      * Shuts down the meter and immediately reconnects, aiming to reconnect while the mooshimeter is in OAD mode
      * @param cb
      */
+    /*
     public void reconnectInOADMode(final Runnable cb) {
         final Handler mainHandler = new Handler(Looper.getMainLooper());
         // Reboot the meter and reconnect
         meter_settings.target_meter_state = METER_SHUTDOWN;
         // The meter shuts down immediately upon receiving the setting change, don't expect a response
-        mBLEUtil.setDisconnectCB(null);
+        //mBLEUtil.setDisconnectCB(null);
         meter_settings.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
         mainHandler.post(new Runnable() {
             @Override
@@ -719,13 +655,12 @@ public class MooshimeterDevice {
         mainHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mBLEUtil.disconnect(null);
+                mPeri.disconnect();
             }
         }, 200);
         mainHandler.postDelayed( new Runnable() {
             @Override
             public void run() {
-                mBLEUtil.clear();
                 mBLEUtil.connect(mBLEUtil.getBTAddress(), new BLEUtil.BLEUtilCB() {
                     @Override
                     public void run() {
@@ -735,6 +670,7 @@ public class MooshimeterDevice {
             }
         }, 1200 );
     }
+    */
 
     //////////////////////////////////////
     // Autoranging

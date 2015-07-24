@@ -232,12 +232,7 @@ public class DeviceActivity extends FragmentActivity {
                     Log.i(TAG, "Starting trend view.");
                     trend_view_running = true;
                     mMeter.pauseStream(null);
-                    mMeter.addToRunQueue(new Runnable() {
-                        @Override
-                        public void run() {
-                            startTrendActivity();
-                        }
-                    });
+                    startTrendActivity();
                 }
                 break;
             case Configuration.ORIENTATION_PORTRAIT:
@@ -271,12 +266,8 @@ public class DeviceActivity extends FragmentActivity {
                 // Check if anything changed, and if so apply changes
                 if(!Arrays.equals(save, compare)) {
                     count_since_settings_sent = 0;
-                    mMeter.meter_settings.send(new Runnable() {
-                        @Override
-                        public void run() {
-                            refreshAllControls();
-                        }
-                    });
+                    mMeter.meter_settings.send();
+                    refreshAllControls();
                 } else {
                     count_since_settings_sent++;
                 }
@@ -661,12 +652,8 @@ public class DeviceActivity extends FragmentActivity {
             }
             break;
         }
-        mMeter.meter_settings.send(new Runnable() {
-            @Override
-            public void run() {
-                refreshAllControls();
-            }
-        });
+        mMeter.meter_settings.send();
+        refreshAllControls();
     }
 
     private void onInputSetClick(int c) {
@@ -701,12 +688,8 @@ public class DeviceActivity extends FragmentActivity {
                 break;
         }
         mMeter.meter_settings.chset[c] = setting;
-        mMeter.meter_settings.send(new Runnable() {
-            @Override
-            public void run() {
-                refreshAllControls();
-            }
-        });
+        mMeter.meter_settings.send();
+        refreshAllControls();
     }
 
     private void onUnitsClick(int c) {
@@ -765,12 +748,8 @@ public class DeviceActivity extends FragmentActivity {
             break;
         }
         mMeter.meter_settings.chset[c] = channel_setting;
-        mMeter.meter_settings.send(new Runnable() {
-            @Override
-            public void run() {
-                refreshAllControls();
-            }
-        });
+        mMeter.meter_settings.send();
+        refreshAllControls();
     }
 
     public void onCh1DisplaySetClick(View v) {
@@ -841,12 +820,8 @@ public class DeviceActivity extends FragmentActivity {
             rate_setting %= 7;
             mMeter.meter_settings.adc_settings &= ~MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK;
             mMeter.meter_settings.adc_settings |= rate_setting;
-            mMeter.meter_settings.send(new Runnable() {
-                @Override
-                public void run() {
-                    refreshAllControls();
-                }
-            });
+            mMeter.meter_settings.send();
+            refreshAllControls();
         }
     }
 
@@ -857,17 +832,8 @@ public class DeviceActivity extends FragmentActivity {
         } else {
             mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_OFF;
         }
-        mMeter.meter_log_settings.send(new Runnable() {
-            @Override
-            public void run() {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        refreshAllControls();
-                    }
-                });
-            }
-        });
+        mMeter.meter_log_settings.send();
+        refreshAllControls();
     }
 
     public void onDepthAutoClick(View v) {
@@ -886,12 +852,8 @@ public class DeviceActivity extends FragmentActivity {
             depth_setting %= 9;
             mMeter.meter_settings.calc_settings &= ~MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2;
             mMeter.meter_settings.calc_settings |= depth_setting;
-            mMeter.meter_settings.send(new Runnable() {
-                @Override
-                public void run() {
-                    refreshAllControls();
-                }
-            });
+            mMeter.meter_settings.send();
+            refreshAllControls();
         }
     }
 

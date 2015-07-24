@@ -32,187 +32,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.mooshim.mooshimeter.util.WatchDog;
+
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-public class PeripheralWrapper {
-    private static final String TAG="PeripheralWrapper";
-    private BluetoothGatt mBluetoothGatt;
-    private BluetoothDevice mDevice;
-    private String mAddress;
-    private BluetoothGattCallback mGattCallbacks;
-    private Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
-    private Map<UUID,Runnable> mNotifyCB;
-
-    private Condition bleStateCondition    ;
-    private Condition bleDiscoverCondition ;
-    private Condition bleReadCondition     ;
-    private Condition bleWriteCondition    ;
-    private Condition bleChangedCondition  ;
-    private Condition bleDReadCondition    ;
-    private Condition bleDWriteCondition   ;
-    private Condition bleRWriteCondition   ;
-    private Condition bleRSSICondition     ;
-
-    private static void lock()   { BLEUtil.getBleLock().lock(); }
-    private static void unlock() { BLEUtil.getBleLock().unlock(); }
-
-    private class Interruptable implements Callable<Void> {
-        @Override
-        public Void call() throws InterruptedException {
-            return null;
-        }
-    }
-
-    // Anything that has to do with the BluetoothGatt needs to go through here
-    private void protectedCall(Interruptable r) {
-        try {
-            lock();
-            r.call();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            unlock();
-        }
-    }
-
-    public PeripheralWrapper(final String address, final Context context) {
-        mAddress = address;
-        mDevice = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
-
-        bleStateCondition    = BLEUtil.getBleLock().newCondition();
-        bleDiscoverCondition = BLEUtil.getBleLock().newCondition();
-        bleReadCondition     = BLEUtil.getBleLock().newCondition();
-        bleWriteCondition    = BLEUtil.getBleLock().newCondition();
-        bleChangedCondition  = BLEUtil.getBleLock().newCondition();
-        bleDReadCondition    = BLEUtil.getBleLock().newCondition();
-        bleDWriteCondition   = BLEUtil.getBleLock().newCondition();
-        bleRWriteCondition   = BLEUtil.getBleLock().newCondition();
-        bleRSSICondition     = BLEUtil.getBleLock().newCondition();
-
-        mGattCallbacks = new BluetoothGattCallback() {
-            @Override public void onServicesDiscovered(android.bluetooth.BluetoothGatt gatt, int status)                                                                { bleStateCondition    .signal(); }
-            @Override public void onConnectionStateChange(android.bluetooth.BluetoothGatt gatt, int status, int newState)                                               { bleDiscoverCondition .signal(); }
-            @Override public void onCharacteristicRead(android.bluetooth.BluetoothGatt gatt, android.bluetooth.BluetoothGattCharacteristic characteristic, int status)  { bleReadCondition     .signal(); }
-            @Override public void onCharacteristicWrite(android.bluetooth.BluetoothGatt gatt, android.bluetooth.BluetoothGattCharacteristic characteristic, int status) { bleWriteCondition    .signal(); }
-            @Override public void onCharacteristicChanged(android.bluetooth.BluetoothGatt gatt, android.bluetooth.BluetoothGattCharacteristic characteristic)           { bleChangedCondition  .signal(); }
-            @Override public void onDescriptorRead(android.bluetooth.BluetoothGatt gatt, android.bluetooth.BluetoothGattDescriptor descriptor, int status)              { bleDReadCondition    .signal(); }
-            @Override public void onDescriptorWrite(android.bluetooth.BluetoothGatt gatt, android.bluetooth.BluetoothGattDescriptor descriptor, int status)             { bleDWriteCondition   .signal(); }
-            @Override public void onReliableWriteCompleted(android.bluetooth.BluetoothGatt gatt, int status)                                                            { bleRWriteCondition   .signal(); }
-            @Override public void onReadRemoteRssi(android.bluetooth.BluetoothGatt gatt, int rssi, int status)                                                          { bleRSSICondition     .signal(); }
-        };
-
-        protectedCall(new Interruptable() {
-            @Override
-            public Void call() throws InterruptedException {
-                // Try to connect and discover
-                mBluetoothGatt = mDevice.connectGatt(context.getApplicationContext(),false,mGattCallbacks);
-                refreshDeviceCache();
-                while( mBluetoothGatt.getConnectionState(mDevice) != BluetoothProfile.STATE_CONNECTED ) {
-                    bleStateCondition.await();
-                }
-                // Discover services
-                mBluetoothGatt.discoverServices();
-                bleDiscoverCondition.await();
-                // Build a local dictionary of all characteristics and their UUIDs
-                for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
-                    for( BluetoothGattCharacteristic c : s.getCharacteristics() ) {
-                        mCharacteristics.put(c.getUuid(),c);
-                    }
-                }
-                return null;
-            }
-        });
-    }
-
-    public void req(UUID uuid) {
-        final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
-        protectedCall(new Interruptable() {
-                @Override
-                public Void call() throws InterruptedException {
-                    mBluetoothGatt.readCharacteristic(c);
-                    bleReadCondition.await();
-                    return null;
-                }
-            });
-    }
-
-    public void send(final UUID uuid, final byte[] value) {
-        final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
-        protectedCall(new Interruptable() {
-            @Override
-            public Void call() throws InterruptedException {
-                c.setValue(value);
-                mBluetoothGatt.writeCharacteristic(c);
-                bleWriteCondition.await();
-                return null;
-            }
-        });
-    }
-
-    public boolean isNotificationEnabled(BluetoothGattCharacteristic c) {
-        final BluetoothGattDescriptor d = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
-        final byte[] dval = d.getValue();
-        return (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-    }
-
-    public void enableNotify(final UUID uuid, final boolean enable, final Runnable on_notify) {
-        final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
-        // Set up the notify callback
-        if(on_notify != null) {
-            mNotifyCB.put(uuid, on_notify);
-        } else {
-            mNotifyCB.remove(uuid);
-        }
-        if(isNotificationEnabled(c) != enable) {
-            protectedCall(new Interruptable() {
-                @Override
-                public Void call() throws InterruptedException {
-                    // Only bother setting the notification if the status has changed
-                    if (mBluetoothGatt.setCharacteristicNotification(c, enable)) {
-                        final BluetoothGattDescriptor clientConfig = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
-                        final byte[] enable_val;
-                        if(enable) {
-                            enable_val = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
-                        } else {
-                            enable_val = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
-                        }
-                        clientConfig.setValue(enable_val);
-                        mBluetoothGatt.writeDescriptor(clientConfig);
-                        bleDWriteCondition.await();
-                    }
-                    return null;
-                }
-            });
-        }
-    }
-
-    private boolean refreshDeviceCache(){
-        // Forces the BluetoothGATT layer to dump what it knows about the connected device
-        // If this is not called during connection, the GATT layer will simply return the last cached
-        // services and refuse to do the service discovery process.
-        try {
-            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh", new Class[0]);
-            if (localMethod != null) {
-                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt, new Object[0])).booleanValue();
-                return b;
-            } else {
-                Log.e(TAG, "Unable to wipe the GATT Cache");
-            }
-        }
-        catch (Exception localException) {
-            Log.e(TAG, "An exception occured while refreshing device");
-        }
-        return false;
-    }
-}
 
 /**
  * Created by JWHONG on 1/26/2015.
@@ -226,8 +51,10 @@ public class BLEUtil {
     private Context              mContext;   // Global application context
     private BluetoothAdapter     mBtAdapter;
     private BluetoothGatt        mBluetoothGatt;
-
+    private BluetoothGattService mPrimaryService;
     private BluetoothGattService mCCService;
+
+    private WatchDog mWatchdog;
 
     private BLEUtilRequest mRunning = null;
     private LinkedList<BLEUtilRequest> mExecuteQueue = new LinkedList<BLEUtilRequest>();
@@ -235,67 +62,12 @@ public class BLEUtil {
 
     private Runnable mAccidentalDisconnectCB = null;
 
-    // Our singleton
-    private static BLEUtil mInstance = null;
-    public static synchronized BLEUtil getInstance() {
-        return mInstance;
-    }
-
-    public static synchronized BLEUtil getInstance(Context context) {
-        if(mInstance == null) {
-            mInstance = new BLEUtil(context);
-        }
-        return getInstance();
-    }
-
-    /////////////////////////////////////
-
-    private static final Lock bleLock= new ReentrantLock();
-
-    public static final Lock getBleLock() {
-        return bleLock;
-    }
-
-
-
-    /////////////////////////////////////
-
-    public int discover() {
-
-    }
-    public int connect() {
-
-    }
-    public int disconnect() {
-
-    }
-    public int read(BluetoothGatt gatt, BluetoothGattService serv, BluetoothGattCharacteristic c) {
-        bleLock.lock();
-        gatt.readCharacteristic(c);
-        try {
-            bleReadCondition.await();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-    public int write(BluetoothGatt gatt, BluetoothGattService serv, BluetoothGattCharacteristic c, byte[] value) {
-
-    }
-    public int setNotify(BluetoothGatt gatt, BluetoothGattService serv, BluetoothGattCharacteristic c, boolean on) {
-
-    }
-    public int readRssi(BluetoothGatt gatt) {
-
-    }
-
-    /////////////////////////////////////
-
     public static abstract class BLEUtilCB implements Runnable {
         public UUID uuid;       // UUID
         public byte[] value;    // Value for the characteristic in question
         public int error;       // Error code from the BLE layer (usually BluetoothGATT.GATT_SUCCESS)
         public abstract void run();
-    }
+    };
 
     private static class BLEUtilRequest {
         private static int next_id = 0; // Static mutexed member to keep track of ids
@@ -314,6 +86,19 @@ public class BLEUtil {
             next_id++;
             return next_id;
         }
+    }
+
+    private static BLEUtil mInstance = null;
+
+    public static synchronized BLEUtil getInstance() {
+        return mInstance;
+    }
+
+    public static synchronized BLEUtil getInstance(Context context) {
+        if(mInstance == null) {
+            mInstance = new BLEUtil(context);
+        }
+        return getInstance();
     }
 
     public static void Destroy() {
@@ -522,6 +307,25 @@ public class BLEUtil {
     // GATT Callbacks
     ////////////////////////////////
 
+    private boolean refreshDeviceCache(){
+        // Forces the BluetoothGATT layer to dump what it knows about the connected device
+        // If this is not called during connection, the GATT layer will simply return the last cached
+        // services and refuse to do the service discovery process.
+        try {
+            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh", new Class[0]);
+            if (localMethod != null) {
+                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt, new Object[0])).booleanValue();
+                return b;
+            } else {
+                Log.e(TAG, "Unable to wipe the GATT Cache");
+            }
+        }
+        catch (Exception localException) {
+            Log.e(TAG, "An exception occured while refreshing device");
+        }
+        return false;
+    }
+
     private static void printGattError(int s) {
         if (s != BluetoothGatt.GATT_SUCCESS) {
             // GATT Error 133 seems to be coming up from time to time.  I don't think we're doing anything wrong,
@@ -544,10 +348,6 @@ public class BLEUtil {
         mPrimaryService = getService(sUUID);
         return mPrimaryService != null;
     }
-
-    ////////////////////////////
-    // These callbacks are called by Android
-    ////////////////////////////
 
     private BluetoothGattCallback mGattCallbacks = new BluetoothGattCallback() {
         @Override
@@ -600,6 +400,22 @@ public class BLEUtil {
                 cb.error = 0;
                 cb.value = c.getValue();
                 cb.run();
+                if(false) {
+                    BLEUtilCB wrapper = new BLEUtilCB() {
+                        @Override
+                        public void run() {
+                            cb.uuid = uuid;
+                            cb.error = error;
+                            cb.value = value;
+                            cb.run();
+                        }
+                    };
+                    wrapper.uuid = c.getUuid();
+                    wrapper.error = 0;
+                    wrapper.value = c.getValue().clone();
+                    final Handler mainHandler = new Handler(Looper.getMainLooper());
+                    mainHandler.post(wrapper);
+                }
             }
         }
 

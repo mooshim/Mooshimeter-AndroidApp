@@ -97,13 +97,9 @@ public class PreferencesActivity extends FragmentActivity {
           public boolean onKey(View v, int keyCode, KeyEvent event) {
               if ((event.getAction() == KeyEvent.ACTION_DOWN) && (keyCode == KeyEvent.KEYCODE_ENTER)) {
                   mMeter.meter_name.name = String.valueOf(name_editor.getText());
-                  mMeter.meter_name.send(new Runnable() {
-                      @Override
-                      public void run() {
-                          Log.d(null, "Name sent");
-                          Toast.makeText(mThis, "Name Sent", Toast.LENGTH_SHORT).show();
-                      }
-                  });
+                  mMeter.meter_name.send();
+                  Log.d(null, "Name sent");
+                  Toast.makeText(mThis, "Name Sent", Toast.LENGTH_SHORT).show();
                   return true;
               }
               return false;
@@ -139,7 +135,7 @@ public class PreferencesActivity extends FragmentActivity {
                 .setPositiveButton("Hibernate",new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog,int id) {
                         mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_HIBERNATE;
-                        mMeter.meter_settings.send(null);
+                        mMeter.meter_settings.send();
                     }
                 })
                 .setNegativeButton("Cancel",new DialogInterface.OnClickListener() {
@@ -160,13 +156,8 @@ public class PreferencesActivity extends FragmentActivity {
     private void rateClick(int b) {
         final int[] intervals = {0,1000,10000,60000};
         mMeter.meter_log_settings.logging_period_ms = (short)intervals[b];
-        mMeter.meter_log_settings.send(null);
-        mMeter.addToRunQueue(new Runnable() {
-            @Override
-            public void run() {
-                rateButtonRefresh();
-            }
-        });
+        mMeter.meter_log_settings.send();
+        rateButtonRefresh();
     }
 
     private void rateButtonRefresh() {
