@@ -35,7 +35,7 @@ import java.util.UUID;
 
 import static java.util.UUID.fromString;
 
-public class MooshimeterDevice {
+public class MooshimeterDevice extends PeripheralWrapper {
 
     /*
     mUUID stores the UUID values of all the Mooshimeter fields.
@@ -89,10 +89,6 @@ public class MooshimeterDevice {
     // LOGGING_OFF as LOGGING_ON so we can leave this for now and maintain backwards compatibility
     public static final byte LOGGING_OFF=0;     // No logging activity, revert here on error
     public static final byte LOGGING_SAMPLING=3;// Meter is presently sampling for writing to the log
-
-    private PeripheralWrapper mPeri;
-    private int rssi;
-    public int adv_build_time;
 
     public enum CH3_MODES {
         VOLTAGE,
@@ -152,7 +148,7 @@ public class MooshimeterDevice {
          * you must wait for cb to be called.
          */
         public void update() {
-            unpack(mPeri.req(getUUID()));
+            unpack(mInstance.req(getUUID()));
         }
         /**
          * Sends the struct to the Mooshimeter, unpacks the response in to the
@@ -161,7 +157,7 @@ public class MooshimeterDevice {
          * you must wait for cb to be called.
          */
         public void send() {
-            mPeri.send(getUUID(),pack());
+            mInstance.send(getUUID(),pack());
         }
 
         /**
@@ -170,10 +166,10 @@ public class MooshimeterDevice {
          * @param on_notify     When a notify event is received, this is called.
          */
         public void enableNotify(boolean enable, final Runnable on_notify) {
-            mPeri.enableNotify(getUUID(),enable,new Runnable() {
+            mInstance.enableNotify(getUUID(),enable,new Runnable() {
                 @Override
                 public void run() {
-                    unpack(mPeri.getChar(getUUID()).getValue());
+                    unpack(mInstance.getChar(getUUID()).getValue());
                     if(on_notify!=null) {
                         on_notify.run();
                     }
@@ -181,7 +177,7 @@ public class MooshimeterDevice {
             });
         }
         public void setWriteType(int wtype){
-            mPeri.setWriteType(getUUID(),wtype);
+            mInstance.setWriteType(getUUID(),wtype);
         }
 
         /**
@@ -508,6 +504,12 @@ public class MooshimeterDevice {
         }
     }
 
+    // Used so the inner classes have something to grab
+    public MooshimeterDevice mInstance;
+
+    public int              mBuildTime;
+    public boolean          mOADMode;
+
     public MeterSettings    meter_settings;
     public MeterLogSettings meter_log_settings;
     public MeterInfo        meter_info;
@@ -516,13 +518,12 @@ public class MooshimeterDevice {
     public MeterCH1Buf      meter_ch1_buf;
     public MeterCH2Buf      meter_ch2_buf;
 
-    public void disconnect(final Runnable cb) {
-        mPeri.disconnect();
-        cb.run();
-    }
+    public MooshimeterDevice(final BluetoothDevice device, final Context context) {
+        // Initialize super
+        super(device,context);
 
-    public MooshimeterDevice(PeripheralWrapper peri) {
-        mPeri = peri;
+        mInstance = this;
+
         // Initialize internal structures
         meter_name          = new MeterName();
         meter_settings      = new MeterSettings();
@@ -531,27 +532,16 @@ public class MooshimeterDevice {
         meter_sample        = new MeterSample();
         meter_ch1_buf       = new MeterCH1Buf();
         meter_ch2_buf       = new MeterCH2Buf();
+    }
 
+    public void discover() {
+        super.discover();
         // Grab the initial settings
         meter_settings.update();
-
         meter_settings.target_meter_state = meter_settings.present_meter_state;
-
         meter_log_settings.update();
         meter_info.update();
         meter_name.update();
-    }
-
-    public String getAddress() {
-        return mPeri.getBTAddress();
-    }
-
-    public BluetoothDevice getBLEDevice() {
-        return mPeri.getBLEDevice();
-    }
-
-    public BleDeviceInfo getBLEDeviceInfo() {
-        return mPeri.getBLEDeviceInfo();
     }
 
     ////////////////////////////////

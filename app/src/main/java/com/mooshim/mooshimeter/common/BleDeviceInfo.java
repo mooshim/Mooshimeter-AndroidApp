@@ -66,8 +66,7 @@ public class BleDeviceInfo {
   public BleDeviceInfo(BluetoothDevice device, int rssi, int build_time, boolean oad_mode) {
     mBtDevice = device;
     mRssi = rssi;
-    mBuildTime = build_time;
-    mOADMode = oad_mode;
+
   }
 
   public BluetoothDevice getBluetoothDevice() {

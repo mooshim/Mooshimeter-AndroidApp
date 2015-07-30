@@ -35,6 +35,7 @@
         android:layout_gravity="center_vertical"
         android:clickable="false"
         android:focusable="false"
-        android:background="@drawable/disconnected"/>
+        android:background="@drawable/disconnected"
+        android:longClickable="true"/>
 
 </LinearLayout>

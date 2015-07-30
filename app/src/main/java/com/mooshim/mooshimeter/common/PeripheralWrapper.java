@@ -32,7 +32,9 @@ import android.content.Context;
 import android.util.Log;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -46,17 +48,17 @@ public class PeripheralWrapper {
 
     private static final Lock conditionLock= new ReentrantLock();
 
-    private static BluetoothManager mManager;
-    private static BluetoothAdapter mAdapter;
-
     private Context mContext;
     private boolean mTerminateFlag;
     private BluetoothGatt mBluetoothGatt;
-    private BleDeviceInfo mDevice;
+    private BluetoothDevice mDevice;
     private BluetoothGattCallback mGattCallbacks;
     private Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
     private Map<UUID,Runnable> mNotifyCB;
-    private Map<Integer,Runnable> mConnectionStateCB;
+    private HashMap<Integer, List<Runnable>> mConnectionStateCB;
+    private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
+
+    int connectionStateCBHandle = 0;
 
     private Thread mConnectionStateManagerThread;
     private Thread mNotificationManagerThread;
@@ -71,8 +73,8 @@ public class PeripheralWrapper {
     private Condition bleRWriteCondition   ;
     private Condition bleRSSICondition     ;
 
-    int mRssi;
-    int mConnectionState;
+    public int mRssi;
+    public int mConnectionState;
     BluetoothGattCharacteristic mChangedChar;
 
     private class Interruptable implements Callable<Void> {
@@ -100,17 +102,20 @@ public class PeripheralWrapper {
         }
     }
 
-    public PeripheralWrapper(final BleDeviceInfo device, final Context context) {
+    public PeripheralWrapper(final BluetoothDevice device, final Context context) {
         mTerminateFlag = false;
         mContext = context;
         mDevice = device;
-        mManager = (BluetoothManager)context.getSystemService(context.BLUETOOTH_SERVICE);
-        mAdapter = mManager.getAdapter();
         mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
 
         mCharacteristics   = new HashMap<UUID, BluetoothGattCharacteristic>();
         mNotifyCB          = new HashMap<UUID, Runnable>();
-        mConnectionStateCB = new HashMap<Integer, Runnable>();
+        mConnectionStateCB = new HashMap<Integer, List<Runnable>>();
+        mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTED,new ArrayList<Runnable>());
+        mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTING,new ArrayList<Runnable>());
+        mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTED,new ArrayList<Runnable>());
+        mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTING,new ArrayList<Runnable>());
+        mConnectionStateCBByHandle = new HashMap<Integer, Runnable>();
 
         bleStateCondition    = conditionLock.newCondition();
         bleDiscoverCondition = conditionLock.newCondition();
@@ -129,9 +134,9 @@ public class PeripheralWrapper {
             @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) {
                 Log.d(TAG,"write cLock");
                 conditionLock.lock();
-                Log.d(TAG,"write signal");
+                Log.d(TAG, "write signal");
                 bleWriteCondition   .signalAll();
-                Log.d(TAG,"write cUnlock");
+                Log.d(TAG, "write cUnlock");
                 conditionLock.unlock();}
             @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         { conditionLock.lock();bleChangedCondition .signalAll(); mChangedChar=c; conditionLock.unlock();}
             @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { conditionLock.lock();bleDReadCondition   .signalAll(); conditionLock.unlock();}
@@ -139,21 +144,6 @@ public class PeripheralWrapper {
             @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { conditionLock.lock();bleRWriteCondition  .signalAll(); conditionLock.unlock();}
             @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { conditionLock.lock(); mRssi = rssi; bleRSSICondition    .signalAll(); conditionLock.unlock();}
         };
-
-        mConnectionStateManagerThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                connectionStateManager();
-            }
-        });
-        mConnectionStateManagerThread.start();
-        mNotificationManagerThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                notificationManager();
-            }
-        });
-        mNotificationManagerThread.start();
     }
 
     private void connectionStateManager() {
@@ -169,16 +159,10 @@ public class PeripheralWrapper {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            protectedCall(new Interruptable() {
-                @Override
-                public Void call() throws InterruptedException {
-                    Runnable cb = mConnectionStateCB.get(mConnectionState);
-                    if(cb != null) {
-                        cb.run();
-                    }
-                    return null;
-                }
-            });
+            List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
+            for(Runnable cb : cbs) {
+                cb.run();
+            }
         }
 
     }
@@ -203,16 +187,61 @@ public class PeripheralWrapper {
         }
     }
 
+    public int addConnectionStateCB(int state,Runnable cb) {
+        List l = mConnectionStateCB.get(state);
+        l.add(cb);
+        mConnectionStateCBByHandle.put(connectionStateCBHandle,cb);
+        connectionStateCBHandle++;
+        return connectionStateCBHandle;
+    }
+
+    public void cancelConnectionStateCB(int handle) {
+        Runnable cb = mConnectionStateCBByHandle.get(handle);
+        mConnectionStateCBByHandle.remove(handle);
+        if(cb!=null) {
+            for( List<Runnable> l : mConnectionStateCB.values() ) {
+                for( Runnable r : l ) {
+                    if(r==cb) {
+                        l.remove(r);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     public BluetoothGattCharacteristic getChar(UUID uuid) {
         return mCharacteristics.get(uuid);
     }
 
     public void connect() {
+        if( mConnectionState == BluetoothProfile.STATE_CONNECTED ) {
+            return;
+        }
+        if( mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
+            return;
+        }
+        mTerminateFlag = false;
+        mConnectionStateManagerThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                connectionStateManager();
+            }
+        });
+        mConnectionStateManagerThread.start();
+        mNotificationManagerThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                notificationManager();
+            }
+        });
+        mNotificationManagerThread.start();
+
         protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
                 // Try to connect and discover
-                mBluetoothGatt = mDevice.getBluetoothDevice().connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
+                mBluetoothGatt = mDevice.connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
 
                 while( mConnectionState != BluetoothProfile.STATE_CONNECTED ) {
@@ -246,6 +275,9 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 mBluetoothGatt.disconnect();
+                while( mConnectionState != BluetoothProfile.STATE_DISCONNECTED ) {
+                    bleStateCondition.await();
+                }
                 mTerminateFlag = true;
                 return null;
             }
@@ -273,7 +305,7 @@ public class PeripheralWrapper {
                 c.setValue(value);
                 Log.d(TAG,"Writing char...");
                 mBluetoothGatt.writeCharacteristic(c);
-                Log.d(TAG,"Awaiting signal...");
+                Log.d(TAG, "Awaiting signal...");
                 bleWriteCondition.await();
                 return null;
             }
@@ -322,15 +354,11 @@ public class PeripheralWrapper {
         c.setWriteType(wtype);
     }
 
-    public String getBTAddress() {
-        return getBLEDevice().getAddress();
+    public String getAddress() {
+        return mDevice.getAddress();
     }
 
     public BluetoothDevice getBLEDevice() {
-        return mBluetoothGatt.getDevice();
-    }
-
-    public BleDeviceInfo getBLEDeviceInfo() {
         return mDevice;
     }
 

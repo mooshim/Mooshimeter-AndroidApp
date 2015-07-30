@@ -70,7 +70,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.BLEUtil;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.util.Conversion;
 import com.mooshim.mooshimeter.util.WatchDog;
