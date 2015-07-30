@@ -77,6 +77,9 @@ import com.mooshim.mooshimeter.common.*;
 
 public class DeviceActivity extends FragmentActivity {
     private static final String TAG = "DeviceActivity";
+
+    public static boolean isRunning = false;
+
 	// Activity
 	private static final int PREF_ACT_REQ = 0;
 	private static final int FWUPDATE_ACT_REQ = 1;
@@ -115,6 +118,8 @@ public class DeviceActivity extends FragmentActivity {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
 
+        isRunning = true;
+
         // GUI
         setContentView(R.layout.activity_meter);
 
@@ -152,6 +157,7 @@ public class DeviceActivity extends FragmentActivity {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
+        isRunning = false;
 		finishActivity(PREF_ACT_REQ);
 		finishActivity(FWUPDATE_ACT_REQ);
         finishActivity(TREND_ACT_REQ);
@@ -254,12 +260,6 @@ public class DeviceActivity extends FragmentActivity {
         mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(TAG,"Stream requested");
-                refreshAllControls();
-            }
-        }, new Runnable() {
-            @Override
-            public void run() {
                 valueLabelRefresh(0);
                 valueLabelRefresh(1);
 
@@ -282,6 +282,8 @@ public class DeviceActivity extends FragmentActivity {
                 }
             }
         });
+        Log.i(TAG,"Stream requested");
+        refreshAllControls();
     }
 
 	private void startPreferenceActivity() {
@@ -309,28 +311,7 @@ public class DeviceActivity extends FragmentActivity {
 		Toast.makeText(this, txt, Toast.LENGTH_SHORT).show();
 	}
 
-    public String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {
-        //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
-        // is being applied
-        while(digits.high > 4) {
-            digits.high -= 3;
-            val /= 1000;
-        }
-        while(digits.high <=0) {
-            digits.high += 3;
-            val *= 1000;
-        }
 
-        // TODO: Prefixes for units.  This will fail for wrong values of digits
-        boolean neg = val<0;
-        int left = digits.high;
-        int right = -1*(digits.high-digits.n_digits);
-        String formatstring = String.format("%s%%0%d.%df",neg?"":" ", left+right+(neg?1:0), right); // To live is to suffer
-        String retval = String.format(formatstring, val);
-        //Truncate
-        retval = retval.substring(0, Math.min(retval.length(), 8));
-        return retval;
-    }
 
     /////////////////////////
     // Widget Refreshers
@@ -553,7 +534,7 @@ public class DeviceActivity extends FragmentActivity {
             } else {
                 // TODO: implement these methods and revive this segment of code
                 val = mMeter.lsbToNativeUnits(lsb_int, c);
-                label_text = formatReading(val, mMeter.getSigDigits(c));
+                label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
             }
         }
         runOnUiThread(new Runnable() {

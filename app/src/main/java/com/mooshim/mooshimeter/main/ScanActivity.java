@@ -45,9 +45,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.BleDeviceInfo;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
-import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -266,6 +264,9 @@ public class ScanActivity extends FragmentActivity {
     /////////////////////////////
 
     private void startDeviceActivity(MooshimeterDevice d) {
+        if(DeviceActivity.isRunning) {
+            return;
+        }
         Intent deviceIntent = new Intent(this, DeviceActivity.class);
         deviceIntent.putExtra("addr",d.getAddress());
         startActivityForResult(deviceIntent, REQ_DEVICE_ACT);
@@ -275,8 +276,8 @@ public class ScanActivity extends FragmentActivity {
     }
 
     private void startOADActivity() {
-        final Intent i = new Intent(this, FwUpdateActivity.class);
-        startActivityForResult(i, REQ_OAD_ACT);
+        //final Intent i = new Intent(this, FwUpdateActivity.class);
+        //startActivityForResult(i, REQ_OAD_ACT);
     }
 
     /////////////////////////////
@@ -467,11 +468,49 @@ public class ScanActivity extends FragmentActivity {
         t.start();
     }
 
+    private void valueLabelRefresh(final int c, final MooshimeterDevice mMeter, final TextView v) {
+        final boolean ac = mMeter.disp_ac[c];
+        double val;
+        int lsb_int;
+        if(ac) { lsb_int = (int)(Math.sqrt(mMeter.meter_sample.reading_ms[c])); }
+        else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
+
+        final String label_text;
+
+        if( mMeter.disp_hex[c]) {
+            lsb_int &= 0x00FFFFFF;
+            label_text = String.format("0x%06X", lsb_int);
+
+        } else {
+            // If at the edge of your range, say overload
+            // Remember the bounds are asymmetrical
+            final int upper_limit_lsb = (int) (1.1*(1<<22));
+            final int lower_limit_lsb = (int) (-0.9*(1<<22));
+
+            if(   lsb_int > upper_limit_lsb
+                    || lsb_int < lower_limit_lsb ) {
+                label_text = "OVERLOAD";
+            } else {
+                // TODO: implement these methods and revive this segment of code
+                val = mMeter.lsbToNativeUnits(lsb_int, c);
+                label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
+            }
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                v.setText(label_text);
+            }
+        });
+    }
+
     class DeviceListAdapter extends BaseAdapter {
         private LayoutInflater mInflater;
+        private Map<Integer,ViewGroup> mViews;
 
         public DeviceListAdapter(Context context) {
             mInflater = LayoutInflater.from(context);
+            mViews = new HashMap<Integer, ViewGroup>();
         }
 
         public int getCount() {
@@ -486,16 +525,53 @@ public class ScanActivity extends FragmentActivity {
             return position;
         }
 
-        public View getView(int position, View convertView, ViewGroup parent) {
-            ViewGroup vg;
+        @Override
+        public int getViewTypeCount() {
+            return 2; // Count of different layouts
+        }
 
-            if (convertView != null) {
-                vg = (ViewGroup) convertView;
+        @Override
+        public int getItemViewType(int position) {
+            final MooshimeterDevice m = mMeterList.get(position);
+            if(m.mInitialized) {
+                return 1;
             } else {
-                vg = (ViewGroup) mInflater.inflate(R.layout.element_device, null);
+                return 0;
             }
+        }
+
+        public View getView(final int position, View convertView, ViewGroup parent) {
+            final ViewGroup vg;
 
             final MooshimeterDevice m = mMeterList.get(position);
+
+            //final int desired_view_id = getItemViewType(position)==1?R.layout.element_mm_full:R.layout.element_mm_titlebar;
+
+            if(m.mInitialized) {
+                vg = (ViewGroup) mInflater.inflate(R.layout.element_mm_full, parent, false);
+                vg.setTag(Integer.valueOf(R.layout.element_mm_full));
+                View tmp = mViews.get(position);
+                if(tmp != null) {
+                    // Copy the text over from the last incarnation
+                    ((TextView)vg.findViewById(R.id.ch1_value_label)).setText(((TextView)mViews.get(position).findViewById(R.id.ch1_value_label)).getText());
+                    ((TextView)vg.findViewById(R.id.ch2_value_label)).setText(((TextView)mViews.get(position).findViewById(R.id.ch2_value_label)).getText());
+                }
+                mViews.put(position,vg);
+                if(!m.isNotificationEnabled(m.getChar(MooshimeterDevice.mUUID.METER_SAMPLE))) {
+                    m.playSampleStream(new Runnable() {
+                        @Override
+                        public void run() {
+                            TextView ch1 = (TextView)mViews.get(position).findViewById(R.id.ch1_value_label);
+                            TextView ch2 = (TextView)mViews.get(position).findViewById(R.id.ch2_value_label);
+                            valueLabelRefresh(0,m, ch1);
+                            valueLabelRefresh(1,m, ch2);
+                        }
+                    });
+                }
+            } else {
+                vg = (ViewGroup) mInflater.inflate(R.layout.element_mm_titlebar, parent, false);
+                vg.setTag(Integer.valueOf(R.layout.element_mm_titlebar));
+            }
 
             int rssi = m.mRssi;
             String name;

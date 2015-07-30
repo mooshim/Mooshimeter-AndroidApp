@@ -509,6 +509,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
 
     public int              mBuildTime;
     public boolean          mOADMode;
+    public boolean          mInitialized = false;
 
     public MeterSettings    meter_settings;
     public MeterLogSettings meter_log_settings;
@@ -542,6 +543,12 @@ public class MooshimeterDevice extends PeripheralWrapper {
         meter_log_settings.update();
         meter_info.update();
         meter_name.update();
+        mInitialized = true;
+    }
+
+    public void disconnect() {
+        mInitialized = false;
+        super.disconnect();
     }
 
     ////////////////////////////////
@@ -598,14 +605,36 @@ public class MooshimeterDevice extends PeripheralWrapper {
      * @param cb Called on completion
      * @param on_notify Called whenever a new sample is received
      */
-    public void playSampleStream(final Runnable cb, final Runnable on_notify) {
+    public void playSampleStream(final Runnable on_notify) {
         meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
         meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
 
         meter_sample.enableNotify(true,on_notify);
         meter_settings.send();
-        cb.run();
+    }
+
+    public static String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {
+        //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
+        // is being applied
+        while(digits.high > 4) {
+            digits.high -= 3;
+            val /= 1000;
+        }
+        while(digits.high <=0) {
+            digits.high += 3;
+            val *= 1000;
+        }
+
+        // TODO: Prefixes for units.  This will fail for wrong values of digits
+        boolean neg = val<0;
+        int left = digits.high;
+        int right = -1*(digits.high-digits.n_digits);
+        String formatstring = String.format("%s%%0%d.%df",neg?"":" ", left+right+(neg?1:0), right); // To live is to suffer
+        String retval = String.format(formatstring, val);
+        //Truncate
+        retval = retval.substring(0, Math.min(retval.length(), 8));
+        return retval;
     }
 
     /**

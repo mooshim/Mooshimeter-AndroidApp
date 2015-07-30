@@ -304,15 +304,6 @@ public class TrendActivity extends Activity {
         mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
-                Log.i(TAG, "Stream requested");
-                mPlaying = true;
-                if(cb!=null) {
-                    cb.run();
-                }
-            }
-        }, new Runnable() {
-            @Override
-            public void run() {
                 if (!mBufferMode) {
                     Log.v(TAG, "Sample received!");
                     final double new_time = milliTime() - start_time;
@@ -337,6 +328,11 @@ public class TrendActivity extends Activity {
                 }
             }
         });
+        Log.i(TAG, "Stream requested");
+        mPlaying = true;
+        if(cb!=null) {
+            cb.run();
+        }
     }
 
     private void trendViewPause() {
