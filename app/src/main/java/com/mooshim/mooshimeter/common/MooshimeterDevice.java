@@ -94,7 +94,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         VOLTAGE,
         RESISTANCE,
         DIODE
-    };
+    }
 
     // Display control settings
     public final boolean[] disp_ac         = new boolean[]{false,false};
@@ -156,8 +156,8 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * This function is asynchronous - the function returns before the structure is updated -
          * you must wait for cb to be called.
          */
-        public void send() {
-            mInstance.send(getUUID(),pack());
+        public int send() {
+            return mInstance.send(getUUID(),pack());
         }
 
         /**
@@ -165,8 +165,8 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * @param enable        If true, enable the notification.  If false, disable.
          * @param on_notify     When a notify event is received, this is called.
          */
-        public void enableNotify(boolean enable, final Runnable on_notify) {
-            mInstance.enableNotify(getUUID(),enable,new Runnable() {
+        public int enableNotify(boolean enable, final Runnable on_notify) {
+            return mInstance.enableNotify(getUUID(),enable,new Runnable() {
                 @Override
                 public void run() {
                     unpack(mInstance.getChar(getUUID()).getValue());
@@ -504,6 +504,89 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
     }
 
+    public class OADIdentity extends MeterStructure {
+        public short crc0;
+        public short crc1;
+        public short ver;
+        public int len;
+        public int build_time;
+        public byte[] res = new byte[4];
+
+        @Override
+        public UUID getUUID() { return mUUID.OAD_IMAGE_IDENTIFY; }
+
+        @Override
+        public void unpack(byte[] buf) {
+
+        }
+
+        public void unpackFromFile(byte[] fbuf) {
+            ByteBuffer b = ByteBuffer.wrap(fbuf);
+            b.order(ByteOrder.LITTLE_ENDIAN);
+            crc0 = b.getShort();
+            crc1 = b.getShort();
+            ver = b.getShort();
+            len = 0xFFFF & ((int) b.getShort());
+            build_time = b.getInt();
+            for (int i = 0; i < 4; i++) {
+                res[i] = b.get();
+            }
+        }
+
+        public byte[] packForFile() {
+            byte[] retval = new byte[16];
+            ByteBuffer b = ByteBuffer.wrap(retval);
+            b.order(ByteOrder.LITTLE_ENDIAN);
+            b.putShort(crc0);
+            b.putShort(crc1);
+            b.putShort(ver);
+            b.putShort((short) len);
+            b.putInt(build_time);
+            for (int i = 0; i < 4; i++) {
+                b.put(res[i]);
+            }
+            return retval;
+        }
+
+        @Override
+        public byte[] pack() {
+            byte[] retval = new byte[8];
+            ByteBuffer b = ByteBuffer.wrap(retval);
+            b.order(ByteOrder.LITTLE_ENDIAN);
+            b.putShort(ver);
+            b.putShort((short) len);
+            b.putInt(build_time);
+            return retval;
+        }
+    }
+    public class OADBlock    extends MeterStructure {
+        public short requestedBlock;
+
+        public short blockNum;
+        public byte[] bytes;
+
+        @Override
+        public UUID getUUID() { return mUUID.OAD_IMAGE_BLOCK; }
+
+        @Override
+        public byte[] pack() {
+            ByteBuffer b = wrap(new byte[18]);
+            b.order(ByteOrder.LITTLE_ENDIAN);
+            b.putShort(blockNum);
+            for( byte c : bytes ) {
+                b.put(c);
+            }
+            return b.array();
+        }
+
+        @Override
+        public void unpack(byte[] in) {
+            ByteBuffer b = wrap(in);
+            b.order(ByteOrder.LITTLE_ENDIAN);
+            requestedBlock = b.getShort();
+        }
+    }
+
     // Used so the inner classes have something to grab
     public MooshimeterDevice mInstance;
 
@@ -519,6 +602,9 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public MeterCH1Buf      meter_ch1_buf;
     public MeterCH2Buf      meter_ch2_buf;
 
+    public OADIdentity      oad_identity;
+    public OADBlock         oad_block;
+
     public MooshimeterDevice(final BluetoothDevice device, final Context context) {
         // Initialize super
         super(device,context);
@@ -533,27 +619,57 @@ public class MooshimeterDevice extends PeripheralWrapper {
         meter_sample        = new MeterSample();
         meter_ch1_buf       = new MeterCH1Buf();
         meter_ch2_buf       = new MeterCH2Buf();
+
+        oad_identity        = new OADIdentity();
+        oad_block           = new OADBlock();
     }
 
-    public void discover() {
-        super.discover();
-        // Grab the initial settings
-        meter_settings.update();
-        meter_settings.target_meter_state = meter_settings.present_meter_state;
-        meter_log_settings.update();
-        meter_info.update();
-        meter_name.update();
+    public int discover() {
+        int rval = super.discover();
+        if(rval != 0) {
+            return rval;
+        }
+        if(!isInOADMode()) {
+            // Grab the initial settings
+            meter_settings.update();
+            meter_settings.target_meter_state = meter_settings.present_meter_state;
+            meter_log_settings.update();
+            meter_info.update();
+            meter_name.update();
+        }
         mInitialized = true;
+        return rval;
     }
 
-    public void disconnect() {
+    public int disconnect() {
         mInitialized = false;
-        super.disconnect();
+        return super.disconnect();
     }
 
     ////////////////////////////////
     // Convenience functions
     ////////////////////////////////
+
+    public void setOADMode(boolean scanned) {
+        // We receive OAD mode information from scan requests, so this
+        // function is helpful for providing a mode hint before we actually connect
+        // to the meter
+        mOADMode = scanned;
+    }
+
+    public boolean isInOADMode() {
+        // If we've already connected and discovered characteristics,
+        // we can just see what's in the service dictionary.
+        // If we haven't connected, revert to whatever the scan
+        // hinted at.
+        if(mServices.containsKey(mUUID.METER_SERVICE)){
+            mOADMode = false;
+        }
+        if(mServices.containsKey(mUUID.OAD_SERVICE_UUID)) {
+            mOADMode = true;
+        }
+        return mOADMode;
+    }
 
     /**
      * Returns the number of ADC samples that constitute a sample buffer
@@ -602,7 +718,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
 
     /**
      * Start streaming samples from the meter.  Samples will be streamed continuously until pauseStream is called
-     * @param cb Called on completion
      * @param on_notify Called whenever a new sample is received
      */
     public void playSampleStream(final Runnable on_notify) {

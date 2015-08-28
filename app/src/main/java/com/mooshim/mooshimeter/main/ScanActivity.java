@@ -129,7 +129,7 @@ public class ScanActivity extends FragmentActivity {
             final MooshimeterDevice m = mMeterList.get(pos);
             if(    m.mConnectionState == BluetoothProfile.STATE_CONNECTED
                 || m.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
-                startDeviceActivity(m);
+                startSingleMeterActivity(m);
             } else {
                 final Button bv = (Button)view.findViewById(R.id.btnConnect);
                 toggleConnectionState(bv,m);
@@ -275,9 +275,10 @@ public class ScanActivity extends FragmentActivity {
         finishActivity(REQ_DEVICE_ACT);
     }
 
-    private void startOADActivity() {
-        //final Intent i = new Intent(this, FwUpdateActivity.class);
-        //startActivityForResult(i, REQ_OAD_ACT);
+    private void startOADActivity(MooshimeterDevice d) {
+        Intent deviceIntent = new Intent(this, FwUpdateActivity.class);
+        deviceIntent.putExtra("addr",d.getAddress());
+        startActivityForResult(deviceIntent, REQ_OAD_ACT);
     }
 
     /////////////////////////////
@@ -437,6 +438,14 @@ public class ScanActivity extends FragmentActivity {
         startScan();
     }
 
+    private void startSingleMeterActivity(MooshimeterDevice m) {
+        if(m.isInOADMode()) {
+            startOADActivity(m);
+        } else {
+            startDeviceActivity(m);
+        }
+    }
+
     private void toggleConnectionState(final Button bv, final MooshimeterDevice m) {
         bv.setEnabled(false);
         bv.setAlpha((float)0.5);
@@ -452,7 +461,7 @@ public class ScanActivity extends FragmentActivity {
                     setStatus("Discovering Services...");
                     m.discover();
                     setStatus("Connected!");
-                    startDeviceActivity(m);
+                    startSingleMeterActivity(m);
                 }
                 runOnUiThread(new Runnable() {
                     @Override
@@ -533,7 +542,7 @@ public class ScanActivity extends FragmentActivity {
         @Override
         public int getItemViewType(int position) {
             final MooshimeterDevice m = mMeterList.get(position);
-            if(m.mInitialized) {
+            if(m.mInitialized && !m.isInOADMode()) {
                 return 1;
             } else {
                 return 0;
@@ -547,7 +556,7 @@ public class ScanActivity extends FragmentActivity {
 
             //final int desired_view_id = getItemViewType(position)==1?R.layout.element_mm_full:R.layout.element_mm_titlebar;
 
-            if(m.mInitialized) {
+            if(m.mInitialized && !m.isInOADMode()) {
                 vg = (ViewGroup) mInflater.inflate(R.layout.element_mm_full, parent, false);
                 vg.setTag(Integer.valueOf(R.layout.element_mm_full));
                 View tmp = mViews.get(position);
