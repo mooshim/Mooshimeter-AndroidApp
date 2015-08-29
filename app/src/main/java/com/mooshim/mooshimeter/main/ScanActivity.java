@@ -477,7 +477,7 @@ public class ScanActivity extends FragmentActivity {
         t.start();
     }
 
-    private void valueLabelRefresh(final int c, final MooshimeterDevice mMeter, final TextView v) {
+    private void valueLabelRefresh(final int c, final MooshimeterDevice mMeter, final TextView v,final TextView v_unit) {
         final boolean ac = mMeter.disp_ac[c];
         double val;
         int lsb_int;
@@ -485,11 +485,11 @@ public class ScanActivity extends FragmentActivity {
         else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
 
         final String label_text;
+        final String unit_text;
 
         if( mMeter.disp_hex[c]) {
             lsb_int &= 0x00FFFFFF;
             label_text = String.format("0x%06X", lsb_int);
-
         } else {
             // If at the edge of your range, say overload
             // Remember the bounds are asymmetrical
@@ -505,10 +505,14 @@ public class ScanActivity extends FragmentActivity {
                 label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
             }
         }
+
+        unit_text = mMeter.getUnits(c);
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 v.setText(label_text);
+                v_unit.setText(unit_text);
             }
         });
     }
@@ -564,6 +568,8 @@ public class ScanActivity extends FragmentActivity {
                     // Copy the text over from the last incarnation
                     ((TextView)vg.findViewById(R.id.ch1_value_label)).setText(((TextView)mViews.get(position).findViewById(R.id.ch1_value_label)).getText());
                     ((TextView)vg.findViewById(R.id.ch2_value_label)).setText(((TextView)mViews.get(position).findViewById(R.id.ch2_value_label)).getText());
+                    ((TextView)vg.findViewById(R.id.ch1_unit_label)).setText(((TextView)mViews.get(position).findViewById(R.id.ch1_unit_label)).getText());
+                    ((TextView)vg.findViewById(R.id.ch2_unit_label)).setText(((TextView)mViews.get(position).findViewById(R.id.ch2_unit_label)).getText());
                 }
                 mViews.put(position,vg);
                 if(!m.isNotificationEnabled(m.getChar(MooshimeterDevice.mUUID.METER_SAMPLE))) {
@@ -572,8 +578,10 @@ public class ScanActivity extends FragmentActivity {
                         public void run() {
                             TextView ch1 = (TextView)mViews.get(position).findViewById(R.id.ch1_value_label);
                             TextView ch2 = (TextView)mViews.get(position).findViewById(R.id.ch2_value_label);
-                            valueLabelRefresh(0,m, ch1);
-                            valueLabelRefresh(1,m, ch2);
+                            TextView ch1_unit = (TextView)mViews.get(position).findViewById(R.id.ch1_unit_label);
+                            TextView ch2_unit = (TextView)mViews.get(position).findViewById(R.id.ch2_unit_label);
+                            valueLabelRefresh(0,m, ch1, ch1_unit);
+                            valueLabelRefresh(1,m, ch2, ch2_unit);
                         }
                     });
                 }
