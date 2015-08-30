@@ -275,8 +275,13 @@ public class DeviceActivity extends FragmentActivity {
                 // Check if anything changed, and if so apply changes
                 if(!Arrays.equals(save, compare)) {
                     count_since_settings_sent = 0;
-                    mMeter.meter_settings.send();
-                    refreshAllControls();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mMeter.meter_settings.send();
+                            refreshAllControls();
+                        }
+                    });
                 } else {
                     count_since_settings_sent++;
                 }
