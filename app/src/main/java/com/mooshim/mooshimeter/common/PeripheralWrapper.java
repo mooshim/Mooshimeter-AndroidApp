@@ -32,6 +32,7 @@ import android.util.Log;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -154,8 +155,8 @@ public class PeripheralWrapper {
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTING,new ArrayList<Runnable>());
         mConnectionStateCBByHandle = new HashMap<Integer, Runnable>();
 
-        mNotifications = new ConcurrentLinkedQueue<BluetoothGattCharacteristic>();
-        mNotificationValues = new ConcurrentLinkedQueue<byte[]>();
+        mNotifications = new LinkedList<BluetoothGattCharacteristic>();
+        mNotificationValues = new LinkedList<byte[]>();
 
         bleStateCondition    = new StatLockManager(conditionLock);
         bleDiscoverCondition = new StatLockManager(conditionLock);
@@ -178,8 +179,12 @@ public class PeripheralWrapper {
             @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { bleRSSICondition    .l(stat); mRssi = rssi;                bleRSSICondition    .sig();                 bleRSSICondition    .ul();}
             @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         {
                 bleChangedCondition .l(   0);
-                mNotificationValues.add(c.getValue().clone());
-                mNotifications.add(c);
+                synchronized (mNotifications) {
+                    synchronized (mNotificationValues) {
+                        mNotificationValues.add(c.getValue().clone());
+                        mNotifications.add(c);
+                    }
+                }
                 bleChangedCondition .sig();
                 bleChangedCondition .ul();}
         };
@@ -201,12 +206,16 @@ public class PeripheralWrapper {
         // Meant to be run in a thread
         while(!mTerminateFlag) {
             bleChangedCondition.await();
-            while(!mNotifications.isEmpty()) {
-                BluetoothGattCharacteristic c = mNotifications.remove();
-                c.setValue(mNotificationValues.remove());
-                Runnable cb = mNotifyCB.get(c.getUuid());
-                if (cb != null) {
-                    cb.run();
+            synchronized (mNotifications) {
+                synchronized (mNotificationValues) {
+                    while(!mNotifications.isEmpty()) {
+                        BluetoothGattCharacteristic c = mNotifications.remove();
+                        c.setValue(mNotificationValues.remove());
+                        Runnable cb = mNotifyCB.get(c.getUuid());
+                        if (cb != null) {
+                            cb.run();
+                        }
+                    }
                 }
             }
         }
