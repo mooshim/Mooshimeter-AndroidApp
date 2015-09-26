@@ -90,6 +90,9 @@ public class PeripheralWrapper {
 
     // Anything that has to do with the BluetoothGatt needs to go through here
     private int protectedCall(Interruptable r) {
+        if(mTerminateFlag) {
+            Log.e(TAG,"Protected call made after terminate flag set!");
+            return 1; }
         try {
             bleLock.lock();
             conditionLock.lock();
@@ -194,6 +197,8 @@ public class PeripheralWrapper {
         // Meant to be run in a thread
         while(!mTerminateFlag) {
             bleStateCondition.await();
+            if(mConnectionState==BluetoothGatt.STATE_DISCONNECTED) {
+                mTerminateFlag = true; }
             List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
             for(Runnable cb : cbs) {
                 cb.run();

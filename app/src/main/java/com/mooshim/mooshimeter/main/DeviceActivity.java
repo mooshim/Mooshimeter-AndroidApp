@@ -56,6 +56,7 @@ package com.mooshim.mooshimeter.main;
 
 import java.util.Arrays;
 
+import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
@@ -257,6 +258,13 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void onMeterInitialized() {
+        mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+            @Override
+            public void run() {
+                setResult(RESULT_OK);
+                finish();
+            }
+        });
         mMeter.playSampleStream(new Runnable() {
             @Override
             public void run() {
