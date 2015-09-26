@@ -153,8 +153,6 @@ public class DeviceActivity extends FragmentActivity {
         zero_button = (Button) findViewById(R.id.zero_button);
 	}
 
-
-
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
@@ -319,12 +317,6 @@ public class DeviceActivity extends FragmentActivity {
 		setBusy(false);
 		Toast.makeText(this, txt, Toast.LENGTH_LONG).show();
 	}
-
-	private void setStatus(String txt) {
-		Toast.makeText(this, txt, Toast.LENGTH_SHORT).show();
-	}
-
-
 
     /////////////////////////
     // Widget Refreshers
