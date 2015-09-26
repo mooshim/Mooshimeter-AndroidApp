@@ -92,7 +92,12 @@ public class PeripheralWrapper {
     private int protectedCall(Interruptable r) {
         if(mTerminateFlag) {
             Log.e(TAG,"Protected call made after terminate flag set!");
+            Log.e(TAG, Log.getStackTraceString(new Exception()));
             return 1; }
+        if(Util.inMainThread()) {
+            Log.e(TAG,"Protected call made from main thread!  Not recommended!");
+            Log.e(TAG, Log.getStackTraceString(new Exception()));
+        }
         try {
             bleLock.lock();
             conditionLock.lock();

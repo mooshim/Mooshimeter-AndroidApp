@@ -22,6 +22,7 @@ package com.mooshim.mooshimeter.main;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -548,10 +549,17 @@ public class ScanActivity extends FragmentActivity {
                    || m.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
                     m.disconnect();
                 } else {
+                    int rval;
                     setStatus("Connecting...");
-                    m.connect();
+                    rval = m.connect();
+                    if(BluetoothGatt.GATT_SUCCESS != rval ) {
+                        setStatus(String.format("Connection failed.  Status: %d", rval));
+                        return; }
                     setStatus("Discovering Services...");
-                    m.discover();
+                    rval = m.discover();
+                    if(BluetoothGatt.GATT_SUCCESS != rval ) {
+                        setStatus(String.format("Discovery failed.  Status: %d", rval));
+                        return; }
                     setStatus("Connected!");
                     startSingleMeterActivity(m);
                 }
