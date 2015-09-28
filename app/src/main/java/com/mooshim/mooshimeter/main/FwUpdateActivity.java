@@ -246,6 +246,18 @@ public class FwUpdateActivity extends Activity {
             public void run() {
                 mWatchdog.feed();
                 blockPacer.release();
+                mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
+                final short rb = mProgInfo.requestedBlock;
+                Log.d(TAG,"Meter requested block " + rb);
+                if(rb%32==0) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mProgressBar.setProgress((rb * 100) / mProgInfo.nBlocks);
+                            displayStats();
+                        }
+                    });
+                }
             }
         });
         mMeter.oad_identity.enableNotify(true, new Runnable() {
@@ -286,13 +298,6 @@ public class FwUpdateActivity extends Activity {
                         blockPacer.acquire();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
-                    }
-                    mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
-                    final short rb = mProgInfo.requestedBlock;
-                    Log.d(TAG,"Meter requested block " + rb);
-                    if(rb%32==0) {
-                        mProgressBar.setProgress((rb * 100) / mProgInfo.nBlocks);
-                        displayStats();
                     }
                     if(nextBlock == mProgInfo.nBlocks) {
                         // Force restarting of programming when we reach the end.
