@@ -202,24 +202,9 @@ public class FwUpdateActivity extends Activity {
 
     }
 
-    Semaphore blockPacer = new Semaphore(3);
+    Semaphore blockPacer = new Semaphore(8);
     static short nextBlock = 0;
-    Handler mBlockHandler;
-    short lastStuckBlock = 0;
-    final Runnable stuckChecker = new Runnable() {
-        @Override
-        public void run() {
-            final short rb = mMeter.oad_block.requestedBlock;
-            if(rb == lastStuckBlock) {
-                Log.e(TAG,"STUCK ON BLOCK " + rb);
-                Log.e(TAG,"Recovering...");
-                nextBlock = rb;
-                programBlock(nextBlock++);
-            }
-            lastStuckBlock = rb;
-            mBlockHandler.postDelayed(this, 2000);
-        }
-    };
+    static boolean in_recovery;
 
     ////////////////////////////////
     // State transitions
@@ -230,6 +215,7 @@ public class FwUpdateActivity extends Activity {
             Log.e(TAG, "startProgramming called, but programming already underway!");
             return;
         }
+        in_recovery = false;
         mLog.append("Programming started\n");
         mProgramming = true;
         nextBlock = 0;
@@ -240,15 +226,34 @@ public class FwUpdateActivity extends Activity {
         // Update connection parameters
         //mMeter.setConnectionInterval((short) 20, (short) 1000);
 
+        final Handler delayed_poster = new Handler();
+
         // Send image notification
         mMeter.oad_block.enableNotify(true,new Runnable() {
             @Override
             public void run() {
                 mWatchdog.feed();
-                blockPacer.release();
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG,"Meter requested block " + rb);
+                if(!in_recovery && rb+10 < nextBlock) {
+                    // Something went wrong and we've skipped ahead
+                    Log.e(TAG,"ERROR: Meter requested discontinuous block: " + rb);
+                    nextBlock = rb;
+                    in_recovery = true;
+                }
+                if(in_recovery) {
+                    // Give a 500ms delay for the BLE stack to catch up and clear
+                    delayed_poster.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            blockPacer.release();
+                            in_recovery = false;
+                        }
+                    }, 500);
+                } else {
+                    blockPacer.release();
+                }
                 if(rb%32==0) {
                     runOnUiThread(new Runnable() {
                         @Override
@@ -257,6 +262,9 @@ public class FwUpdateActivity extends Activity {
                             displayStats();
                         }
                     });
+                }
+                if(rb == mProgInfo.nBlocks - 1) {
+
                 }
             }
         });
@@ -271,8 +279,7 @@ public class FwUpdateActivity extends Activity {
         mMeter.oad_identity.send();
         // Initialize stats
         mProgInfo.reset();
-        mBlockHandler = new Handler();
-        mBlockHandler.postDelayed(stuckChecker, 2000);
+        final Handler delay_handler = new Handler();
         mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
             public void run() {
@@ -280,16 +287,18 @@ public class FwUpdateActivity extends Activity {
                     @Override
                     public void run() {
                         stopProgramming();
+                        mLog.append("Meter disconnected.  Exiting...\n");
                     }
                 });
+                delay_handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        setResult(RESULT_OK);
+                        finish();
+                    }
+                }, 3000);
             }
         });
-        // We need to sleep to allow the underlying layer
-        try {
-            Thread.sleep(100,0);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -299,27 +308,13 @@ public class FwUpdateActivity extends Activity {
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    if(nextBlock == mProgInfo.nBlocks) {
-                        // Force restarting of programming when we reach the end.
-                        // The end condition should be that the device automatically disconnects
-                        nextBlock = 0;
-                    } else {
+                    if(nextBlock != mProgInfo.nBlocks) {
                         programBlock(nextBlock++);
                     }
                 }
             }
         });
         t.start();
-        //programBlock(nextBlock++);
-        //programBlock((short)0);
-        //programBlock((short)1);
-        /*if (error != BluetoothGatt.GATT_SUCCESS) {
-            Log.e(TAG, "Error sending identify");
-        } else {
-            // Initialize stats
-            mProgInfo.reset();
-            programBlock((short)0);
-        }*/
     }
 
     private void stopProgramming() {
@@ -327,14 +322,17 @@ public class FwUpdateActivity extends Activity {
             Log.e(TAG, "stopProgramming called, but programming already stopped!");
             return;
         }
-        mBlockHandler.removeCallbacks(stuckChecker);
         mWatchdog.stop();
         mProgramming = false;
         mProgressInfo.setText("");
         mProgressBar.setProgress(0);
         updateStartButton();
 
-        if (mProgInfo.requestedBlock == mProgInfo.nBlocks) {
+        // NOTE: This is not an entirely accurate completion criteria because the meter disconnects
+        // as soon as it receives the final block.  Since the blocks are sent in gangs, we may not
+        // receive confirmation notifications on the last 4-5 blocks, otherwise I would just check
+        // mProgInfo.requestedBlock here instead of nextBlock
+        if ( nextBlock == mProgInfo.nBlocks ) {
             mLog.append("Programming complete!\n");
         } else {
             mLog.append("Programming cancelled\n");
