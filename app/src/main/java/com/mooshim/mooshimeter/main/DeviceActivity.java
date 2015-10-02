@@ -486,23 +486,32 @@ public class DeviceActivity extends FragmentActivity {
                     }
                     break;
                 case RESISTANCE:
-                    switch((channel_setting & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK) | (measure_setting & MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_LVL)) {
-                        case 0x12:
+                    switch((channel_setting & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK) | (measure_setting & (MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_LVL|MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON))) {
+                        case 0x13:
                             lval = "10kΩ";
                             break;
-                        case 0x42:
+                        case 0x43:
                             lval = "2.5kΩ";
                             break;
-                        case 0x62:
+                        case 0x63:
                             lval = "1kΩ";
                             break;
-                        case 0x10:
+                        case 0x12:
+                            lval = "250kΩ";
+                            break;
+                        case 0x42:
+                            lval = "100kΩ";
+                            break;
+                        case 0x62:
+                            lval = "25kΩ";
+                            break;
+                        case 0x11:
                             lval = "10MΩ";
                             break;
-                        case 0x40:
+                        case 0x41:
                             lval = "2.5MΩ";
                             break;
-                        case 0x60:
+                        case 0x61:
                             lval = "1MΩ";
                             break;
                     }
@@ -578,29 +587,6 @@ public class DeviceActivity extends FragmentActivity {
                 clearOffsets();
                 break;
         }
-    }
-
-    byte pga_cycle(byte chx_set) {
-        // FIXME: Shouldn't have two separate pga_cycle routines (main is in MooshimeterDevice)
-        byte tmp;
-        tmp = (byte)(chx_set & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK);
-        tmp >>=4;
-        switch(tmp) {
-            case 1:
-                tmp=4;
-                break;
-            case 4:
-                tmp=6;
-                break;
-            case 6:
-            default:
-                tmp=1;
-                break;
-        }
-        tmp <<= 4;
-        chx_set &=~MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK;
-        chx_set |= tmp;
-        return chx_set;
     }
 
     private void onDisplaySetClick(int c) {
@@ -688,56 +674,12 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void onRangeClick(int c) {
-        byte channel_setting = mMeter.meter_settings.chset[c];
-        byte tmp;
-
         if(mMeter.disp_range_auto[c]) {
             return;
         }
 
-        switch(channel_setting & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK) {
-            case 0x00:
-                // Electrode input
-                switch(c) {
-                    case 0:
-                        // We are measuring current.  We can boost PGA, but that's all.
-                        channel_setting = pga_cycle(channel_setting);
-                        break;
-                    case 1:
-                        // Switch the ADC GPIO to activate dividers
-                        tmp = (byte)((mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_GPIO_MASK)>>4);
-                        tmp++;
-                        tmp %= 3;
-                        tmp<<=4;
-                        mMeter.meter_settings.adc_settings &= ~MooshimeterDevice.ADC_SETTINGS_GPIO_MASK;
-                        mMeter.meter_settings.adc_settings |= tmp;
-                        channel_setting &= ~MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK;
-                        channel_setting |= 0x10;
-                        break;
-                }
-                break;
-            case 0x04:
-                // Temp input
-                break;
-            case 0x09:
-                switch(mMeter.disp_ch3_mode) {
-                case VOLTAGE:
-                    channel_setting = pga_cycle(channel_setting);
-                    break;
-                case RESISTANCE:
-                case DIODE:
-                    channel_setting = pga_cycle(channel_setting);
-                    tmp = (byte)(channel_setting & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK);
-                    tmp >>=4;
-                    if(tmp == 1) {
-                        // Change the current source setting
-                        mMeter.meter_settings.measure_settings ^= MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_LVL;
-                    }
-                    break;
-            }
-            break;
-        }
-        mMeter.meter_settings.chset[c] = channel_setting;
+        mMeter.bumpRange(c,true,true);
+
         mMeter.meter_settings.send();
         refreshAllControls();
     }

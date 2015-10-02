@@ -798,7 +798,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
     /**
      * Reads a channel PGA setting and shifts the PGA gain
      * @param chx_set   Either the CH1SET or CH2SET register
-     * @param inc       Whether to shift the gain up or down
+     * @param inc       If true, PGA gain will be lowered (expanding the range) and vice versa
      * @param wrap      If at a maximum or minimum gain, whether to wrap over to the other side of the range
      * @return          The modified CHXSET register
      */
@@ -907,13 +907,38 @@ public class MooshimeterDevice extends PeripheralWrapper {
         return 0;
     }
 
+    int getResLvl() {
+        int rval = meter_settings.measure_settings & (METER_MEASURE_SETTINGS_ISRC_ON|METER_MEASURE_SETTINGS_ISRC_LVL);
+        return rval;
+    }
+    void  setResLvl(int new_lvl) {
+        meter_settings.measure_settings &=~(METER_MEASURE_SETTINGS_ISRC_ON|METER_MEASURE_SETTINGS_ISRC_LVL);
+        meter_settings.measure_settings |= new_lvl;
+    }
+
+    void bumpResLvl(boolean expand, boolean wrap) {
+        int lvl = getResLvl();
+        if(expand) {
+            if(--lvl==0) {
+                if(wrap) {lvl=3;}
+                else     {lvl++;}
+            }
+        } else {
+            if(++lvl==4) {
+                if(wrap) {lvl=1;}
+                else     {lvl--;}
+            }
+        }
+        setResLvl(lvl);
+    }
+
     /**
      * Changes the measurement settings for a channel to expand or contract the measurement range
      * @param channel   The channel index (0 or 1)
-     * @param raise     Expand (true) or contract (false)
+     * @param expand    Expand (true) or contract (false) the range.
      * @param wrap      If at a maximum or minimum gain, whether to wrap over to the other side of the range
      */
-    private void bumpRange(int channel, boolean raise, boolean wrap) {
+    public void bumpRange(int channel, boolean expand, boolean wrap) {
         byte channel_setting    = meter_settings.chset[channel];
         int tmp;
 
@@ -923,13 +948,13 @@ public class MooshimeterDevice extends PeripheralWrapper {
                 switch(channel) {
                     case 0:
                         // We are measuring current.  We can boost PGA, but that's all.
-                        channel_setting = pga_cycle(channel_setting,raise,wrap);
+                        channel_setting = pga_cycle(channel_setting,expand,wrap);
                         break;
                     case 1:
                         // Switch the ADC GPIO to activate dividers
                         // NOTE: Don't bother with the 1.2V range for now.  Having a floating autoranged input leads to glitchy behavior.
                         tmp = (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK)>>4;
-                        if(raise) {
+                        if(expand) {
                             if(++tmp >= 3) {
                                 if(wrap){tmp=1;}
                                 else    {tmp--;}
@@ -954,21 +979,41 @@ public class MooshimeterDevice extends PeripheralWrapper {
             case 0x09:
                 switch(disp_ch3_mode) {
                 case VOLTAGE:
-                    channel_setting = pga_cycle(channel_setting,raise,wrap);
+                    channel_setting = pga_cycle(channel_setting,expand,wrap);
                     break;
                 case RESISTANCE:
                 case DIODE:
-                    // This case is annoying.  We want PGA to always wrap if we are in the low range and going up OR in the high range and going down
-                    if( 0 != ((raise?0:METER_MEASURE_SETTINGS_ISRC_LVL) ^ (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL))) {
-                    wrap = true;
-                }
-                channel_setting = pga_cycle(channel_setting,raise,wrap);
-                tmp = channel_setting & METER_CH_SETTINGS_PGA_MASK;
-                tmp >>=4;
-                if(   ( raise && tmp == 6) || (!raise && tmp == 1) ) {
-                    meter_settings.measure_settings ^= METER_MEASURE_SETTINGS_ISRC_LVL;
-                }
-                break;
+                    boolean pga_wrap;
+                    if(meter_info.pcb_version==7) {
+                        // This case is annoying.  We want PGA to always wrap if we are in the low range and going up OR in the high range and going down
+                        if( 0 != ((expand?0:METER_MEASURE_SETTINGS_ISRC_LVL) ^ (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL))) {
+                            wrap = true;
+                        }
+                        channel_setting = pga_cycle(channel_setting,expand,wrap);
+                        tmp = channel_setting & METER_CH_SETTINGS_PGA_MASK;
+                        tmp >>=4;
+                        if(   ( expand && tmp == 6) || (!expand && tmp == 1) ) {
+                            meter_settings.measure_settings ^= METER_MEASURE_SETTINGS_ISRC_LVL;
+                        }
+                    } else {
+                        int lvl = getResLvl();
+                        boolean inner_wrap = true;
+                        if(lvl==1) {
+                            // Res src is 10M
+                            if(expand) {inner_wrap = wrap;}
+                        } else if(lvl==3) {
+                            // Res src is 10k
+                            if(!expand) {inner_wrap = wrap;}
+                        }
+                        channel_setting = pga_cycle(channel_setting,expand,inner_wrap);
+                        tmp = channel_setting & METER_CH_SETTINGS_PGA_MASK;
+                        tmp >>=4;
+                        if( (expand && tmp == 6) || (!expand && tmp == 1)) {
+                            // The PGA wrapped, bump the macro range
+                            bumpResLvl(expand, wrap);
+                        }
+                    }
+                    break;
             }
             break;
         }
