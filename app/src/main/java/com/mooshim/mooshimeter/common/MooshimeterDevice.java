@@ -890,16 +890,58 @@ public class MooshimeterDevice extends PeripheralWrapper {
                     break;
                 case RESISTANCE:
                 case DIODE:
-                    switch(pga_setting) {
-                        case 0x60:
-                            if(0==(meter_settings.measure_settings&METER_MEASURE_SETTINGS_ISRC_LVL))
-                            {return (int)(0.012*(1<<22));}
-                            else {return 0;}
-                        case 0x40:
-                            return (int)(0.33*(1<<22));
-                        case 0x10:
-                            return (int)(0.25*(1<<22));
+                    if(meter_info.pcb_version==7) {
+                        switch(pga_setting) {
+                            case 0x60:
+                                if(0==(meter_settings.measure_settings&METER_MEASURE_SETTINGS_ISRC_LVL))
+                                {return (int)(0.012*(1<<22));}
+                                else {return 0;}
+                            case 0x40:
+                                return (int)(0.33*(1<<22));
+                            case 0x10:
+                                return (int)(0.25*(1<<22));
+                        }
+                    } else {
+                        // Assuming RevI
+                        int lvl = getResLvl();
+                        switch(lvl) {
+                            case 0:
+                                switch(pga_setting) {
+                                    case 0x60:
+                                        return 0;
+                                    case 0x40:
+                                        return (int) (0.33 * (1 << 22));
+                                    case 0x10:
+                                        return (int) (0.25 * (1 << 22));
+                                }
+                            case 1:
+                                switch(pga_setting) {
+                                    case 0x60:
+                                    case 0x40:
+                                        return (int) (0.33 * (1 << 22));
+                                    case 0x10:
+                                        return (int) (0.25 * (1 << 22));
+                                }
+                            case 2:
+                                switch(pga_setting) {
+                                    case 0x60:
+                                    case 0x40:
+                                        return (int) (0.33 * (1 << 22));
+                                    case 0x10:
+                                        return (int) (0.25 * (1 << 22));
+                                }
+                            case 3:
+                                switch(pga_setting) {
+                                    case 0x60:
+                                        return 0;
+                                    case 0x40:
+                                        return (int) (0.33 * (1 << 22));
+                                    case 0x10:
+                                        return (int) (0.25 * (1 << 22));
+                                }
+                        }
                     }
+
                     break;
             }
             break;
