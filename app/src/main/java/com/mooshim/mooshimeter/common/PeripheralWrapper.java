@@ -38,8 +38,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -108,39 +106,6 @@ public class PeripheralWrapper {
             conditionLock.unlock();
             bleLock.unlock();
             return r.mRval;
-        }
-    }
-
-    private class StatLockManager {
-        private int stat;
-        private Condition con;
-        private Lock lock;
-        public StatLockManager(Lock l) {
-            stat = 0;
-            lock = l;
-            con = l.newCondition();
-        }
-        public void l() {
-            lock.lock();
-        }
-        public void l(int newstat) {
-            l();
-            stat = newstat;
-        }
-        public void ul() {
-            lock.unlock();
-        }
-        public void sig() {
-            con.signalAll();
-        }
-        public void await() {
-            try {
-                l();
-                con.await();
-                ul();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
     }
     
