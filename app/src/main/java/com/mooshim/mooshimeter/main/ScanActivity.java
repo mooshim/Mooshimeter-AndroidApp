@@ -44,6 +44,7 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -319,20 +320,25 @@ public class ScanActivity extends FragmentActivity {
                 // We need to create a new value pane
                 wrapper.addView(mInflater.inflate(R.layout.element_mm_readingsbar, mDeviceScrollView, false));
             }
-            if(!d.isNotificationEnabled(d.getChar(MooshimeterDevice.mUUID.METER_SAMPLE))) {
-                // We need to enable notifications
-                d.playSampleStream(new Runnable() {
-                    @Override
-                    public void run() {
-                        TextView ch1 = (TextView)wrapper.findViewById(R.id.ch1_value_label);
-                        TextView ch2 = (TextView)wrapper.findViewById(R.id.ch2_value_label);
-                        TextView ch1_unit = (TextView)wrapper.findViewById(R.id.ch1_unit_label);
-                        TextView ch2_unit = (TextView)wrapper.findViewById(R.id.ch2_unit_label);
-                        valueLabelRefresh(0,d, ch1, ch1_unit);
-                        valueLabelRefresh(1,d, ch2, ch2_unit);
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    if(!d.isNotificationEnabled(d.getChar(MooshimeterDevice.mUUID.METER_SAMPLE))) {
+                        // We need to enable notifications
+                        d.playSampleStream(new Runnable() {
+                            @Override
+                            public void run() {
+                                TextView ch1 = (TextView)wrapper.findViewById(R.id.ch1_value_label);
+                                TextView ch2 = (TextView)wrapper.findViewById(R.id.ch2_value_label);
+                                TextView ch1_unit = (TextView)wrapper.findViewById(R.id.ch1_unit_label);
+                                TextView ch2_unit = (TextView)wrapper.findViewById(R.id.ch2_unit_label);
+                                valueLabelRefresh(0,d, ch1, ch1_unit);
+                                valueLabelRefresh(1,d, ch2, ch2_unit);
+                            }
+                        });
                     }
-                });
-            }
+                }
+            });
         } else {
             //We are representing a disconnected meter or a meter in OAD mode
             if(wrapper.getChildCount() == 2) {

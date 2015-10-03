@@ -55,6 +55,11 @@
 package com.mooshim.mooshimeter.main;
 
 import java.util.Arrays;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
@@ -197,7 +202,12 @@ public class DeviceActivity extends FragmentActivity {
         Log.d(TAG, "onPause");
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        mMeter.pauseStream();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.pauseStream();
+            }
+        });
     }
 
 	@Override
@@ -245,7 +255,12 @@ public class DeviceActivity extends FragmentActivity {
                 if(!trend_view_running) {
                     Log.i(TAG, "Starting trend view.");
                     trend_view_running = true;
-                    mMeter.pauseStream();
+                    Util.dispatch(new Runnable() {
+                        @Override
+                        public void run() {
+                            mMeter.pauseStream();
+                        }
+                    });
                     startTrendActivity();
                 }
                 break;
@@ -263,38 +278,43 @@ public class DeviceActivity extends FragmentActivity {
                 finish();
             }
         });
-        mMeter.playSampleStream(new Runnable() {
+        Util.dispatch(new Runnable() {
             @Override
             public void run() {
-                valueLabelRefresh(0);
-                valueLabelRefresh(1);
+                mMeter.playSampleStream(new Runnable() {
+                    @Override
+                    public void run() {
+                        valueLabelRefresh(0);
+                        valueLabelRefresh(1);
 
-                // Handle autoranging
-                // Save a local copy of settings
-                byte[] save = mMeter.meter_settings.pack();
-                // This switch provides settling time
-                if(count_since_settings_sent > 0) {
-                    mMeter.applyAutorange();
-                }
-                byte[] compare = mMeter.meter_settings.pack();
-                // TODO: There must be a more efficient way to do this.  But I think like a c-person
-                // Check if anything changed, and if so apply changes
-                if(!Arrays.equals(save, compare)) {
-                    count_since_settings_sent = 0;
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mMeter.meter_settings.send();
-                            refreshAllControls();
+                        // Handle autoranging
+                        // Save a local copy of settings
+                        byte[] save = mMeter.meter_settings.pack();
+                        // This switch provides settling time
+                        if(count_since_settings_sent > 0) {
+                            mMeter.applyAutorange();
                         }
-                    });
-                } else {
-                    count_since_settings_sent++;
-                }
+                        byte[] compare = mMeter.meter_settings.pack();
+                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
+                        // Check if anything changed, and if so apply changes
+                        if(!Arrays.equals(save, compare)) {
+                            count_since_settings_sent = 0;
+                            Util.dispatch(new Runnable() {
+                                @Override
+                                public void run() {
+                                    mMeter.meter_settings.send();
+                                }
+                            });
+                            refreshAllControls();
+                        } else {
+                            count_since_settings_sent++;
+                        }
+                    }
+                });
+                Log.i(TAG,"Stream requested");
+                refreshAllControls();
             }
         });
-        Log.i(TAG,"Stream requested");
-        refreshAllControls();
     }
 
 	private void startPreferenceActivity() {
@@ -628,7 +648,12 @@ public class DeviceActivity extends FragmentActivity {
             }
             break;
         }
-        mMeter.meter_settings.send();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.meter_settings.send();
+            }
+        });
         refreshAllControls();
     }
 
@@ -664,7 +689,12 @@ public class DeviceActivity extends FragmentActivity {
                 break;
         }
         mMeter.meter_settings.chset[c] = setting;
-        mMeter.meter_settings.send();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.meter_settings.send();
+            }
+        });
         refreshAllControls();
     }
 
@@ -680,7 +710,12 @@ public class DeviceActivity extends FragmentActivity {
 
         mMeter.bumpRange(c,true,true);
 
-        mMeter.meter_settings.send();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.meter_settings.send();
+            }
+        });
         refreshAllControls();
     }
 
@@ -752,7 +787,13 @@ public class DeviceActivity extends FragmentActivity {
             rate_setting %= 7;
             mMeter.meter_settings.adc_settings &= ~MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK;
             mMeter.meter_settings.adc_settings |= rate_setting;
-            mMeter.meter_settings.send();
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    mMeter.meter_settings.send();
+                }
+            });
+
             refreshAllControls();
         }
     }
@@ -764,7 +805,12 @@ public class DeviceActivity extends FragmentActivity {
         } else {
             mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_OFF;
         }
-        mMeter.meter_log_settings.send();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.meter_log_settings.send();
+            }
+        });
         refreshAllControls();
     }
 
@@ -784,7 +830,12 @@ public class DeviceActivity extends FragmentActivity {
             depth_setting %= 9;
             mMeter.meter_settings.calc_settings &= ~MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2;
             mMeter.meter_settings.calc_settings |= depth_setting;
-            mMeter.meter_settings.send();
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    mMeter.meter_settings.send();
+                }
+            });
             refreshAllControls();
         }
     }
