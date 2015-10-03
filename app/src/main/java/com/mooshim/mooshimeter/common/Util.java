@@ -21,11 +21,30 @@ package com.mooshim.mooshimeter.common;
 
 import android.os.Looper;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 /**
- * Created by First on 9/26/2015.
+ * Created by JWhong on 9/26/2015.
  */
 public class Util {
+
+    // Worker thread
+    private static final BlockingQueue<Runnable> worker_tasks = new LinkedBlockingQueue<Runnable>();
+    private static final ExecutorService worker = new ThreadPoolExecutor(
+            1,  // Number of worker threads to run
+            1,  // Maximum number of worker threads to run
+            1,  // Timeout
+            TimeUnit.SECONDS, // Timeout units
+            worker_tasks // Queue of runnables
+    );
     static boolean inMainThread() {
         return Looper.getMainLooper().getThread() == Thread.currentThread();
+    }
+    public static void dispatch(Runnable r) {
+        worker.execute(r);
     }
 }
