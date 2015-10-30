@@ -1072,6 +1072,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public static final int METER_CALC_SETTINGS_MEAN       = 0x10;
     public static final int METER_CALC_SETTINGS_ONESHOT    = 0x20;
     public static final int METER_CALC_SETTINGS_MS         = 0x40;
+    public static final int METER_CALC_SETTINGS_RES        = 0x80;
     
     public static final int ADC_SETTINGS_SAMPLERATE_MASK = 0x07;
     public static final int ADC_SETTINGS_GPIO_MASK = 0x30;

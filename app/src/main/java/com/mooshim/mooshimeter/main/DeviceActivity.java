@@ -566,8 +566,17 @@ public class DeviceActivity extends FragmentActivity {
                     || lsb_int < lower_limit_lsb ) {
                 label_text = "OVERLOAD";
             } else {
-                // TODO: implement these methods and revive this segment of code
-                val = mMeter.lsbToNativeUnits(lsb_int, c);
+                // FIXME: Resistance measurement completely breaks all our idioms because it is presented
+                // by the meter in native units AND as LSB.  This is a transitional issue... future firmware
+                // versions will be sending native units across the link, but we're stuck in the in-between
+                // right now.
+                if(     0x09==(mMeter.meter_settings.chset[c]&MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)
+                    &&  0x00!=(mMeter.meter_settings.calc_settings&MooshimeterDevice.METER_CALC_SETTINGS_RES) ) {
+                    // FIXME: We're packing the calculated resistance in to the mean-square field!
+                    val = mMeter.meter_sample.reading_ms[c];
+                } else {
+                    val = mMeter.lsbToNativeUnits(lsb_int, c);
+                }
                 label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
             }
         }
@@ -591,9 +600,6 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void cycleCH3Mode() {
-        // Java enums don't have integer values associated with them
-        // so I must explicitly build this state machine
-        // TODO: Someone who knows java better fix this
         switch(mMeter.disp_ch3_mode) {
             case VOLTAGE:
                 mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.RESISTANCE;
@@ -638,12 +644,16 @@ public class DeviceActivity extends FragmentActivity {
             switch(mMeter.disp_ch3_mode) {
                 case VOLTAGE:
                     mMeter.meter_settings.measure_settings &=~MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON;
+                    mMeter.meter_settings.measure_settings &=~MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_LVL;
+                    mMeter.meter_settings.calc_settings    &=~MooshimeterDevice.METER_CALC_SETTINGS_RES;
                     break;
                 case RESISTANCE:
                     mMeter.meter_settings.measure_settings |= MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON;
+                    mMeter.meter_settings.calc_settings    |= MooshimeterDevice.METER_CALC_SETTINGS_RES;
                     break;
                 case DIODE:
                     mMeter.meter_settings.measure_settings |= MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON;
+                    mMeter.meter_settings.calc_settings    &=~MooshimeterDevice.METER_CALC_SETTINGS_RES;
                     break;
             }
             break;

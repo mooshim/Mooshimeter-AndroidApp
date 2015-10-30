@@ -594,8 +594,15 @@ public class ScanActivity extends FragmentActivity {
         final String unit_text;
 
         if( mMeter.disp_hex[c]) {
+            // If we've been requested to just show the raw hex
             lsb_int &= 0x00FFFFFF;
             label_text = String.format("0x%06X", lsb_int);
+        } else if (MooshimeterDevice.METER_CALC_SETTINGS_RES == (mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_RES)
+                && 0x09 == (mMeter.meter_settings.chset[c] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)) {
+            //Resistance
+            // FIXME: lsbToNativeUnits doesn't even look at lsb_int in this context...
+            val = mMeter.lsbToNativeUnits(lsb_int, c);
+            label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
         } else {
             // If at the edge of your range, say overload
             // Remember the bounds are asymmetrical
