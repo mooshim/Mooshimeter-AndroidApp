@@ -752,45 +752,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
         return retval;
     }
 
-    /**
-     * DOES NOT WORK DUE TO ANDROID BLE BUG
-     * Shuts down the meter and immediately reconnects, aiming to reconnect while the mooshimeter is in OAD mode
-     * @param cb
-     */
-    /*
-    public void reconnectInOADMode(final Runnable cb) {
-        final Handler mainHandler = new Handler(Looper.getMainLooper());
-        // Reboot the meter and reconnect
-        meter_settings.target_meter_state = METER_SHUTDOWN;
-        // The meter shuts down immediately upon receiving the setting change, don't expect a response
-        //mBLEUtil.setDisconnectCB(null);
-        meter_settings.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-        mainHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                meter_settings.send( null );
-            }
-        });
-        mainHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mPeri.disconnect();
-            }
-        }, 200);
-        mainHandler.postDelayed( new Runnable() {
-            @Override
-            public void run() {
-                mBLEUtil.connect(mBLEUtil.getBTAddress(), new BLEUtil.BLEUtilCB() {
-                    @Override
-                    public void run() {
-                        cb.run();
-                    }
-                });
-            }
-        }, 1200 );
-    }
-    */
-
     //////////////////////////////////////
     // Autoranging
     //////////////////////////////////////
