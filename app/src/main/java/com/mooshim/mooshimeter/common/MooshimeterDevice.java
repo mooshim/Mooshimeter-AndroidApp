@@ -416,6 +416,26 @@ public class MooshimeterDevice extends PeripheralWrapper {
             name = new String(in);
         }
     }
+    public class MeterTime        extends MeterStructure {
+        public long utc_time;
+
+        @Override
+        public UUID getUUID() { return mUUID.METER_UTC_TIME; }
+
+        @Override
+        public byte[] pack() {
+            ByteBuffer b = wrap(new byte[4]);
+            b.putInt((int) utc_time);
+            return b.array();
+        }
+        @Override
+        public void unpack(final byte[] in) {
+            ByteBuffer b = wrap(in);
+            utc_time = b.getInt();
+            // Prevent sign extension since Java will assume the int being unpacked is signed
+            utc_time &= 0xFFFFFFFF;
+        }
+    }
     // FIXME: The channel buffer system uses a lot of repeated code.  Really should be merged on the firmware side.
     public class MeterCH1Buf      extends MeterStructure {
         public int buf_i = 0;
@@ -601,6 +621,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public MeterName        meter_name;
     public MeterCH1Buf      meter_ch1_buf;
     public MeterCH2Buf      meter_ch2_buf;
+    public MeterTime        meter_time;
 
     public OADIdentity      oad_identity;
     public OADBlock         oad_block;
@@ -619,6 +640,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         meter_sample        = new MeterSample();
         meter_ch1_buf       = new MeterCH1Buf();
         meter_ch2_buf       = new MeterCH2Buf();
+        meter_time          = new MeterTime();
 
         oad_identity        = new OADIdentity();
         oad_block           = new OADBlock();
@@ -636,6 +658,10 @@ public class MooshimeterDevice extends PeripheralWrapper {
             meter_log_settings.update();
             meter_info.update();
             meter_name.update();
+
+            // Automatically sync the meter's clock to the phone clock
+            meter_time.utc_time = System.currentTimeMillis()/1000;
+            meter_time.send();
         }
         mInitialized = true;
         return rval;
@@ -986,7 +1012,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
                     break;
                 case RESISTANCE:
                 case DIODE:
-                    boolean pga_wrap;
                     if(meter_info.pcb_version==7) {
                         // This case is annoying.  We want PGA to always wrap if we are in the low range and going up OR in the high range and going down
                         if( 0 != ((expand?0:METER_MEASURE_SETTINGS_ISRC_LVL) ^ (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL))) {
