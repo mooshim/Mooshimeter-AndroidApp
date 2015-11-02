@@ -571,7 +571,8 @@ public class DeviceActivity extends FragmentActivity {
                 // versions will be sending native units across the link, but we're stuck in the in-between
                 // right now.
                 if(     0x09==(mMeter.meter_settings.chset[c]&MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)
-                    &&  0x00!=(mMeter.meter_settings.calc_settings&MooshimeterDevice.METER_CALC_SETTINGS_RES) ) {
+                        &&  (mMeter.meter_info.build_time > 1445139447)  // And we have a firmware version late enough that the resistance is calculated in firmware
+                        &&  0x00!=(mMeter.meter_settings.calc_settings&MooshimeterDevice.METER_CALC_SETTINGS_RES) ) {
                     // FIXME: We're packing the calculated resistance in to the mean-square field!
                     val = mMeter.meter_sample.reading_ms[c];
                 } else {

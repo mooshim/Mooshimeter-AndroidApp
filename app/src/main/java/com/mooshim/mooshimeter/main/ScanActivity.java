@@ -598,6 +598,7 @@ public class ScanActivity extends FragmentActivity {
             lsb_int &= 0x00FFFFFF;
             label_text = String.format("0x%06X", lsb_int);
         } else if (MooshimeterDevice.METER_CALC_SETTINGS_RES == (mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_RES)
+                &&  (mMeter.meter_info.build_time > 1445139447)  // And we have a firmware version late enough that the resistance is calculated in firmware
                 && 0x09 == (mMeter.meter_settings.chset[c] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)) {
             //Resistance
             // FIXME: lsbToNativeUnits doesn't even look at lsb_int in this context...
