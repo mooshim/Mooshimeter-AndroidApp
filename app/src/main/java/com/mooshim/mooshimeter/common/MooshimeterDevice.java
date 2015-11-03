@@ -24,6 +24,7 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.util.Log;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
@@ -143,7 +144,13 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * you must wait for cb to be called.
          */
         public void update() {
-            unpack(mInstance.req(getUUID()));
+            try {
+                unpack(mInstance.req(getUUID()));
+            }
+            catch(BufferUnderflowException e){
+                Log.e(TAG,"Received incorrect pack length while unpacking!");
+                Log.e(TAG, Log.getStackTraceString(new Exception()));
+            }
         }
         /**
          * Sends the struct to the Mooshimeter, unpacks the response in to the
@@ -164,9 +171,19 @@ public class MooshimeterDevice extends PeripheralWrapper {
             return mInstance.enableNotify(getUUID(),enable,new Runnable() {
                 @Override
                 public void run() {
-                    unpack(mInstance.getChar(getUUID()).getValue());
-                    if(on_notify!=null) {
-                        on_notify.run();
+                    boolean success = true;
+                    try {
+                        unpack(mInstance.getChar(getUUID()).getValue());
+                    }
+                    catch(BufferUnderflowException e){
+                        success = false;
+                        Log.e(TAG,"Received incorrect pack length while unpacking!");
+                        Log.e(TAG, Log.getStackTraceString(new Exception()));
+                    }
+                    finally {
+                        if(success && on_notify!=null) {
+                            on_notify.run();
+                        }
                     }
                 }
             });
