@@ -55,11 +55,6 @@
 package com.mooshim.mooshimeter.main;
 
 import java.util.Arrays;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
@@ -578,7 +573,7 @@ public class DeviceActivity extends FragmentActivity {
                 } else {
                     val = mMeter.lsbToNativeUnits(lsb_int, c);
                 }
-                label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
+                label_text = MooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
             }
         }
         runOnUiThread(new Runnable() {
@@ -596,7 +591,7 @@ public class DeviceActivity extends FragmentActivity {
     private void clearOffsets() {
         // If we are switching through a mode change that involves toggling the iSRC
         // we must invalidate the offsets
-        for(int i = 0; i < 3; i++) {mMeter.offsets[i]=0;};
+        for(int i = 0; i < 3; i++) {mMeter.offsets[i]=0;}
         mMeter.offset_on = false;
     }
 

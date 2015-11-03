@@ -32,7 +32,6 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.Toast;
 
 import com.jjoe64.graphview.GraphView;
 import com.jjoe64.graphview.GridLabelRenderer;
@@ -119,7 +118,7 @@ public class TrendActivity extends Activity {
         // Log.d(TAG, "onResume");
         super.onResume();
 
-        getActionBar().hide();
+        if(null!=getActionBar()){getActionBar().hide();}
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         if(!mPlaying) {
@@ -143,7 +142,7 @@ public class TrendActivity extends Activity {
     protected void onPause() {
         // Log.d(TAG, "onPause");
         super.onPause();
-        getActionBar().show();
+        if(null!=getActionBar()){getActionBar().show();}
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 

@@ -60,9 +60,6 @@ public class PeripheralWrapper {
 
     private int connectionStateCBHandle = 0;
 
-    private Thread mConnectionStateManagerThread;
-    private Thread mNotificationManagerThread;
-
     private StatLockManager bleStateCondition    ;
     private StatLockManager bleDiscoverCondition ;
     private StatLockManager bleReadCondition     ;
@@ -75,8 +72,8 @@ public class PeripheralWrapper {
 
     public int mRssi;
     public int mConnectionState;
-    Queue<BluetoothGattCharacteristic> mNotifications;
-    Queue<byte[]> mNotificationValues;
+    final Queue<BluetoothGattCharacteristic> mNotifications;
+    final Queue<byte[]> mNotificationValues;
 
     private class Interruptable implements Callable<Void> {
         public int mRval = 0;
@@ -221,6 +218,9 @@ public class PeripheralWrapper {
     }
 
     public int connect() {
+        final Thread mConnectionStateManagerThread;
+        final Thread mNotificationManagerThread;
+
         if( mConnectionState == BluetoothProfile.STATE_CONNECTED ) {
             return 0;
         }

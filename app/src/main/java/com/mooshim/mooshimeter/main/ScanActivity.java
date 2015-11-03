@@ -73,7 +73,6 @@ public class ScanActivity extends FragmentActivity {
 
     // Housekeeping
     private static final Lock utilLock = new ReentrantLock();
-    private static final Condition scanThreadCondition = utilLock.newCondition();
 
     // GUI Widgets
     private TextView mEmptyMsg;
@@ -83,7 +82,6 @@ public class ScanActivity extends FragmentActivity {
 
     // Flags for the scan logic thread
     private static boolean mScanOngoing = false;
-    private static MooshimeterDevice mConnectionRequester = null;
 
     private LayoutInflater mInflater;
 
@@ -288,7 +286,7 @@ public class ScanActivity extends FragmentActivity {
             } else {
                 name = d.getBLEDevice().getName();
                 if (name == null) {
-                    name = new String("Unknown device");
+                    name = "Unknown device";
                 }
             }
 
@@ -603,7 +601,7 @@ public class ScanActivity extends FragmentActivity {
             //Resistance
             // FIXME: lsbToNativeUnits doesn't even look at lsb_int in this context...
             val = mMeter.lsbToNativeUnits(lsb_int, c);
-            label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
+            label_text = MooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
         } else {
             // If at the edge of your range, say overload
             // Remember the bounds are asymmetrical
@@ -616,7 +614,7 @@ public class ScanActivity extends FragmentActivity {
             } else {
                 // TODO: implement these methods and revive this segment of code
                 val = mMeter.lsbToNativeUnits(lsb_int, c);
-                label_text = mMeter.formatReading(val, mMeter.getSigDigits(c));
+                label_text = MooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
             }
         }
 
@@ -625,6 +623,9 @@ public class ScanActivity extends FragmentActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if(v==null) {
+                    return;
+                }
                 v.setText(label_text);
                 v_unit.setText(unit_text);
             }

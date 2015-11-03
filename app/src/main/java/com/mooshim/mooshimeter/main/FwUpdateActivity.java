@@ -57,7 +57,6 @@ package com.mooshim.mooshimeter.main;
 import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.Html;
@@ -72,21 +71,13 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
-import com.mooshim.mooshimeter.util.Conversion;
 import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 public class FwUpdateActivity extends Activity {
     // Activity
