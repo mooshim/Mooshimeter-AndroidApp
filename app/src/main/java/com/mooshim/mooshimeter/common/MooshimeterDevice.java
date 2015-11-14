@@ -781,10 +781,18 @@ public class MooshimeterDevice extends PeripheralWrapper {
 
         // TODO: Prefixes for units.  This will fail for wrong values of digits
         boolean neg = val<0;
-        int left = digits.high;
-        int right = -1*(digits.high-digits.n_digits);
+        int left  = digits.high;
+        int right = digits.n_digits - digits.high;
         String formatstring = String.format("%s%%0%d.%df",neg?"":" ", left+right+(neg?1:0), right); // To live is to suffer
-        String retval = String.format(formatstring, val);
+        String retval;
+        try {
+            retval = String.format(formatstring, val);
+        } catch ( java.util.UnknownFormatConversionException e ) {
+            // Something went wrong with the string formatting, provide a default and log the error
+            Log.e(TAG, "BAD FORMAT STRING");
+            Log.e(TAG, formatstring);
+            retval = "%f";
+        }
         //Truncate
         retval = retval.substring(0, Math.min(retval.length(), 8));
         return retval;
