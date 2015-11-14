@@ -54,7 +54,7 @@ public class PeripheralWrapper {
     private BluetoothGattCallback mGattCallbacks;
     protected Map<UUID,BluetoothGattService> mServices;
     protected Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
-    private Map<UUID,Runnable> mNotifyCB;
+    private Map<UUID,NotifyCallback> mNotifyCB;
     private HashMap<Integer, List<Runnable>> mConnectionStateCB;
     private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
 
@@ -74,6 +74,10 @@ public class PeripheralWrapper {
     public int mConnectionState;
     final Queue<BluetoothGattCharacteristic> mNotifications;
     final Queue<byte[]> mNotificationValues;
+
+    public abstract class NotifyCallback implements Runnable {
+        public byte[] payload = null;
+    }
 
     private class Interruptable implements Callable<Void> {
         public int mRval = 0;
@@ -114,7 +118,7 @@ public class PeripheralWrapper {
 
         mCharacteristics   = new HashMap<UUID, BluetoothGattCharacteristic>();
         mServices          = new HashMap<UUID, BluetoothGattService>();
-        mNotifyCB          = new HashMap<UUID, Runnable>();
+        mNotifyCB          = new HashMap<UUID, NotifyCallback>();
         mConnectionStateCB = new HashMap<Integer, List<Runnable>>();
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTED,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTING,new ArrayList<Runnable>());
@@ -145,14 +149,18 @@ public class PeripheralWrapper {
             @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { bleRWriteCondition  .l(stat);                              bleRWriteCondition  .sig(); bleRWriteCondition  .ul();}
             @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { bleRSSICondition    .l(stat); mRssi = rssi;                bleRSSICondition    .sig(); bleRSSICondition    .ul();}
             @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         {
-                bleChangedCondition .l(   0);
+                bleChangedCondition .l(0);
                 synchronized (mNotifications) {
                     synchronized (mNotificationValues) {
-                        mNotificationValues.add(c.getValue().clone());
-                        mNotifications.add(c);
+                         final byte[] val = c.getValue().clone();
+                        // The BLE stack sometimes gives us a null here, unclear why.
+                        if( val != null ) {
+                            mNotificationValues.add(val);
+                            mNotifications.add(c);
+                            bleChangedCondition .sig();
+                        }
                     }
                 }
-                bleChangedCondition .sig();
                 bleChangedCondition .ul();}
         };
     }
@@ -179,9 +187,10 @@ public class PeripheralWrapper {
                 synchronized (mNotificationValues) {
                     while(!mNotifications.isEmpty()) {
                         BluetoothGattCharacteristic c = mNotifications.remove();
-                        c.setValue(mNotificationValues.remove());
-                        Runnable cb = mNotifyCB.get(c.getUuid());
+                        byte[] payload = mNotificationValues.remove();
+                        NotifyCallback cb = mNotifyCB.get(c.getUuid());
                         if (cb != null) {
+                            cb.payload = payload;
                             cb.run();
                         }
                     }
@@ -329,7 +338,7 @@ public class PeripheralWrapper {
         return (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
     }
 
-    public int enableNotify(final UUID uuid, final boolean enable, final Runnable on_notify) {
+    public int enableNotify(final UUID uuid, final boolean enable, final NotifyCallback on_notify) {
         final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
         // Set up the notify callback
         if(on_notify != null) {

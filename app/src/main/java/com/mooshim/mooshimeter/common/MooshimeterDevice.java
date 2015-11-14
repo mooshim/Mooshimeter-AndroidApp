@@ -168,12 +168,12 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * @param on_notify     When a notify event is received, this is called.
          */
         public int enableNotify(boolean enable, final Runnable on_notify) {
-            return mInstance.enableNotify(getUUID(),enable,new Runnable() {
+            return mInstance.enableNotify(getUUID(),enable,new NotifyCallback() {
                 @Override
                 public void run() {
                     boolean success = true;
                     try {
-                        unpack(mInstance.getChar(getUUID()).getValue());
+                        unpack(this.payload);
                     }
                     catch(BufferUnderflowException e){
                         success = false;
