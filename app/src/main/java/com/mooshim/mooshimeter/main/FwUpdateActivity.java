@@ -64,6 +64,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -98,6 +99,7 @@ public class FwUpdateActivity extends Activity {
     private TextView mLog;
     private ProgressBar mProgressBar;
     private Button mBtnStart;
+    private CheckBox mLegacyMode;
     // BLE
     private MooshimeterDevice mMeter;
     private ProgInfo mProgInfo = new ProgInfo();
@@ -130,7 +132,12 @@ public class FwUpdateActivity extends Activity {
         mLog          = (TextView)    findViewById(R.id.tw_log);
         mProgressBar  = (ProgressBar) findViewById(R.id.pb_progress);
         mBtnStart     = (Button)      findViewById(R.id.btn_start);
+        mLegacyMode   = (CheckBox)    findViewById(R.id.legacy_mode_checkbox);
+
         mBtnStart.setEnabled(false);
+        // If we're on an older version of Android, enable the checkbox by default
+        mLegacyMode.setChecked(android.os.Build.VERSION.SDK_INT < 21);
+        mLegacyMode.setEnabled(true);
 
         loadFile(FW_FILE_A, true);
         mWatchdog = new WatchDog(new Runnable() {
@@ -193,7 +200,7 @@ public class FwUpdateActivity extends Activity {
 
     }
 
-    Semaphore blockPacer = new Semaphore(8);
+    Semaphore blockPacer;
     static short nextBlock = 0;
     static boolean in_recovery;
 
@@ -202,6 +209,8 @@ public class FwUpdateActivity extends Activity {
     ////////////////////////////////
 
     private void startProgramming() {
+        final boolean legacy_mode = mLegacyMode.isChecked();
+
         if(mProgramming) {
             Log.e(TAG, "startProgramming called, but programming already underway!");
             return;
@@ -211,6 +220,9 @@ public class FwUpdateActivity extends Activity {
         mProgramming = true;
         nextBlock = 0;
         updateStartButton();
+
+        // If uploading in legacy mode, scale back on the speed substantially.
+        blockPacer = new Semaphore(legacy_mode ? 1:8);
 
         mWatchdog.feed();
 
@@ -227,23 +239,29 @@ public class FwUpdateActivity extends Activity {
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG,"Meter requested block " + rb);
-                if(!in_recovery && rb+10 < nextBlock) {
-                    // Something went wrong and we've skipped ahead
-                    Log.e(TAG,"ERROR: Meter requested discontinuous block: " + rb);
+                if(legacy_mode) {
+                    // In legacy mode, we always send only the block that has been requested
                     nextBlock = rb;
-                    in_recovery = true;
-                }
-                if(in_recovery) {
-                    // Give a 500ms delay for the BLE stack to catch up and clear
-                    delayed_poster.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            blockPacer.release();
-                            in_recovery = false;
-                        }
-                    }, 500);
-                } else {
                     blockPacer.release();
+                } else {
+                    if(!in_recovery && rb+10 < nextBlock) {
+                        // Something went wrong and we've skipped ahead
+                        Log.e(TAG,"ERROR: Meter requested discontinuous block: " + rb);
+                        nextBlock = rb;
+                        in_recovery = true;
+                    }
+                    if(in_recovery) {
+                        // Give a 500ms delay for the BLE stack to catch up and clear
+                        delayed_poster.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                blockPacer.release();
+                                in_recovery = false;
+                            }
+                        }, 500);
+                    } else {
+                        blockPacer.release();
+                    }
                 }
                 if(rb%32==0) {
                     runOnUiThread(new Runnable() {
@@ -253,9 +271,6 @@ public class FwUpdateActivity extends Activity {
                             displayStats();
                         }
                     });
-                }
-                if(rb == mProgInfo.nBlocks - 1) {
-
                 }
             }
         });
@@ -355,6 +370,7 @@ public class FwUpdateActivity extends Activity {
             mBtnStart.setText(R.string.start_prog);
             mProgressInfo.setText("Idle");
         }
+        mLegacyMode.setEnabled(!mProgramming);
     }
 
     private void displayImageInfo(TextView v) {

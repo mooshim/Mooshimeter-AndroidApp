@@ -66,9 +66,23 @@
         android:lines="20"
         android:padding="5dp" />
 
+    <CheckBox
+        android:layout_width="match_parent"
+        android:layout_height="140px"
+        android:text="Legacy Mode: Slower upload, but more reliable on older Android versions (&lt; 5.0)"
+        android:id="@+id/legacy_mode_checkbox"
+        android:layout_weight="0"
+        android:checked="false"
+        android:enabled="true"/>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="40px"
+        android:layout_gravity="center_horizontal"/>
+
     <Button
         android:id="@+id/btn_start"
-        android:layout_width="fill_parent"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:layout_weight="0"
