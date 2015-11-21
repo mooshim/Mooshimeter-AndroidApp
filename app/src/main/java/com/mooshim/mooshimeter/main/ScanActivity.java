@@ -20,14 +20,19 @@
 package com.mooshim.mooshimeter.main;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.ParcelUuid;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -52,7 +57,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -124,6 +128,48 @@ public class ScanActivity extends FragmentActivity {
     @Override
     public void onResume() {
         super.onResume();
+        /*
+        // Check if there are any presently connected Mooshimeters
+        // If there are, disconnect them.
+        BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
+        List<BluetoothDevice> connectedDevices = manager.getConnectedDevices(BluetoothProfile.GATT);
+        for( BluetoothDevice device : connectedDevices ) {
+            int type = device.getType();
+            if(type != BluetoothDevice.DEVICE_TYPE_LE) {
+                continue;
+            }
+            // Assume service discovery has already run for this connected device
+            ParcelUuid[] puuids = device.getUuids();
+            if(puuids == null) {
+                // We don't know what services the device offers
+                // Just disconnect it for now... eventually we should do something smarter
+                // but right now it's not worth the time banging your head off the terrible API
+                final BluetoothDevice inner_device = device;
+                final Context inner_context = this;
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        PeripheralWrapper p = new PeripheralWrapper(inner_device, inner_context);
+                        p.connect();
+                        p.disconnect();
+                    }
+                });
+            } else {
+                for(ParcelUuid puuid:puuids) {
+                    UUID uuid = puuid.getUuid();
+                    final byte[] uuid_bytes = uuidToBytes(uuid);
+                    // If the device is a Mooshimeter
+                    if(    Arrays.equals(uuid_bytes, mMeterServiceUUID)
+                            || Arrays.equals(uuid_bytes, mOADServiceUUID) ) {
+                        // And we weren't the ones to connect to it
+                        if(!mMeterDict.containsKey(device.getAddress())) {
+                            MooshimeterDevice newMooshimeter = new MooshimeterDevice(device, this);
+                            addDevice(newMooshimeter);
+                        }
+                    }
+                }
+            }
+        }*/
         startScan();
     }
 
@@ -248,19 +294,23 @@ public class ScanActivity extends FragmentActivity {
 
         wrapper.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                if(    d.mConnectionState == BluetoothProfile.STATE_CONNECTED
-                        || d.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
-                    startSingleMeterActivity(d);
-                } else {
-                    final Button bv = (Button)view.findViewById(R.id.btnConnect);
-                    toggleConnectionState(bv,d);
-                }
+            public void onClick(final View view) {
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(    d.mConnectionState == BluetoothProfile.STATE_CONNECTED
+                            || d.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
+                            startSingleMeterActivity(d);
+                        } else {
+                            final Button bv = (Button)view.findViewById(R.id.btnConnect);
+                            toggleConnectionState(bv,d);
+                        }
+                    }
+                });
             }
         });
 
         wrapper.addView(mInflater.inflate(R.layout.element_mm_titlebar, wrapper, false));
-        //wrapper.setTag(Integer.valueOf(R.layout.element_mm_titlebar));
 
         refreshMeterTile(d, wrapper);
         mDeviceScrollView.addView(wrapper);
@@ -308,7 +358,12 @@ public class ScanActivity extends FragmentActivity {
             bv.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    toggleConnectionState(bv,d);
+                    Util.dispatch(new Runnable() {
+                        @Override
+                        public void run() {
+                            toggleConnectionState(bv, d);
+                        }
+                    });
                 }
             });
         }
@@ -387,16 +442,15 @@ public class ScanActivity extends FragmentActivity {
         // We expect 16 bytes, but UUID strings are reverse order from byte arrays
         int i = 31;
         for(byte b:s) {
-            if( b >= 0x30 && b < 0x3A ) {
+            if( b >= 0x30 && b < 0x3A ) {        // Numbers 0-9
                 b -= 0x30;
-            } else if( b >= 0x41 && b < 0x47 ) {
+            } else if( b >= 0x41 && b < 0x47 ) { // Capital letters A-F
                 b -= 0x41;
                 b += 10;
-            } else if( b >= 0x61 && b < 0x67) {
+            } else if( b >= 0x61 && b < 0x67 ) { // Lower letters a-f
                 b -= 0x61;
                 b += 10;
-            } else {
-                // Unrecognized symbol, probably a dash
+            } else { // Unrecognized symbol, probably a dash
                 continue;
             }
             // Is this the top or bottom nibble?
@@ -407,86 +461,88 @@ public class ScanActivity extends FragmentActivity {
         return rval;
     }
 
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+    private abstract class FilteredScanCallback implements BluetoothAdapter.LeScanCallback {
         public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
-            runOnUiThread(new Runnable() {
-                public void run() {
-                    // Filter devices
-                    // FIXME: Android doesn't seem to be filtering devices correctly based on UUIDs
-                    // FIXME: For now I will examine the scan record manually
-                    boolean is_meter = false;
-                    boolean oad_mode = false;
-                    int build_time = 0;
-                    int field_length = 0;
-                    int field_id = 0;
-                    for(int i = 0; i < scanRecord.length;) {
-                        if(field_length == 0) {
-                            field_length = scanRecord[i] & 0xFF;
-                            field_id = 0;
-                            i++;
-                        }
-                        else if(field_id == 0) {
-                            field_id = scanRecord[i] & 0xFF;
-                            field_length--;
-                            i++;
-                        } else {
-                            switch(field_id) {
-                                case 6:
-                                    // Type 6: This is a UUID listing
-                                    // Check expected length
-                                    if(field_length != 16) { break; }
-                                    // Check that there's enough data in the buffer
-                                    if(i+field_length >= scanRecord.length) {break;}
-                                    // Check the value against the expected service UUID
-                                    byte[] received_uuid = Arrays.copyOfRange(scanRecord, i, i + field_length);
-                                    if(Arrays.equals(received_uuid, mMeterServiceUUID)) {
-                                        Log.i(null, "Mooshimeter found");
-                                        is_meter = true;
-                                    } else if(Arrays.equals(received_uuid, mOADServiceUUID)) {
-                                        Log.i(null, "Mooshimeter found in OAD mode");
-                                        is_meter = true;
-                                        oad_mode = true;
-                                    } else {
-                                        Log.i(null, "Scanned device is not a meter");
-                                    }
-                                    break;
-                                case 255:
-                                    // This is a manufacturer-specific data listing
-                                    // In the case of the Mooshimeter this is the build time
-                                    // in UTC seconds
-                                    // Check expected length
-                                    if(field_length != 4) { break; }
-                                    // Check that there's enough data in the buffer
-                                    if(i+field_length >= scanRecord.length) {break;}
-                                    for(int j = 3; j >= 0; j--) {
-                                        build_time |= (scanRecord[i+j] & 0xFF) << (8*j);
-                                    }
-                                    break;
-                            }
-                            // Cleanup
-                            i += field_length;
-                            field_length = 0;
-                            field_id = 0;
-                        }
-                    }
-
-                    // TODO: Check the firmware version against the bundled binary and prompt for upload if meter is out of date
-                    // TODO: Display the firmware version in the scan result
-                    if(is_meter) {
-                        MooshimeterDevice m = mMeterDict.get(device.getAddress());
-                        if(m==null) {
-                            m = new MooshimeterDevice(device,getApplicationContext());
-                            addDevice(m);
-                        }
-                        m.mRssi = rssi;
-                        m.mOADMode = oad_mode;
-                        m.mBuildTime = build_time;
-                        refreshAllMeterTiles();
-                    }
+            // Filter devices
+            // FIXME: Android doesn't seem to be filtering devices correctly based on UUIDs
+            // FIXME: For now I will examine the scan record manually
+            boolean is_meter = false;
+            boolean oad_mode = false;
+            int build_time = 0;
+            int field_length = 0;
+            int field_id = 0;
+            for(int i = 0; i < scanRecord.length;) {
+                if(field_length == 0) {
+                    field_length = scanRecord[i] & 0xFF;
+                    field_id = 0;
+                    i++;
                 }
-            });
+                else if(field_id == 0) {
+                    field_id = scanRecord[i] & 0xFF;
+                    field_length--;
+                    i++;
+                } else {
+                    switch(field_id) {
+                        case 6:
+                            // Type 6: This is a UUID listing
+                            // Check expected length
+                            if(field_length != 16) { break; }
+                            // Check that there's enough data in the buffer
+                            if(i+field_length >= scanRecord.length) {break;}
+                            // Check the value against the expected service UUID
+                            byte[] received_uuid = Arrays.copyOfRange(scanRecord, i, i + field_length);
+                            if(Arrays.equals(received_uuid, mMeterServiceUUID)) {
+                                Log.d(null, "Mooshimeter found");
+                                is_meter = true;
+                            } else if(Arrays.equals(received_uuid, mOADServiceUUID)) {
+                                Log.d(null, "Mooshimeter found in OAD mode");
+                                is_meter = true;
+                                oad_mode = true;
+                            } else {
+                                Log.d(null, "Scanned device is not a meter");
+                            }
+                            break;
+                        case 255:
+                            // This is a manufacturer-specific data listing
+                            // In the case of the Mooshimeter this is the build time
+                            // in UTC seconds
+                            // Check expected length
+                            if(field_length != 4) { break; }
+                            // Check that there's enough data in the buffer
+                            if(i+field_length >= scanRecord.length) {break;}
+                            for(int j = 3; j >= 0; j--) {
+                                build_time |= (scanRecord[i+j] & 0xFF) << (8*j);
+                            }
+                            break;
+                    }
+                    // Cleanup
+                    i += field_length;
+                    field_length = 0;
+                    field_id = 0;
+                }
+            }
+
+            if(is_meter) {
+                MooshimeterDevice m = mMeterDict.get(device.getAddress());
+                if(m==null) {
+                    m = new MooshimeterDevice(device,getApplicationContext());
+                    addDevice(m);
+                }
+                m.mRssi = rssi;
+                m.mOADMode = oad_mode;
+                m.mBuildTime = build_time;
+                FilteredCallback(m);
+            }
         }
-    };
+
+        abstract void FilteredCallback(MooshimeterDevice m);
+    }
+
+    private class MainScanCallback extends FilteredScanCallback {
+        void FilteredCallback(MooshimeterDevice m) {
+            refreshAllMeterTiles();
+        }
+    }
 
     /////////////////////////////
     // Listeners for GUI Events
@@ -514,7 +570,9 @@ public class ScanActivity extends FragmentActivity {
         refreshAllMeterTiles();
 
         final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if( !bluetoothAdapter.startLeScan(mLeScanCallback) ) {
+        final MainScanCallback cb = new MainScanCallback();
+
+        if( !bluetoothAdapter.startLeScan(cb) ) {
             // Starting the scan failed!
             Log.e(TAG,"Failed to start BLE Scan");
             setError("Failed to start scan");
@@ -525,7 +583,7 @@ public class ScanActivity extends FragmentActivity {
                 mBtnScan.setEnabled(true);
                 updateScanningButton(false);
                 final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                bluetoothAdapter.stopLeScan(mLeScanCallback);
+                bluetoothAdapter.stopLeScan(cb);
                 mScanOngoing = false;
             }
         }, 5000);
@@ -535,50 +593,151 @@ public class ScanActivity extends FragmentActivity {
         startScan();
     }
 
+    private boolean offerFirmwareUpgrade() {
+        return Util.offerYesNoDialog(this,"Firmware upgrade available","Would you like to upgrade now?");
+    }
+
+    private boolean reconnectInOADMode(final MooshimeterDevice m) {
+        // Force a reboot on the peripheral side
+        m.meter_settings.target_meter_state = MooshimeterDevice.METER_SHUTDOWN;
+        m.meter_settings.send();
+        // When we reconnect, the meter should be in bootloader mode
+        //Log.d(TAG, "Reconnecting...");
+        //m.disconnect();
+        return false;
+        //Util.displayProgressBar(this, "Resetting to Bootloader...", "");
+        //m.reconnect();
+        //Util.setProgress(50);
+        //m.discover();
+        //Util.setProgress(100);
+        //Util.dismissProgress();
+        //return m.isInOADMode();
+        /*
+        setStatus("Disconnecting...");
+        Log.d(TAG, "Disconnecting...");
+
+        m.disconnect();
+
+        Log.d(TAG, "Listening...");
+        // Listen until we hear the device advertising in OAD mode
+        final Semaphore tmpsem = new Semaphore(0);
+
+        class reconnectScanCallback extends FilteredScanCallback {
+            MooshimeterDevice matchingMeter = null;
+            void FilteredCallback(MooshimeterDevice scanned_meter) {
+                if(scanned_meter.getBLEDevice().getAddress().equals(m.getBLEDevice().getAddress())) {
+                    Log.d(TAG,"Found the reconnecting meter in");
+                    Log.d(TAG,scanned_meter.isInOADMode()?"OAD mode":"Meter mode");
+                    matchingMeter = scanned_meter;
+                    tmpsem.release();
+                }
+            }
+        }
+
+        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        final reconnectScanCallback cb = new reconnectScanCallback();
+
+        if( !bluetoothAdapter.startLeScan(cb) ) {
+            // Starting the scan failed!
+            Log.e(TAG,"Failed to start BLE Scan");
+        } else {
+            // Block until the scan handler releases us
+            try {
+                tmpsem.acquire();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // From here on out, the meter we were passed as an argument is no longer valid
+        // Remove all references to it, then manually add our new meter
+        mMeterList.remove(m);
+        mMeterDict.remove(m.getAddress());
+        mMeterList.add(cb.matchingMeter);
+        mMeterDict.put(cb.matchingMeter.getAddress(), cb.matchingMeter);
+
+
+        bluetoothAdapter.stopLeScan(cb);
+        // FIXME: For some reason if we try to reconnect immediately, it takes forever.
+        // Block for a little.
+        Util.pokeAfter(tmpsem, 500);
+
+        try {
+            tmpsem.acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        setStatus("Reconnecting...");
+        Log.d(TAG, "Reconnecting...");
+        cb.matchingMeter.connect();
+        setStatus("Discovering services");
+        Log.d(TAG, "Connected!");
+        cb.matchingMeter.discover();
+        Log.d(TAG, "Services discovered");
+
+        return cb.matchingMeter.isInOADMode();*/
+    }
+
     private void startSingleMeterActivity(MooshimeterDevice m) {
         if(m.isInOADMode()) {
             startOADActivity(m);
         } else {
-            startDeviceActivity(m);
+            // Check the firmware version against our bundled version
+            if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
+                    && offerFirmwareUpgrade() ) {
+                // Perform a firmware upgrade!
+                if(reconnectInOADMode(m)) {
+                    // If we reconnect successfully, our original meter reference is no longer valid
+                    // but its address still is
+                    m = getDeviceWithAddress(m.getAddress());
+                    startOADActivity(m);
+                } else {
+                    Util.blockOnAlertBox(this, "Reboot to OAD failed", "Sorry, this version of Android can't manually reconnect to the Mooshimeter in bootloader mode.  \n\nYou can do it manually by resetting the Mooshimeter and connecting while it is blinking slowly.");
+                    Log.e(TAG,"FAILED TO RECONNECT IN OAD");
+                    m.disconnect();
+                }
+            } else {
+                startDeviceActivity(m);
+            }
         }
     }
 
     private void toggleConnectionState(final Button bv, final MooshimeterDevice m) {
-        bv.setEnabled(false);
-        bv.setAlpha((float)0.5);
-        Thread t = new Thread(new Runnable() {
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if(   m.mConnectionState == BluetoothProfile.STATE_CONNECTED
-                   || m.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
-                    m.disconnect();
-                } else {
-                    int rval;
-                    setStatus("Connecting...");
-                    rval = m.connect();
-                    if(BluetoothGatt.GATT_SUCCESS != rval ) {
-                        setStatus(String.format("Connection failed.  Status: %d", rval));
-                        return; }
-                    setStatus("Discovering Services...");
-                    rval = m.discover();
-                    if(BluetoothGatt.GATT_SUCCESS != rval ) {
-                        setStatus(String.format("Discovery failed.  Status: %d", rval));
-                        return; }
-                    setStatus("Connected!");
-                    startSingleMeterActivity(m);
-                }
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        bv.setEnabled(true);
-                        bv.setAlpha((float)1.0);
-                        int bgid = m.mConnectionState==BluetoothProfile.STATE_CONNECTED ? R.drawable.connected:R.drawable.disconnected;
-                        bv.setBackground(getResources().getDrawable(bgid));
-                    }
-                });
+                bv.setEnabled(false);
+                bv.setAlpha((float) 0.5);
             }
         });
-        t.start();
+        if(    m.mConnectionState == BluetoothProfile.STATE_CONNECTED
+            || m.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
+            m.disconnect();
+        } else {
+            int rval;
+            setStatus("Connecting...");
+            rval = m.connect();
+            if(BluetoothGatt.GATT_SUCCESS != rval ) {
+                setStatus(String.format("Connection failed.  Status: %d", rval));
+                return; }
+            setStatus("Discovering Services...");
+            rval = m.discover();
+            if(BluetoothGatt.GATT_SUCCESS != rval ) {
+                setStatus(String.format("Discovery failed.  Status: %d", rval));
+                return; }
+            setStatus("Connected!");
+            startSingleMeterActivity(m);
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                bv.setEnabled(true);
+                bv.setAlpha((float) 1.0);
+                int bgid = m.mConnectionState == BluetoothProfile.STATE_CONNECTED ? R.drawable.connected : R.drawable.disconnected;
+                bv.setBackground(getResources().getDrawable(bgid));
+            }
+        });
     }
 
     private void valueLabelRefresh(final int c, final MooshimeterDevice mMeter, final TextView v,final TextView v_unit) {
