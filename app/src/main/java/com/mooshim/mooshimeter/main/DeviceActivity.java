@@ -266,9 +266,11 @@ public class DeviceActivity extends FragmentActivity {
     }
 
     private void onMeterInitialized() {
-        mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+        final int[] cb_handle = new int[1];
+        cb_handle[0] = mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
             public void run() {
+                mMeter.cancelConnectionStateCB(cb_handle[0]);
                 setResult(RESULT_OK);
                 finish();
             }
@@ -324,12 +326,7 @@ public class DeviceActivity extends FragmentActivity {
         startActivityForResult(i, TREND_ACT_REQ);
     }
 
-	private void setBusy(boolean b) {
-		//mDeviceView.setBusy(b);
-	}
-
 	private void setError(String txt) {
-		setBusy(false);
 		Toast.makeText(this, txt, Toast.LENGTH_LONG).show();
 	}
 

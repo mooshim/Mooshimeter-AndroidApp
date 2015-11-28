@@ -72,21 +72,13 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.Util;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.concurrent.Semaphore;
 
 public class FwUpdateActivity extends Activity {
     // Activity
     private static final int FILE_BUFFER_SIZE = 0x40000;
-
-    // Programming parameters
-    private final byte[] mFileBuffer = new byte[FILE_BUFFER_SIZE];
-    private static final String FW_FILE_A = "Mooshimeter.bin";
-
     private static final int OAD_BLOCK_SIZE = 16;
     private static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
     private static final int HAL_FLASH_WORD_SIZE = 4;
@@ -136,8 +128,6 @@ public class FwUpdateActivity extends Activity {
         // If we're on an older version of Android, enable the checkbox by default
         mLegacyMode.setChecked(android.os.Build.VERSION.SDK_INT < 21);
         mLegacyMode.setEnabled(true);
-
-        loadFile(FW_FILE_A, true);
 
         updateStartButton();
     }
@@ -275,7 +265,8 @@ public class FwUpdateActivity extends Activity {
         // Initialize stats
         mProgInfo.reset();
         final Handler delay_handler = new Handler();
-        mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+        final int[] cb_handle = new int[1];
+        cb_handle[0] = mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
             public void run() {
                 runOnUiThread(new Runnable() {
@@ -288,6 +279,7 @@ public class FwUpdateActivity extends Activity {
                 delay_handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
+                        mMeter.cancelConnectionStateCB(cb_handle[0]);
                         setResult(RESULT_OK);
                         finish();
                     }
@@ -394,39 +386,9 @@ public class FwUpdateActivity extends Activity {
     // Utility
     /////////////////////////////
 
-    private boolean loadFile(String filepath, boolean isAsset) {
-        InputStream stream;
-
-        // Load binary file
-        try {
-            // Read the file raw into a buffer
-            if (isAsset) {
-                stream = getAssets().open(filepath);
-            } else {
-                File f = new File(filepath);
-                stream = new FileInputStream(f);
-            }
-        } catch (IOException e) {
-            // Handle exceptions here
-            mLog.setText("File open failed: " + filepath + "\n");
-            return false;
-        }
-        try {
-            stream.read(mFileBuffer, 0, mFileBuffer.length);
-            stream.close();
-        } catch (IOException e) {
-            // Handle exceptions here
-            mLog.setText("File read failed \n");
-            return false;
-        }
-        unpackFirmwareFileBuffer();
-        return true;
-    }
-
     private void unpackFirmwareFileBuffer() {
-        boolean fSuccess = false;
         // Show image info
-        mMeter.oad_identity.unpackFromFile(mFileBuffer);
+        mMeter.oad_identity.unpackFromFile(Util.getFileBuffer());
         displayImageInfo(mFileImage);
 
         // Verify image types
@@ -452,6 +414,7 @@ public class FwUpdateActivity extends Activity {
 
         // Prepare block
         final byte oadBuffer[] = new byte[OAD_BLOCK_SIZE];
+        final byte[] mFileBuffer = Util.getFileBuffer();
         System.arraycopy(mFileBuffer, bnum*OAD_BLOCK_SIZE, oadBuffer, 0, OAD_BLOCK_SIZE);
 
         mMeter.oad_block.blockNum = bnum;

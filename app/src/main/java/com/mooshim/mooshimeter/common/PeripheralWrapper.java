@@ -99,8 +99,8 @@ public class PeripheralWrapper {
         } finally {
             conditionLock.unlock();
             bleLock.unlock();
-            return r.mRval;
         }
+        return r.mRval;
     }
     
     public PeripheralWrapper(final BluetoothDevice device, final Context context) {
@@ -169,7 +169,7 @@ public class PeripheralWrapper {
     }
 
     public int addConnectionStateCB(int state,Runnable cb) {
-        List l = mConnectionStateCB.get(state);
+        List<Runnable> l = mConnectionStateCB.get(state);
         l.add(cb);
         mConnectionStateCBByHandle.put(connectionStateCBHandle,cb);
         connectionStateCBHandle++;

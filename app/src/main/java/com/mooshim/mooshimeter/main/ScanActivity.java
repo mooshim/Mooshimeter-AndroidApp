@@ -51,13 +51,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class ScanActivity extends FragmentActivity {
     // Defines
     private static String TAG = "ScanActivity";
-    private static final int NO_DEVICE = -1;
     private static final int REQ_ENABLE_BT = 0;
     private static final int REQ_DEVICE_ACT = 1;
     private static final int REQ_OAD_ACT = 2;
@@ -67,9 +64,6 @@ public class ScanActivity extends FragmentActivity {
 
     private static final Map<String,MooshimeterDevice>  mMeterDict = new HashMap<String, MooshimeterDevice>();
     private static final List<ViewGroup>                mTileList = new ArrayList<ViewGroup>();
-
-    // Housekeeping
-    private static final Lock utilLock = new ReentrantLock();
 
     // GUI Widgets
     private TextView mEmptyMsg;
@@ -122,6 +116,14 @@ public class ScanActivity extends FragmentActivity {
     public void onResume() {
         super.onResume();
         /*
+        * Here I attempted to implement a feature addressing the "persistent connection" bug -
+        * sometimes Android will maintain a connection to a BLE device after the app has closed
+        * and since it  is already connected to Android it doesn't show up in any scan results.
+        * Ideally, we'd inherit the connection and set up a MooshimeterDevice with it.
+        * Less ideally, we'd disconnect it so we could scan it.
+        * But I can only find an interface to get BluetoothDevice's from the OS, which have no way
+        * to disconnect them.
+        *
         // Check if there are any presently connected Mooshimeters
         // If there are, disconnect them.
         BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
@@ -179,14 +181,6 @@ public class ScanActivity extends FragmentActivity {
         switch (item.getItemId()) {
             case R.id.opt_prefs:
                 break;
-            //case R.id.opt_fwupdate:
-            //    mUpdateFirmwareFlag ^= true;
-            //    if(mUpdateFirmwareFlag) {
-            //        setStatus("Select a meter to update firmware");
-            //    } else {
-            //        setStatus("");
-            //    }
-            //    break;
             case R.id.opt_exit:
                 Toast.makeText(this, "Goodbye!", Toast.LENGTH_LONG).show();
                 finish();
@@ -599,9 +593,16 @@ public class ScanActivity extends FragmentActivity {
         m.meter_settings.target_meter_state = MooshimeterDevice.METER_SHUTDOWN;
         m.meter_settings.send();
         // When we reconnect, the meter should be in bootloader mode
-        //Log.d(TAG, "Reconnecting...");
-        //m.disconnect();
+        Log.d(TAG, "Reconnecting...");
+        m.disconnect();
+
         return false;
+        /*
+        * Abandon hope, all ye that enter here
+        * Android refuses to reconnect to the Mooshimeter in a timely manner.
+        * Reconnection happens only after so much time has passed that the Mooshimeter reverts
+        * to Application mode.
+         */
         //Util.displayProgressBar(this, "Resetting to Bootloader...", "");
         //m.reconnect();
         //Util.setProgress(50);

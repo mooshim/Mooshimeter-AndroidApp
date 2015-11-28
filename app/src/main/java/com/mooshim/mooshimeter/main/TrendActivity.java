@@ -263,7 +263,7 @@ public class TrendActivity extends Activity {
             r.setVerticalAxisTitle(ch0Label);
             ss.setVerticalAxisTitle("");
         } else {
-            r.setHorizontalAxisTitle("Time [s]");
+            r.setHorizontalAxisTitle(timeLabel);
             r.setVerticalAxisTitle(ch0Label);
             ss.setVerticalAxisTitle(ch1Label);
         }
