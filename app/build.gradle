@@ -51,6 +51,5 @@ android {
 dependencies {
     compile 'com.android.support:support-v4:19.1.0'
     compile project(':GraphView')
-    //compile 'com.jjoe64:graphview:4.0.0'
-    compile files('src/main/java/com/mooshim/mooshimeter/util/acra-4.5.0.jar')
+    //compile fileTree(dir: 'libs', include: '*.jar')
 }
