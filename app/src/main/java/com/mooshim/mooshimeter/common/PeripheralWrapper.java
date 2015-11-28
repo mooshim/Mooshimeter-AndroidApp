@@ -48,7 +48,6 @@ public class PeripheralWrapper {
     private static final Lock conditionLock= new ReentrantLock();
 
     private Context mContext;
-    private boolean mTerminateFlag;
     private BluetoothGatt mBluetoothGatt;
     private BluetoothDevice mDevice;
     private BluetoothGattCallback mGattCallbacks;
@@ -72,8 +71,6 @@ public class PeripheralWrapper {
 
     public int mRssi;
     public int mConnectionState;
-    final Queue<BluetoothGattCharacteristic> mNotifications;
-    final Queue<byte[]> mNotificationValues;
 
     public abstract class NotifyCallback implements Runnable {
         public byte[] payload = null;
@@ -89,10 +86,6 @@ public class PeripheralWrapper {
 
     // Anything that has to do with the BluetoothGatt needs to go through here
     private int protectedCall(Interruptable r) {
-        if(mTerminateFlag) {
-            Log.e(TAG,"Protected call made after terminate flag set!");
-            Log.e(TAG, Log.getStackTraceString(new Exception()));
-            return 1; }
         if(Util.inMainThread()) {
             Log.e(TAG,"Protected call made from main thread!  Not recommended!");
             Log.e(TAG, Log.getStackTraceString(new Exception()));
@@ -111,7 +104,6 @@ public class PeripheralWrapper {
     }
     
     public PeripheralWrapper(final BluetoothDevice device, final Context context) {
-        mTerminateFlag = false;
         mContext = context;
         mDevice = device;
         mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
@@ -126,9 +118,6 @@ public class PeripheralWrapper {
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTING,new ArrayList<Runnable>());
         mConnectionStateCBByHandle = new HashMap<Integer, Runnable>();
 
-        mNotifications = new LinkedList<BluetoothGattCharacteristic>();
-        mNotificationValues = new LinkedList<byte[]>();
-
         bleStateCondition    = new StatLockManager(conditionLock);
         bleDiscoverCondition = new StatLockManager(conditionLock);
         bleReadCondition     = new StatLockManager(conditionLock);
@@ -141,7 +130,6 @@ public class PeripheralWrapper {
         
         mGattCallbacks = new BluetoothGattCallback() {
             @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { bleDiscoverCondition.l(stat);                              bleDiscoverCondition.sig(); bleDiscoverCondition.ul();}
-            @Override public void onConnectionStateChange(BluetoothGatt g, int stat, int newState)                { bleStateCondition   .l(stat); mConnectionState = newState; bleStateCondition   .sig(); bleStateCondition   .ul();}
             @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { bleReadCondition    .l(stat);                              bleReadCondition    .sig(); bleReadCondition    .ul();}
             @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) { bleWriteCondition   .l(stat);                              bleWriteCondition   .sig(); bleWriteCondition   .ul();}
             @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { bleDReadCondition   .l(stat);                              bleDReadCondition   .sig(); bleDReadCondition   .ul();}
@@ -150,53 +138,34 @@ public class PeripheralWrapper {
             @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { bleRSSICondition    .l(stat); mRssi = rssi;                bleRSSICondition    .sig(); bleRSSICondition    .ul();}
             @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         {
                 bleChangedCondition .l(0);
-                synchronized (mNotifications) {
-                    synchronized (mNotificationValues) {
-                         final byte[] val = c.getValue().clone();
-                        // The BLE stack sometimes gives us a null here, unclear why.
-                        if( val != null ) {
-                            mNotificationValues.add(val);
-                            mNotifications.add(c);
-                            bleChangedCondition .sig();
-                        }
+                final byte[] val = c.getValue().clone();
+                // The BLE stack sometimes gives us a null here, unclear why.
+                if( val != null ) {
+                    final NotifyCallback cb = mNotifyCB.get(c.getUuid());
+                    if (cb != null) {
+                        cb.payload = val;
+                        Util.dispatch(new Runnable() {
+                            @Override
+                            public void run() {
+                                cb.run();
+                            }
+                        });
                     }
                 }
-                bleChangedCondition .ul();}
+                bleChangedCondition .ul();
+            }
+            @Override
+            public void onConnectionStateChange(BluetoothGatt g, int stat, int newState) {
+                bleStateCondition   .l(stat);
+                mConnectionState = newState;
+                List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
+                for(Runnable cb : cbs) {
+                    Util.dispatch(cb);
+                }
+                bleStateCondition   .sig();
+                bleStateCondition   .ul();
+            }
         };
-    }
-
-    private void connectionStateManager() {
-        // Meant to be run in a thread
-        while(!mTerminateFlag) {
-            bleStateCondition.await();
-            if(mConnectionState==BluetoothGatt.STATE_DISCONNECTED) {
-                mTerminateFlag = true; }
-            List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
-            for(Runnable cb : cbs) {
-                cb.run();
-            }
-        }
-
-    }
-
-    private void notificationManager() {
-        // Meant to be run in a thread
-        while(!mTerminateFlag) {
-            bleChangedCondition.await();
-            synchronized (mNotifications) {
-                synchronized (mNotificationValues) {
-                    while(!mNotifications.isEmpty()) {
-                        BluetoothGattCharacteristic c = mNotifications.remove();
-                        byte[] payload = mNotificationValues.remove();
-                        NotifyCallback cb = mNotifyCB.get(c.getUuid());
-                        if (cb != null) {
-                            cb.payload = payload;
-                            cb.run();
-                        }
-                    }
-                }
-            }
-        }
     }
 
     public int addConnectionStateCB(int state,Runnable cb) {
@@ -239,8 +208,6 @@ public class PeripheralWrapper {
     }
 
     public int connect() {
-        final Thread mConnectionStateManagerThread;
-        final Thread mNotificationManagerThread;
 
         if( mConnectionState == BluetoothProfile.STATE_CONNECTED ) {
             return 0;
@@ -248,21 +215,6 @@ public class PeripheralWrapper {
         if( mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
             return 0;
         }
-        mTerminateFlag = false;
-        mConnectionStateManagerThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                connectionStateManager();
-            }
-        });
-        mConnectionStateManagerThread.start();
-        mNotificationManagerThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                notificationManager();
-            }
-        });
-        mNotificationManagerThread.start();
 
         return protectedCall(new Interruptable() {
             @Override
@@ -310,7 +262,6 @@ public class PeripheralWrapper {
                 while( mConnectionState != BluetoothProfile.STATE_DISCONNECTED ) {
                     bleStateCondition.await();
                 }
-                mTerminateFlag = true;
                 mRssi = bleStateCondition.stat;
                 return null;
             }

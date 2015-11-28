@@ -72,7 +72,6 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
-import com.mooshim.mooshimeter.util.WatchDog;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -105,7 +104,6 @@ public class FwUpdateActivity extends Activity {
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
-    private WatchDog mWatchdog = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -140,12 +138,6 @@ public class FwUpdateActivity extends Activity {
         mLegacyMode.setEnabled(true);
 
         loadFile(FW_FILE_A, true);
-        mWatchdog = new WatchDog(new Runnable() {
-            @Override
-            public void run() {
-                //stopProgramming();
-            }
-        }, 5000);
 
         updateStartButton();
     }
@@ -224,8 +216,6 @@ public class FwUpdateActivity extends Activity {
         // If uploading in legacy mode, scale back on the speed substantially.
         blockPacer = new Semaphore(legacy_mode ? 1:8);
 
-        mWatchdog.feed();
-
         // Update connection parameters
         //mMeter.setConnectionInterval((short) 20, (short) 1000);
 
@@ -235,7 +225,6 @@ public class FwUpdateActivity extends Activity {
         mMeter.oad_block.enableNotify(true,new Runnable() {
             @Override
             public void run() {
-                mWatchdog.feed();
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG,"Meter requested block " + rb);
@@ -328,7 +317,6 @@ public class FwUpdateActivity extends Activity {
             Log.e(TAG, "stopProgramming called, but programming already stopped!");
             return;
         }
-        mWatchdog.stop();
         mProgramming = false;
         mProgressInfo.setText("");
         mProgressBar.setProgress(0);
