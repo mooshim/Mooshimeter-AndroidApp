@@ -6,24 +6,13 @@ package com.mooshim.mooshimeter.main;
 
 import android.app.Application;
 
-import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.Util;
 
-import org.acra.*;
-import org.acra.annotation.*;
-
-@ReportsCrashes(
-        formKey = "", // will not be used
-        formUri = "https://moosh.im/crash/report.php",
-        mode = ReportingInteractionMode.TOAST,
-        resToastText = R.string.crash_toast_text
-)
 public class MyApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-
-        // The following line triggers the initialization of ACRA
-        //ACRA.init(this);
+        Util.init(this);
     }
 }
 
