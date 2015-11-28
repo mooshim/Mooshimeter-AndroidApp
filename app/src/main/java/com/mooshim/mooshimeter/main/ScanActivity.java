@@ -20,19 +20,13 @@
 package com.mooshim.mooshimeter.main;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.ParcelUuid;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -71,7 +65,6 @@ public class ScanActivity extends FragmentActivity {
     final static byte[] mMeterServiceUUID = uuidToBytes(MooshimeterDevice.mUUID.METER_SERVICE);
     final static byte[] mOADServiceUUID   = uuidToBytes(MooshimeterDevice.mUUID.OAD_SERVICE_UUID);
 
-    private static final List<MooshimeterDevice>        mMeterList = new ArrayList<MooshimeterDevice>();
     private static final Map<String,MooshimeterDevice>  mMeterDict = new HashMap<String, MooshimeterDevice>();
     private static final List<ViewGroup>                mTileList = new ArrayList<ViewGroup>();
 
@@ -279,13 +272,12 @@ public class ScanActivity extends FragmentActivity {
     private void addDevice(final MooshimeterDevice d) {
         mEmptyMsg.setVisibility(View.GONE);
 
-        if(mMeterList.contains(d)) {
+        if(mMeterDict.containsValue(d)) {
             // The meter as already been added
             Log.e(TAG, "Tried to add the same meter twice");
             return;
         }
 
-        mMeterList.add(d);
         mMeterDict.put(d.getAddress(), d);
 
         final LinearLayout wrapper = new LinearLayout(this);
@@ -298,12 +290,12 @@ public class ScanActivity extends FragmentActivity {
                 Util.dispatch(new Runnable() {
                     @Override
                     public void run() {
-                        if(    d.mConnectionState == BluetoothProfile.STATE_CONNECTED
-                            || d.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
+                        if (d.isConnected()
+                                || d.isConnecting()) {
                             startSingleMeterActivity(d);
                         } else {
-                            final Button bv = (Button)view.findViewById(R.id.btnConnect);
-                            toggleConnectionState(bv,d);
+                            final Button bv = (Button) view.findViewById(R.id.btnConnect);
+                            toggleConnectionState(bv, d);
                         }
                     }
                 });
@@ -311,18 +303,20 @@ public class ScanActivity extends FragmentActivity {
         });
 
         wrapper.addView(mInflater.inflate(R.layout.element_mm_titlebar, wrapper, false));
+        wrapper.setTag(d);
 
-        refreshMeterTile(d, wrapper);
+        refreshMeterTile(wrapper);
         mDeviceScrollView.addView(wrapper);
         mTileList.add(wrapper);
 
-        if (mMeterList.size() > 1)
-            setStatus(mMeterList.size() + " devices");
+        if (mMeterDict.size() > 1)
+            setStatus(mMeterDict.size() + " devices");
         else
             setStatus("1 device");
     }
 
-    private void refreshMeterTile(final MooshimeterDevice d, final ViewGroup wrapper) {
+    private void refreshMeterTile(final ViewGroup wrapper) {
+        final MooshimeterDevice d = (MooshimeterDevice) wrapper.getTag();
         if(wrapper.getChildCount()==0) {
             Log.e(TAG,"Received empty wrapper");
         }
@@ -351,7 +345,7 @@ public class ScanActivity extends FragmentActivity {
 
             final Button bv = (Button)wrapper.findViewById(R.id.btnConnect);
 
-            int bgid = d.mConnectionState==BluetoothProfile.STATE_CONNECTED ? R.drawable.connected:R.drawable.disconnected;
+            int bgid = d.isConnected() ? R.drawable.connected:R.drawable.disconnected;
             bv.setBackground(getResources().getDrawable(bgid));
 
             // Set the click listeners
@@ -404,8 +398,7 @@ public class ScanActivity extends FragmentActivity {
     private void refreshAllMeterTiles() {
         for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
             final ViewGroup vg = mTileList.get(i);
-            final MooshimeterDevice d = mMeterList.get(i);
-            refreshMeterTile(d,vg);
+            refreshMeterTile(vg);
         }
     }
 
@@ -557,14 +550,18 @@ public class ScanActivity extends FragmentActivity {
         updateScanningButton(false);
         // Prune disconnected meters
         List<MooshimeterDevice> remove = new ArrayList<MooshimeterDevice>();
-        for(MooshimeterDevice m : mMeterList) {
-            if( m.mConnectionState == BluetoothProfile.STATE_DISCONNECTED ) {
+        for(MooshimeterDevice m : mMeterDict.values()) {
+            if( m.isDisconnected() ) {
                 remove.add(m);
             }
         }
         for(MooshimeterDevice m : remove) {
-            mDeviceScrollView.removeView(mTileList.remove(mMeterList.indexOf(m)));
-            mMeterList.remove(m);
+            for(ViewGroup vg: mTileList) {
+                if(vg.getTag() == m) {
+                    mDeviceScrollView.removeView(vg);
+                    break;
+                }
+            }
             mMeterDict.remove(m.getAddress());
         }
         refreshAllMeterTiles();
@@ -594,7 +591,7 @@ public class ScanActivity extends FragmentActivity {
     }
 
     private boolean offerFirmwareUpgrade() {
-        return Util.offerYesNoDialog(this,"Firmware upgrade available","Would you like to upgrade now?");
+        return Util.offerYesNoDialog(this,"Firmware upgrade available","Would you like to upgrade firmware now?");
     }
 
     private boolean reconnectInOADMode(final MooshimeterDevice m) {
@@ -711,8 +708,8 @@ public class ScanActivity extends FragmentActivity {
                 bv.setAlpha((float) 0.5);
             }
         });
-        if(    m.mConnectionState == BluetoothProfile.STATE_CONNECTED
-            || m.mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
+        if(    m.isConnected()
+            || m.isConnecting() ) {
             m.disconnect();
         } else {
             int rval;
@@ -734,7 +731,7 @@ public class ScanActivity extends FragmentActivity {
             public void run() {
                 bv.setEnabled(true);
                 bv.setAlpha((float) 1.0);
-                int bgid = m.mConnectionState == BluetoothProfile.STATE_CONNECTED ? R.drawable.connected : R.drawable.disconnected;
+                int bgid = m.isConnected() ? R.drawable.connected : R.drawable.disconnected;
                 bv.setBackground(getResources().getDrawable(bgid));
             }
         });

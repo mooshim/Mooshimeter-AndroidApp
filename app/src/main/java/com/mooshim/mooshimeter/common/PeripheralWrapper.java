@@ -222,6 +222,18 @@ public class PeripheralWrapper {
         }
     }
 
+    public boolean isConnected() {
+        return (mConnectionState == BluetoothProfile.STATE_CONNECTED);
+    }
+
+    public boolean isConnecting() {
+        return (mConnectionState == BluetoothProfile.STATE_CONNECTING);
+    }
+
+    public boolean isDisconnected() {
+        return ((mConnectionState == BluetoothProfile.STATE_DISCONNECTED) || (mConnectionState == BluetoothProfile.STATE_DISCONNECTING));
+    }
+
     public BluetoothGattCharacteristic getChar(UUID uuid) {
         return mCharacteristics.get(uuid);
     }
