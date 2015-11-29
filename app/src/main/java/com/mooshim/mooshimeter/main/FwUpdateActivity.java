@@ -72,6 +72,7 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.concurrent.Semaphore;
@@ -212,9 +213,9 @@ public class FwUpdateActivity extends Activity {
         final Handler delayed_poster = new Handler();
 
         // Send image notification
-        mMeter.oad_block.enableNotify(true,new Runnable() {
+        mMeter.oad_block.enableNotify(true, new PeripheralWrapper.NotifyCallback() {
             @Override
-            public void run() {
+            public void notify(double timestamp_utc, byte[] payload) {
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG,"Meter requested block " + rb);
@@ -253,9 +254,9 @@ public class FwUpdateActivity extends Activity {
                 }
             }
         });
-        mMeter.oad_identity.enableNotify(true, new Runnable() {
+        mMeter.oad_identity.enableNotify(true, new PeripheralWrapper.NotifyCallback() {
             @Override
-            public void run() {
+            public void notify(double timestamp_utc, byte[] payload) {
                 Log.d(TAG, "OAD Image identify notification!");
             }
         });
@@ -363,7 +364,7 @@ public class FwUpdateActivity extends Activity {
         String txt;
         final int iBytes = mProgInfo.requestedBlock*OAD_BLOCK_SIZE;
         final double byteRate;
-        final double elapsed = (System.currentTimeMillis() - mProgInfo.timeStart) / 1000.0;
+        final double elapsed = (Util.getUTCTime() - mProgInfo.timeStart);
         if (elapsed > 0) {
             byteRate = ((double)iBytes) / elapsed;
         } else {
@@ -437,10 +438,10 @@ public class FwUpdateActivity extends Activity {
     private class ProgInfo {
         short requestedBlock = 0; // Number of blocks sent
         short nBlocks = 0; // Total number of blocks
-        long timeStart = System.currentTimeMillis();
+        double timeStart = Util.getUTCTime();
 
         void reset() {
-            timeStart = System.currentTimeMillis();
+            timeStart = Util.getUTCTime();
             nBlocks = (short) (mMeter.oad_identity.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }

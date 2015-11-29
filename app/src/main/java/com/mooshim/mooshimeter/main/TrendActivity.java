@@ -42,8 +42,6 @@ import com.jjoe64.graphview.series.LineGraphSeries;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
 
-import java.util.Calendar;
-
 public class TrendActivity extends Activity {
 
     private static final String TAG="TrendActivity";
@@ -134,7 +132,12 @@ public class TrendActivity extends Activity {
 
             setupAxisTitles();
 
-            trendViewPlay();
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    trendViewPlay();
+                }
+            });
         }
     }
 
@@ -174,11 +177,6 @@ public class TrendActivity extends Activity {
     ///////////////////
     // Graph Control Helpers
     ///////////////////
-
-    private double milliTime() {
-        Calendar cal = Calendar.getInstance();
-        return (double)(cal.getTimeInMillis())/1000.;
-    }
 
     private void resetViewBounds() {
         final Viewport vp = mGraph.getViewport();
@@ -303,55 +301,50 @@ public class TrendActivity extends Activity {
 
     private void trendViewPlay() {
         initializeDataSeries();
-        start_time = milliTime();
-        Util.dispatch(new Runnable() {
+        start_time = Util.getNanoTime();
+        mMeter.playSampleStream(new PeripheralWrapper.NotifyCallback() {
             @Override
-            public void run() {
-                mMeter.playSampleStream(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!mBufferMode) {
-                            Log.v(TAG, "Sample received!");
-                            final double new_time = milliTime() - start_time;
-                            int lsb_int;
-                            final double[] val = new double[2];
-                            for (int c = 0; c < 2; c++) {
-                                if (mMeter.disp_ac[c]) {
-                                    lsb_int = (int) (Math.sqrt(mMeter.meter_sample.reading_ms[c]));
-                                } else {
-                                    lsb_int = mMeter.meter_sample.reading_lsb[c];
-                                }
-                                val[c] = mMeter.lsbToNativeUnits(lsb_int, c);
-                            }
-                            resetViewBounds();
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    addDataPoint(new_time,val[0],val[1]);
-                                    mGraph.forceRefresh(true, false);
-                                }
-                            });
+            public void notify(double timestamp_utc, byte[] payload) {
+                if (!mBufferMode) {
+                    Log.v(TAG, "Sample received!");
+                    final double new_time = timestamp_utc - start_time;
+                    int lsb_int;
+                    final double[] val = new double[2];
+                    for (int c = 0; c < 2; c++) {
+                        if (mMeter.disp_ac[c]) {
+                            lsb_int = (int) (Math.sqrt(mMeter.meter_sample.reading_ms[c]));
+                        } else {
+                            lsb_int = mMeter.meter_sample.reading_lsb[c];
                         }
+                        val[c] = mMeter.lsbToNativeUnits(lsb_int, c);
                     }
-                });
-                Log.i(TAG, "Stream requested");
-                mPlaying = true;
+                    resetViewBounds();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            addDataPoint(new_time,val[0],val[1]);
+                            mGraph.forceRefresh(true, false);
+                        }
+                    });
+                }
             }
         });
+        Log.i(TAG, "Stream requested");
+        mPlaying = true;
     }
 
     private void trendViewPause() {
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.pauseStream();
-                mPlaying = false;
-            }
-        });
+        mMeter.pauseStream();
+        mPlaying = false;
     }
 
     private void streamBuffer() {
-        mProgressSpinner.setVisibility(View.VISIBLE);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mProgressSpinner.setVisibility(View.VISIBLE);
+            }
+        });
         mPlaying = true;
         Util.dispatch(new Runnable() {
             @Override
@@ -418,21 +411,25 @@ public class TrendActivity extends Activity {
     public void onTrendButtonClick(View v) {
         Log.d(TAG, "TrendClick");
         mBufferMode ^= true;
-        if(mBufferMode) {
-            if(mPlaying) {
-                trendViewPause();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                if(mBufferMode) {
+                    if(mPlaying) {
+                        trendViewPause();
+                    }
+                    streamBuffer();
+                } else {
+                    mMeter.meter_ch1_buf.enableNotify(false,null);
+                    mMeter.meter_ch2_buf.enableNotify(false, null);
+                    trendViewPlay();
+                }
             }
-            streamBuffer();
+        });
+        if(mBufferMode) {
             mTrendButton.setText("Buffer Mode");
             mGraphPlayButton.setText("Refresh");
         } else {
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    mMeter.meter_ch1_buf.enableNotify(false,null);
-                    mMeter.meter_ch2_buf.enableNotify(false, null);
-                }
-            });
             mTrendButton.setText("Trend Mode");
             mGraphPlayButton.setText("Pause");
         }
@@ -479,10 +476,20 @@ public class TrendActivity extends Activity {
             streamBuffer();
         } else {
             if(mPlaying) {
-                trendViewPause();
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        trendViewPause();
+                    }
+                });
                 mGraphPlayButton.setText("Play");
             } else {
-                trendViewPlay();
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        trendViewPlay();
+                    }
+                });
                 mGraphPlayButton.setText("Pause");
             }
         }

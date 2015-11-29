@@ -293,4 +293,12 @@ public class Util {
         long low = bb.getLong();
         return new UUID(high, low);
     }
+
+    public static double getUTCTime() {
+        return ((double)System.currentTimeMillis())/1000;
+    }
+
+    public static double getNanoTime() {
+        return ((double)System.nanoTime())/1000000000;
+    }
 }
