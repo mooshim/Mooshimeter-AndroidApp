@@ -278,9 +278,9 @@ public class DeviceActivity extends FragmentActivity {
         Util.dispatch(new Runnable() {
             @Override
             public void run() {
-                mMeter.playSampleStream(new Runnable() {
+                mMeter.playSampleStream(new PeripheralWrapper.NotifyCallback() {
                     @Override
-                    public void run() {
+                    public void notify(double timestamp_utc, byte[] payload) {
                         valueLabelRefresh(0);
                         valueLabelRefresh(1);
 

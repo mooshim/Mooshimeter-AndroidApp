@@ -43,6 +43,7 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
@@ -366,9 +367,9 @@ public class ScanActivity extends FragmentActivity {
                 public void run() {
                     if(!d.isNotificationEnabled(d.getChar(MooshimeterDevice.mUUID.METER_SAMPLE))) {
                         // We need to enable notifications
-                        d.playSampleStream(new Runnable() {
+                        d.playSampleStream(new PeripheralWrapper.NotifyCallback() {
                             @Override
-                            public void run() {
+                            public void notify(double timestamp_utc, byte[] payload) {
                                 TextView ch1 = (TextView)wrapper.findViewById(R.id.ch1_value_label);
                                 TextView ch2 = (TextView)wrapper.findViewById(R.id.ch2_value_label);
                                 TextView ch1_unit = (TextView)wrapper.findViewById(R.id.ch1_unit_label);

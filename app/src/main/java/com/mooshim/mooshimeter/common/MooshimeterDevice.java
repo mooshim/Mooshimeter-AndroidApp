@@ -167,13 +167,13 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * @param enable        If true, enable the notification.  If false, disable.
          * @param on_notify     When a notify event is received, this is called.
          */
-        public int enableNotify(boolean enable, final Runnable on_notify) {
-            return mInstance.enableNotify(getUUID(),enable,new NotifyCallback() {
+        public int enableNotify(boolean enable, final NotifyCallback on_notify) {
+            return mInstance.enableNotify(getUUID(), enable, new NotifyCallback() {
                 @Override
-                public void run() {
+                public void notify(double timestamp_utc, byte[] payload) {
                     boolean success = true;
                     try {
-                        unpack(this.payload);
+                        unpack(payload);
                     }
                     catch(BufferUnderflowException e){
                         success = false;
@@ -182,7 +182,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
                     }
                     finally {
                         if(success && on_notify!=null) {
-                            on_notify.run();
+                            on_notify.notify(timestamp_utc, payload);
                         }
                     }
                 }
@@ -672,7 +672,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
             meter_name.update();
 
             // Automatically sync the meter's clock to the phone clock
-            meter_time.utc_time = System.currentTimeMillis()/1000;
+            meter_time.utc_time = (int)Util.getUTCTime();
             meter_time.send();
         }
         mInitialized = true;
@@ -687,13 +687,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
     ////////////////////////////////
     // Convenience functions
     ////////////////////////////////
-
-    public void setOADMode(boolean scanned) {
-        // We receive OAD mode information from scan requests, so this
-        // function is helpful for providing a mode hint before we actually connect
-        // to the meter
-        mOADMode = scanned;
-    }
 
     public boolean isInOADMode() {
         // If we've already connected and discovered characteristics,
@@ -724,7 +717,8 @@ public class MooshimeterDevice extends PeripheralWrapper {
      */
     public void getBuffer(final Runnable onReceived) {
         // Set up for oneshot, turn off all math in firmware
-        if(0==(meter_settings.calc_settings & METER_CALC_SETTINGS_ONESHOT)) {
+        if((mBuildTime < 1424473383)
+        && (0==(meter_settings.calc_settings & METER_CALC_SETTINGS_ONESHOT))) {
             // Avoid sending the same meter settings over and over - check and see if we're set up for oneshot
             // and if we are, don't send the meter settings again.  Due to a firmware bug in the wild (Feb 2 2015)
             // sending meter settings will cause the ADC to run for one buffer fill even if the state is METER_PAUSED
@@ -733,13 +727,23 @@ public class MooshimeterDevice extends PeripheralWrapper {
             meter_settings.target_meter_state = METER_PAUSED;
             meter_settings.send();
         }
+        else if (meter_settings.present_meter_state != METER_PAUSED) {
+            meter_settings.target_meter_state = METER_PAUSED;
+            meter_settings.send();
+        }
+
         meter_sample.enableNotify(false,null);
         meter_ch1_buf.enableNotify(true,null);
         meter_ch2_buf.enableNotify(true,null);
         meter_ch2_buf.buf_full_cb = onReceived;
-        meter_settings.target_meter_state = METER_RUNNING;
+
         meter_ch1_buf.buf_i = 0;
         meter_ch2_buf.buf_i = 0;
+
+        // Trigger a one-shot
+        meter_settings.calc_settings &=~(METER_CALC_SETTINGS_MS|METER_CALC_SETTINGS_MEAN);
+        meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
+        meter_settings.target_meter_state = METER_RUNNING;
         meter_settings.send();
     }
 
@@ -758,7 +762,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
      * Start streaming samples from the meter.  Samples will be streamed continuously until pauseStream is called
      * @param on_notify Called whenever a new sample is received
      */
-    public void playSampleStream(final Runnable on_notify) {
+    public void playSampleStream(final NotifyCallback on_notify) {
         meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
         meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;

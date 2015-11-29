@@ -72,8 +72,8 @@ public class PeripheralWrapper {
     public int mRssi;
     public int mConnectionState;
 
-    public abstract class NotifyCallback implements Runnable {
-        public byte[] payload = null;
+    public static abstract class NotifyCallback {
+        public abstract void notify(double timestamp_utc, byte[] payload);
     }
 
     private class Interruptable implements Callable<Void> {
@@ -138,16 +138,17 @@ public class PeripheralWrapper {
             @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { bleRSSICondition    .l(stat); mRssi = rssi;                bleRSSICondition    .sig(); bleRSSICondition    .ul();}
             @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         {
                 bleChangedCondition .l(0);
-                final byte[] val = c.getValue().clone();
+                final byte[] val = c.getValue();
                 // The BLE stack sometimes gives us a null here, unclear why.
                 if( val != null ) {
                     final NotifyCallback cb = mNotifyCB.get(c.getUuid());
                     if (cb != null) {
-                        cb.payload = val;
+                        final byte[] payload = val.clone();
+                        final double timestamp = Util.getNanoTime();
                         Util.dispatch(new Runnable() {
                             @Override
                             public void run() {
-                                cb.run();
+                                cb.notify(timestamp,payload);
                             }
                         });
                     }
