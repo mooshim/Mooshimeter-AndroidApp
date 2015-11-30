@@ -64,7 +64,6 @@ public class ScanActivity extends FragmentActivity {
     final static byte[] mOADServiceUUID   = uuidToBytes(MooshimeterDevice.mUUID.OAD_SERVICE_UUID);
 
     private static final Map<String,MooshimeterDevice>  mMeterDict = new HashMap<String, MooshimeterDevice>();
-    private static final List<ViewGroup>                mTileList = new ArrayList<ViewGroup>();
 
     // GUI Widgets
     private TextView mEmptyMsg;
@@ -264,7 +263,7 @@ public class ScanActivity extends FragmentActivity {
         });
     }
 
-    private void addDevice(final MooshimeterDevice d) {
+    private void addDeviceToScanList(final MooshimeterDevice d) {
         mEmptyMsg.setVisibility(View.GONE);
 
         if(mMeterDict.containsValue(d)) {
@@ -302,7 +301,6 @@ public class ScanActivity extends FragmentActivity {
 
         refreshMeterTile(wrapper);
         mDeviceScrollView.addView(wrapper);
-        mTileList.add(wrapper);
 
         if (mMeterDict.size() > 1)
             setStatus(mMeterDict.size() + " devices");
@@ -392,7 +390,7 @@ public class ScanActivity extends FragmentActivity {
 
     private void refreshAllMeterTiles() {
         for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
-            final ViewGroup vg = mTileList.get(i);
+            final ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
             refreshMeterTile(vg);
         }
     }
@@ -514,7 +512,13 @@ public class ScanActivity extends FragmentActivity {
                 MooshimeterDevice m = mMeterDict.get(device.getAddress());
                 if(m==null) {
                     m = new MooshimeterDevice(device,getApplicationContext());
-                    addDevice(m);
+                    final MooshimeterDevice wrapped = m;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            addDeviceToScanList(wrapped);
+                        }
+                    });
                 }
                 m.mRssi = rssi;
                 m.mOADMode = oad_mode;
@@ -528,7 +532,12 @@ public class ScanActivity extends FragmentActivity {
 
     private class MainScanCallback extends FilteredScanCallback {
         void FilteredCallback(MooshimeterDevice m) {
-            refreshAllMeterTiles();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    refreshAllMeterTiles();
+                }
+            });
         }
     }
 
@@ -551,7 +560,8 @@ public class ScanActivity extends FragmentActivity {
             }
         }
         for(MooshimeterDevice m : remove) {
-            for(ViewGroup vg: mTileList) {
+            for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
+                ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
                 if(vg.getTag() == m) {
                     mDeviceScrollView.removeView(vg);
                     break;
@@ -724,6 +734,7 @@ public class ScanActivity extends FragmentActivity {
             rval = m.discover();
             if(BluetoothGatt.GATT_SUCCESS != rval ) {
                 setStatus(String.format("Discovery failed.  Status: %d", rval));
+                m.disconnect();
                 return; }
             setStatus("Connected!");
             startSingleMeterActivity(m);
