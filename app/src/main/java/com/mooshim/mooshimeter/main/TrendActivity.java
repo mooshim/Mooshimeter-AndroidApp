@@ -306,7 +306,6 @@ public class TrendActivity extends Activity {
             @Override
             public void notify(double timestamp_utc, byte[] payload) {
                 if (!mBufferMode) {
-                    Log.v(TAG, "Sample received!");
                     final double new_time = timestamp_utc - start_time;
                     int lsb_int;
                     final double[] val = new double[2];

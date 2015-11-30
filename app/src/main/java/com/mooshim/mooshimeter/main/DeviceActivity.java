@@ -215,6 +215,7 @@ public class DeviceActivity extends FragmentActivity {
             mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
             onMeterInitialized();
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            setTitle(mMeter.getBLEDevice().getName());
         }
 	}
 

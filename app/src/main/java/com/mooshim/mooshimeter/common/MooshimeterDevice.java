@@ -144,8 +144,16 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * you must wait for cb to be called.
          */
         public void update() {
+            unpack(mInstance.req(getUUID()));
+        }
+        public void unpack(byte[] in) {
+            if(in==null) {
+                Log.e(TAG,"Can't unpack a null buffer!");
+                Log.e(TAG, Log.getStackTraceString(new Exception()));
+                return;
+            }
             try {
-                unpack(mInstance.req(getUUID()));
+                unpack_inner(in);
             }
             catch(BufferUnderflowException e){
                 Log.e(TAG,"Received incorrect pack length while unpacking!");
@@ -202,7 +210,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * Interpret a BLE payload and set the instance members
          * @param in A byte[] received as a BLE payload
          */
-        public abstract void unpack(byte[] in);
+        public abstract void unpack_inner(byte[] in);
 
         /**
          *
@@ -295,7 +303,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         @Override
-        public void unpack(byte[] in) {
+        public void unpack_inner(byte[] in) {
             ByteBuffer b = wrap(in);
 
             present_meter_state = b.get();
@@ -340,7 +348,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         @Override
-        public void unpack(byte[] in) {
+        public void unpack_inner(byte[] in) {
             ByteBuffer b = wrap(in);
 
             sd_present              = b.get();
@@ -375,7 +383,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         @Override
-        public void unpack(byte[] in) {
+        public void unpack_inner(byte[] in) {
             ByteBuffer b = wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             pcb_version      = b.get();
@@ -404,7 +412,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         @Override
-        public void unpack(byte[] in) {
+        public void unpack_inner(byte[] in) {
             ByteBuffer b = wrap(in);
 
             reading_lsb[0] = getInt24(b);
@@ -424,7 +432,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
             return name.getBytes();
         }
         @Override
-        public void unpack(final byte[] in) {
+        public void unpack_inner(final byte[] in) {
             name = new String(in);
         }
     }
@@ -441,7 +449,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
             return b.array();
         }
         @Override
-        public void unpack(final byte[] in) {
+        public void unpack_inner(final byte[] in) {
             ByteBuffer b = wrap(in);
             utc_time = b.getInt();
             // Prevent sign extension since Java will assume the int being unpacked is signed
@@ -463,7 +471,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
             return null;
         }
         @Override
-        public void unpack(byte[] arg) {
+        public void unpack_inner(byte[] arg) {
             // Nasty synchonization hack
             meter_ch2_buf.buf_i = 0;
             final int nBytes = getBufLen()*3;
@@ -505,7 +513,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
             return null;
         }
         @Override
-        public void unpack(byte[] arg) {
+        public void unpack_inner(byte[] arg) {
             // Nasty synchonization hack
             meter_ch1_buf.buf_i = 0;
             final int nBytes = getBufLen()*3;
@@ -548,7 +556,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         public UUID getUUID() { return mUUID.OAD_IMAGE_IDENTIFY; }
 
         @Override
-        public void unpack(byte[] buf) {
+        public void unpack_inner(byte[] buf) {
 
         }
 
@@ -612,7 +620,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         @Override
-        public void unpack(byte[] in) {
+        public void unpack_inner(byte[] in) {
             ByteBuffer b = wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             requestedBlock = b.getShort();
