@@ -19,6 +19,7 @@
 
 package com.mooshim.mooshimeter.common;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
@@ -47,13 +48,25 @@ public class StatLockManager {
     public void sig() {
         con.signalAll();
     }
-    public void await() {
+    public boolean awaitMilli(int ms) {
         try {
             l();
-            con.await();
+            if(ms!=0) {
+                con.await(ms, TimeUnit.MILLISECONDS);
+            } else {
+                con.await();
+            }
             ul();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            if(ms==0) {
+                // We should never be interrupted like this...
+                e.printStackTrace();
+            }
+            return true;
         }
+        return false;
+    }
+    public void await() {
+        awaitMilli(0);
     }
 }
