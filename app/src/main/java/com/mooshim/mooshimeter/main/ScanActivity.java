@@ -23,8 +23,12 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.app.FragmentActivity;
@@ -72,7 +76,7 @@ public class ScanActivity extends FragmentActivity {
     private LinearLayout mDeviceScrollView = null;
 
     // Flags for the scan logic thread
-    private static boolean mScanOngoing = false;
+    private static FilteredScanCallback mScanCb = null;
 
     private LayoutInflater mInflater;
 
@@ -110,6 +114,24 @@ public class ScanActivity extends FragmentActivity {
         mDeviceScrollView.setClickable(true);
 
         mInflater = LayoutInflater.from(this);
+
+        // Register to receive all the bluetooth actions
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+        filter.addAction(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED);
+        filter.addAction(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+        filter.addAction(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
+        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        registerReceiver(mReceiver, filter);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mReceiver);
     }
 
     @Override
@@ -263,6 +285,18 @@ public class ScanActivity extends FragmentActivity {
         });
     }
 
+    private View findTileForMeter(final MooshimeterDevice m) {
+        for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
+            View v = mDeviceScrollView.getChildAt(i);
+            MooshimeterDevice test = (MooshimeterDevice) v.getTag();
+            if(test==m) {
+                return v;
+            }
+        }
+        // Could not find the tile, return null
+        return null;
+    }
+
     private void addDeviceToScanList(final MooshimeterDevice d) {
         mEmptyMsg.setVisibility(View.GONE);
 
@@ -284,12 +318,11 @@ public class ScanActivity extends FragmentActivity {
                 Util.dispatch(new Runnable() {
                     @Override
                     public void run() {
-                        if (d.isConnected()
-                                || d.isConnecting()) {
+                        if (   d.isConnected()
+                            || d.isConnecting()) {
                             startSingleMeterActivity(d);
                         } else {
-                            final Button bv = (Button) view.findViewById(R.id.btnConnect);
-                            toggleConnectionState(bv, d);
+                            toggleConnectionState(d);
                         }
                     }
                 });
@@ -348,7 +381,7 @@ public class ScanActivity extends FragmentActivity {
                     Util.dispatch(new Runnable() {
                         @Override
                         public void run() {
-                            toggleConnectionState(bv, d);
+                            toggleConnectionState(d);
                         }
                     });
                 }
@@ -527,11 +560,24 @@ public class ScanActivity extends FragmentActivity {
             }
         }
 
-        abstract void FilteredCallback(MooshimeterDevice m);
+        abstract void FilteredCallback(final MooshimeterDevice m);
     }
 
     private class MainScanCallback extends FilteredScanCallback {
-        void FilteredCallback(MooshimeterDevice m) {
+        void FilteredCallback(final MooshimeterDevice m) {
+            if(   m.hasPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)
+               && m.getPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)) {
+                // We've found a meter with the autoconnect feature enabled
+                // Connect to it!
+                setStatus("Autoconnecting...");
+                stopScan();
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        toggleConnectionState(m);
+                    }
+                });
+            }
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -546,8 +592,7 @@ public class ScanActivity extends FragmentActivity {
     /////////////////////////////
 
     public synchronized void startScan() {
-        if(mScanOngoing) return;
-        mScanOngoing = true;
+        if(mScanCb != null){return;}
 
         final Handler h = new Handler();
         mBtnScan.setEnabled(false);
@@ -572,9 +617,9 @@ public class ScanActivity extends FragmentActivity {
         refreshAllMeterTiles();
 
         final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        final MainScanCallback cb = new MainScanCallback();
+        mScanCb = new MainScanCallback();
 
-        if( !bluetoothAdapter.startLeScan(cb) ) {
+        if( !bluetoothAdapter.startLeScan(mScanCb) ) {
             // Starting the scan failed!
             Log.e(TAG,"Failed to start BLE Scan");
             setError("Failed to start scan");
@@ -582,13 +627,20 @@ public class ScanActivity extends FragmentActivity {
         h.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mBtnScan.setEnabled(true);
-                updateScanningButton(false);
-                final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                bluetoothAdapter.stopLeScan(cb);
-                mScanOngoing = false;
+                stopScan();
             }
         }, 5000);
+    }
+
+    public void stopScan() {
+        if(mScanCb==null) {
+            return;
+        }
+        mBtnScan.setEnabled(true);
+        updateScanningButton(false);
+        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        bluetoothAdapter.stopLeScan(mScanCb);
+        mScanCb = null;
     }
 
     public void onBtnScan(View view) {
@@ -693,7 +745,7 @@ public class ScanActivity extends FragmentActivity {
             startOADActivity(m);
         } else {
             // Check the firmware version against our bundled version
-            if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
+            /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
                     && offerFirmwareUpgrade() ) {
                 // Perform a firmware upgrade!
                 if(reconnectInOADMode(m)) {
@@ -708,11 +760,30 @@ public class ScanActivity extends FragmentActivity {
                 }
             } else {
                 startDeviceActivity(m);
+            }*/
+            if(m.meter_info.build_time < Util.getBundledFirmwareVersion() ) {
+                String[] choices = {"See Instructions", "Continue without updating"};
+                int choice = Util.offerChoiceDialog(this,"Firmware update available","A newer firmware version is available for this Mooshimeter, upgrading is recommended.",choices);
+                switch(choice) {
+                    case 0:
+                        // View the instructions
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
+                        startActivity(browserIntent);
+                        m.disconnect();
+                        break;
+                    case 1:
+                        // Continue without viewing
+                        startDeviceActivity(m);
+                        break;
+                }
+            } else {
+                startDeviceActivity(m);
             }
         }
     }
 
-    private void toggleConnectionState(final Button bv, final MooshimeterDevice m) {
+    private void toggleConnectionState(final MooshimeterDevice m) {
+        final Button bv = (Button) findTileForMeter(m).findViewById(R.id.btnConnect);;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -722,6 +793,7 @@ public class ScanActivity extends FragmentActivity {
         });
         if(    m.isConnected()
             || m.isConnecting() ) {
+            m.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT,false);
             m.disconnect();
         } else {
             int rval;
@@ -737,6 +809,10 @@ public class ScanActivity extends FragmentActivity {
                 m.disconnect();
                 return; }
             setStatus("Connected!");
+            // If we've never connected to this meter before, make it a default for reconnection
+            if(!m.hasPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)) {
+                m.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT, true);
+            }
             startSingleMeterActivity(m);
         }
         runOnUiThread(new Runnable() {
@@ -800,4 +876,32 @@ public class ScanActivity extends FragmentActivity {
             }
         });
     }
+
+    ///////////////////////////////
+    // Adapter state change receiver
+    ///////////////////////////////
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            Log.d("TAG", "ADAPTER" + action);
+            // TODO: This is here as a template for later.
+
+            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+                                                     BluetoothAdapter.ERROR);
+                switch (state) {
+                    case BluetoothAdapter.STATE_OFF:
+                        break;
+                    case BluetoothAdapter.STATE_TURNING_OFF:
+                        break;
+                    case BluetoothAdapter.STATE_ON:
+                        break;
+                    case BluetoothAdapter.STATE_TURNING_ON:
+                        break;
+                }
+            }
+        }
+    };
 }

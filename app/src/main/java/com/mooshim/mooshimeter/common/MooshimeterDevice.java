@@ -22,6 +22,7 @@ package com.mooshim.mooshimeter.common;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import java.nio.BufferUnderflowException;
@@ -59,6 +60,11 @@ public class MooshimeterDevice extends PeripheralWrapper {
                 OAD_IMAGE_IDENTIFY  = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
                 OAD_IMAGE_BLOCK     = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
                 OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
+    }
+
+    public static final class mPreferenceKeys {
+        public static final String
+                AUTOCONNECT = "AUTOCONNECT";
     }
 
     private static final String TAG="MooshimeterDevice";
@@ -687,6 +693,33 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public int disconnect() {
         mInitialized = false;
         return super.disconnect();
+    }
+
+    ////////////////////////////////
+    // Persistent settings
+    ////////////////////////////////
+
+    private String getSharedPreferenceString() {
+        return "mooshimeter-preference-"+getAddress();
+    }
+
+    private SharedPreferences getSharedPreferences() {
+        return mContext.getSharedPreferences(getSharedPreferenceString(),Context.MODE_PRIVATE);
+    }
+
+    public boolean hasPreference(String key) {
+        return getSharedPreferences().contains(key);
+    }
+
+    public boolean getPreference(String key) {
+        return getSharedPreferences().getBoolean(key, false);
+    }
+
+    public void setPreference(String key, boolean val) {
+        SharedPreferences sp = getSharedPreferences();
+        SharedPreferences.Editor e = sp.edit();
+        e.putBoolean(key,val);
+        e.commit();
     }
 
     ////////////////////////////////
