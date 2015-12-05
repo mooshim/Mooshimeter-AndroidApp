@@ -196,9 +196,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
                 }
             });
         }
-        public void setWriteType(int wtype){
-            mInstance.setWriteType(getUUID(),wtype);
-        }
 
         /**
          * Serialize the instance members

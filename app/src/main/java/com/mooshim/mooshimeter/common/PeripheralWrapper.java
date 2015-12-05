@@ -32,10 +32,8 @@ import android.util.Log;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.Lock;
@@ -47,7 +45,7 @@ public class PeripheralWrapper {
 
     private static final Lock conditionLock= new ReentrantLock();
 
-    private Context mContext;
+    protected Context mContext;
     private BluetoothGatt mBluetoothGatt;
     private BluetoothDevice mDevice;
     private BluetoothGattCallback mGattCallbacks;
@@ -56,6 +54,7 @@ public class PeripheralWrapper {
     private Map<UUID,NotifyCallback> mNotifyCB;
     private HashMap<Integer, List<Runnable>> mConnectionStateCB;
     private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
+    private List<Runnable> mRSSICallbacks;
 
     private int connectionStateCBHandle = 0;
 
@@ -221,12 +220,42 @@ public class PeripheralWrapper {
                 mBluetoothGatt = mDevice.connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
 
-                // TODO: Implement timeout
-                while( mConnectionState != BluetoothProfile.STATE_CONNECTED ) {
-                    bleStateCondition.await();
-                    if(bleStateCondition.stat != 0) {break;}
+                mRval = 0;
+
+                while (!isConnected()) {
+                    //If we time out in connection or the connect routine returns an error
+                    if (bleStateCondition.awaitMilli(5000) ) {
+                        mRval = -1;
+                        break;
+                    }
+                    if (bleStateCondition.stat != 0) {
+                        mRval = bleStateCondition.stat;
+                        break;
+                    }
                 }
-                mRval = bleStateCondition.stat;
+
+                /*
+                // Start a periodic RSSI poller
+                Util.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        protectedCall(new Interruptable() {
+                            @Override
+                            public Void call() throws InterruptedException {
+                                if (isConnected()) {
+                                    mBluetoothGatt.readRemoteRssi();
+                                    if(bleRSSICondition.awaitMilli(500)) {
+                                        Log.e(TAG, "RSSI read timed out!");
+                                    }
+                                }
+                                return null;
+                            }
+                        });
+                        Util.postDelayed(this,5000);
+                    }
+                }, 5000);*/
+
+
                 return null;
             }
         });
@@ -242,12 +271,16 @@ public class PeripheralWrapper {
             public Void call() throws InterruptedException {
                 // Discover services
                 mBluetoothGatt.discoverServices();
-                bleDiscoverCondition.await();
+                if(bleDiscoverCondition.awaitMilli(5000)) {
+                    // Timed out
+                    mRval = -1;
+                    return null;
+                }
                 // Build a local dictionary of all characteristics and their UUIDs
-                for( BluetoothGattService s : mBluetoothGatt.getServices() ) {
-                    mServices.put(s.getUuid(),s);
-                    for( BluetoothGattCharacteristic c : s.getCharacteristics() ) {
-                        mCharacteristics.put(c.getUuid(),c);
+                for (BluetoothGattService s : mBluetoothGatt.getServices()) {
+                    mServices.put(s.getUuid(), s);
+                    for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                        mCharacteristics.put(c.getUuid(), c);
                     }
                 }
                 mRval = bleDiscoverCondition.stat;
@@ -283,7 +316,11 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 mBluetoothGatt.readCharacteristic(c);
-                bleReadCondition.await();
+                if(bleReadCondition.awaitMilli(1000)) {
+                    mRval = -1;
+                } else {
+                    mRval = bleReadCondition.stat;
+                }
                 return null;
             }
         });
@@ -301,8 +338,11 @@ public class PeripheralWrapper {
             public Void call() throws InterruptedException {
                 c.setValue(value);
                 mBluetoothGatt.writeCharacteristic(c);
-                bleWriteCondition.await();
-                mRval = bleWriteCondition.stat;
+                if(bleWriteCondition.awaitMilli(1000)) {
+                    mRval = -1;
+                } else {
+                    mRval = bleWriteCondition.stat;
+                }
                 return null;
             }
         });
@@ -345,20 +385,19 @@ public class PeripheralWrapper {
                         }
                         clientConfig.setValue(enable_val);
                         mBluetoothGatt.writeDescriptor(clientConfig);
-                        bleDWriteCondition.await();
+                        if(bleDWriteCondition.awaitMilli(1000)) {
+                            mRval = -1;
+                        } else {
+                            mRval = bleDWriteCondition.stat;
+                        }
+                    } else {
+                        mRval = 0;
                     }
-                    mRval = bleDWriteCondition.stat;
                     return null;
                 }
             });
         }
         return 0;
-    }
-
-    public void setWriteType(UUID uuid, int wtype) {
-        // TODO: This needs proper locks around it
-        final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
-        c.setWriteType(wtype);
     }
 
     public String getAddress() {
