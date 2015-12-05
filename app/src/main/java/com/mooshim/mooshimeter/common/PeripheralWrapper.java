@@ -85,21 +85,22 @@ public class PeripheralWrapper {
     }
 
     // Anything that has to do with the BluetoothGatt needs to go through here
-    private int protectedCall(Interruptable r) {
-        if(Util.inMainThread()) {
-            Log.e(TAG,"Protected call made from main thread!  Not recommended!");
-            Log.e(TAG, Log.getStackTraceString(new Exception()));
-        }
-        try {
-            bleLock.lock();
-            conditionLock.lock();
-            r.call();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            conditionLock.unlock();
-            bleLock.unlock();
-        }
+    private int protectedCall(final Interruptable r) {
+        Util.blockUntilRunOnMainThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    bleLock.lock();
+                    conditionLock.lock();
+                    r.call();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    conditionLock.unlock();
+                    bleLock.unlock();
+                }
+            }
+        });
         return r.mRval;
     }
     
