@@ -19,6 +19,7 @@
 
 package com.mooshim.mooshimeter.common;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
@@ -213,27 +214,17 @@ public class PeripheralWrapper {
             return 0;
         }
 
-        return protectedCall(new Interruptable() {
+        protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
+                if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
+                    Log.e(TAG,"Trying to connect while the adapter is discovering!  Going to cancel discovery.");
+                    BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
+                }
                 // Try to connect
                 mBluetoothGatt = mDevice.connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
-
-                mRval = 0;
-
-                while (!isConnected()) {
-                    //If we time out in connection or the connect routine returns an error
-                    if (bleStateCondition.awaitMilli(5000) ) {
-                        mRval = -1;
-                        break;
-                    }
-                    if (bleStateCondition.stat != 0) {
-                        mRval = bleStateCondition.stat;
-                        break;
-                    }
-                }
-
+                return null;
                 /*
                 // Start a periodic RSSI poller
                 Util.postDelayed(new Runnable() {
@@ -254,11 +245,19 @@ public class PeripheralWrapper {
                         Util.postDelayed(this,5000);
                     }
                 }, 5000);*/
-
-
-                return null;
             }
         });
+
+        while (!isConnected()) {
+            //If we time out in connection or the connect routine returns an error
+            if (bleStateCondition.awaitMilli(5000) ) {
+                return -1;
+            }
+            if (bleStateCondition.stat != 0) {
+                return bleStateCondition.stat;
+            }
+        }
+        return 0;
     }
 
     public int discover() {
@@ -266,27 +265,26 @@ public class PeripheralWrapper {
             new Exception().printStackTrace();
             return -1;
         }
-        return protectedCall(new Interruptable() {
+        protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
                 // Discover services
                 mBluetoothGatt.discoverServices();
-                if(bleDiscoverCondition.awaitMilli(5000)) {
-                    // Timed out
-                    mRval = -1;
-                    return null;
-                }
-                // Build a local dictionary of all characteristics and their UUIDs
-                for (BluetoothGattService s : mBluetoothGatt.getServices()) {
-                    mServices.put(s.getUuid(), s);
-                    for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
-                        mCharacteristics.put(c.getUuid(), c);
-                    }
-                }
-                mRval = bleDiscoverCondition.stat;
                 return null;
             }
         });
+        if(bleDiscoverCondition.awaitMilli(5000)) {
+            // Timed out
+            return -1;
+        }
+        // Build a local dictionary of all characteristics and their UUIDs
+        for (BluetoothGattService s : mBluetoothGatt.getServices()) {
+            mServices.put(s.getUuid(), s);
+            for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                mCharacteristics.put(c.getUuid(), c);
+            }
+        }
+        return bleDiscoverCondition.stat;
     }
 
     public int disconnect() {
@@ -308,6 +306,7 @@ public class PeripheralWrapper {
 
     public byte[] req(UUID uuid) {
         if(!isConnected()) {
+            Log.e(TAG,"Trying to read from a disconnected peripheral");
             new Exception().printStackTrace();
             return null;
         }
@@ -329,6 +328,7 @@ public class PeripheralWrapper {
 
     public int send(final UUID uuid, final byte[] value) {
         if(!isConnected()) {
+            Log.e(TAG,"Trying to send to a disconnected peripheral");
             new Exception().printStackTrace();
             return -1;
         }
@@ -350,6 +350,7 @@ public class PeripheralWrapper {
 
     public boolean isNotificationEnabled(BluetoothGattCharacteristic c) {
         if(!isConnected()) {
+            Log.e(TAG,"Trying to read notification on a disconnected peripheral");
             new Exception().printStackTrace();
             return false;
         }
@@ -360,6 +361,7 @@ public class PeripheralWrapper {
 
     public int enableNotify(final UUID uuid, final boolean enable, final NotifyCallback on_notify) {
         if(!isConnected()) {
+            Log.e(TAG,"Trying to set notification on a disconnected peripheral");
             new Exception().printStackTrace();
             return -1;
         }
