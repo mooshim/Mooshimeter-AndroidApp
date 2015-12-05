@@ -48,6 +48,7 @@ public class StatLockManager {
     public void sig() {
         con.signalAll();
     }
+    // returns whether it was interrupted or not
     public boolean awaitMilli(int ms) {
         try {
             l();

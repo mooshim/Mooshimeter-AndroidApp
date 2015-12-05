@@ -222,13 +222,17 @@ public class Util {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return;
     }
 
-    public static boolean offerYesNoDialog(final Context context, final String title, final String message) {
+    public static int offerChoiceDialog(final Context context, final String title, final String message, final String[] buttons) {
         checkNotOnMainThread();
         final Semaphore sem = new Semaphore(0);
-        final boolean[] response = new boolean[1]; // Capture the user's decision
+        final int[] response = new int[1]; // Capture the user's decision
+
+        if(buttons.length>3) {
+            Log.e("UTIL","Can't have more than 3 choices!");
+            new Exception().printStackTrace();
+        }
 
         Runnable r = new Runnable() {
             @Override
@@ -236,22 +240,16 @@ public class Util {
                 AlertDialog alertDialog = new AlertDialog.Builder(context).create();
                 alertDialog.setTitle(title);
                 alertDialog.setMessage(message);
-                alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "Yes",
-                                      new DialogInterface.OnClickListener() {
-                                          public void onClick(DialogInterface dialog, int which) {
-                                              response[0] = true;
-                                              dialog.dismiss();
-                                              sem.release();
-                                          }
-                                      });
-                alertDialog.setButton(AlertDialog.BUTTON_NEGATIVE, "No",
-                                      new DialogInterface.OnClickListener() {
-                                          public void onClick(DialogInterface dialog, int which) {
-                                              response[0] = false;
-                                              dialog.dismiss();
-                                              sem.release();
-                                          }
-                                      });
+                for(int i = 0; i < buttons.length; i++) {
+                    alertDialog.setButton(i-3, buttons[i],
+                          new DialogInterface.OnClickListener() {
+                              public void onClick(DialogInterface dialog, int which) {
+                                  response[0] = which+3;
+                                  dialog.dismiss();
+                                  sem.release();
+                              }
+                          });
+                }
                 alertDialog.show();
             }
         };
@@ -265,6 +263,11 @@ public class Util {
             e.printStackTrace();
         }
         return response[0];
+    }
+
+    public static boolean offerYesNoDialog(final Context context, final String title, final String message) {
+        final String[] choices = {"Yes","No"};
+        return 0 == offerChoiceDialog(context,title,message,choices);
     }
 
     public static void blockUntilRunOnMainThread(final Runnable r) {
@@ -300,5 +303,9 @@ public class Util {
 
     public static double getNanoTime() {
         return ((double)System.nanoTime())/1000000000;
+    }
+
+    public static Context getRootContext() {
+        return mContext;
     }
 }
