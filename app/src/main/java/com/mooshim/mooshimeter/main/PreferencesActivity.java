@@ -64,6 +64,8 @@ import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -74,6 +76,8 @@ public class PreferencesActivity extends FragmentActivity {
 
     public MooshimeterDevice mMeter;
     final Button rateButtons[] = {null,null,null,null};
+    private CheckBox auto_connect_checkbox;
+
     private final static GradientDrawable ON_GRADIENT    = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFF00FF00,0xFF00CC00});
     private final static GradientDrawable OFF_GRADIENT     = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFF0000,0xFFCC0000});
 
@@ -89,6 +93,16 @@ public class PreferencesActivity extends FragmentActivity {
       rateButtons[1] = (Button)findViewById(R.id.rate_button1);
       rateButtons[2] = (Button)findViewById(R.id.rate_button2);
       rateButtons[3] = (Button)findViewById(R.id.rate_button3);
+
+      auto_connect_checkbox = (CheckBox)findViewById(R.id.auto_connect_checkbox);
+      auto_connect_checkbox.setChecked(mMeter.getPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT));
+      auto_connect_checkbox.setEnabled(true);
+      auto_connect_checkbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+          @Override
+          public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+              mMeter.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT, auto_connect_checkbox.isChecked());
+          }
+      });
 
       if(mMeter.meter_name.name != null) {
           name_editor.setText(mMeter.meter_name.name);
