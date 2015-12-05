@@ -52,6 +52,7 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,9 +64,6 @@ public class ScanActivity extends FragmentActivity {
     private static final int REQ_ENABLE_BT = 0;
     private static final int REQ_DEVICE_ACT = 1;
     private static final int REQ_OAD_ACT = 2;
-
-    final static byte[] mMeterServiceUUID = uuidToBytes(MooshimeterDevice.mUUID.METER_SERVICE);
-    final static byte[] mOADServiceUUID   = uuidToBytes(MooshimeterDevice.mUUID.OAD_SERVICE_UUID);
 
     private static final Map<String,MooshimeterDevice>  mMeterDict = new HashMap<String, MooshimeterDevice>();
 
@@ -345,48 +343,47 @@ public class ScanActivity extends FragmentActivity {
         final MooshimeterDevice d = (MooshimeterDevice) wrapper.getTag();
         if(wrapper.getChildCount()==0) {
             Log.e(TAG,"Received empty wrapper");
+            return;
         }
-        if(wrapper.getChildCount()>0) {
-            // Update the title bar
-            int rssi = d.mRssi;
-            String name;
-            String build;
-            if(d.mOADMode) {
-                name = "Bootloader";
-            } else {
-                name = d.getBLEDevice().getName();
-                if (name == null) {
-                    name = "Unknown device";
-                }
+        // Update the title bar
+        int rssi = d.mRssi;
+        String name;
+        String build;
+        if(d.mOADMode) {
+            name = "Bootloader";
+        } else {
+            name = d.getBLEDevice().getName();
+            if (name == null) {
+                name = "Unknown device";
             }
-
-            if(d.mBuildTime == 0) {
-                build = "Invalid firmware";
-            } else {
-                build = "Build: "+d.mBuildTime;
-            }
-
-            String descr = name + "\n" + build + "\nRssi: " + rssi + " dBm";
-            ((TextView) wrapper.findViewById(R.id.descr)).setText(descr);
-
-            final Button bv = (Button)wrapper.findViewById(R.id.btnConnect);
-
-            int bgid = d.isConnected() ? R.drawable.connected:R.drawable.disconnected;
-            bv.setBackground(getResources().getDrawable(bgid));
-
-            // Set the click listeners
-            bv.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    Util.dispatch(new Runnable() {
-                        @Override
-                        public void run() {
-                            toggleConnectionState(d);
-                        }
-                    });
-                }
-            });
         }
+
+        if(d.mBuildTime == 0) {
+            build = "Invalid firmware";
+        } else {
+            build = "Build: "+d.mBuildTime;
+        }
+
+        String descr = name + "\n" + build + "\nRssi: " + rssi + " dBm";
+        ((TextView) wrapper.findViewById(R.id.descr)).setText(descr);
+
+        final Button bv = (Button)wrapper.findViewById(R.id.btnConnect);
+
+        int bgid = d.isConnected() ? R.drawable.connected:R.drawable.disconnected;
+        bv.setBackground(getResources().getDrawable(bgid));
+
+        // Set the click listeners
+        bv.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        toggleConnectionState(d);
+                    }
+                });
+            }
+        });
         if(d.mInitialized && !d.isInOADMode()) {
             // We are representing a connected meter
             if(wrapper.getChildCount() != 2) {
@@ -454,32 +451,6 @@ public class ScanActivity extends FragmentActivity {
     // Listeners for BLE Events
     /////////////////////////////
 
-    private static byte[] uuidToBytes(final UUID arg) {
-        final byte[] s = arg.toString().getBytes();
-        byte[] rval = new byte[16];
-        for(int i = 0; i < 16; i++){ rval[i]=0; }
-        // We expect 16 bytes, but UUID strings are reverse order from byte arrays
-        int i = 31;
-        for(byte b:s) {
-            if( b >= 0x30 && b < 0x3A ) {        // Numbers 0-9
-                b -= 0x30;
-            } else if( b >= 0x41 && b < 0x47 ) { // Capital letters A-F
-                b -= 0x41;
-                b += 10;
-            } else if( b >= 0x61 && b < 0x67 ) { // Lower letters a-f
-                b -= 0x61;
-                b += 10;
-            } else { // Unrecognized symbol, probably a dash
-                continue;
-            }
-            // Is this the top or bottom nibble?
-            b <<= (i%2 == 0)?0:4;
-            rval[i/2] |= b;
-            i--;
-        }
-        return rval;
-    }
-
     private abstract class FilteredScanCallback implements BluetoothAdapter.LeScanCallback {
         public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
             // Filter devices
@@ -509,11 +480,18 @@ public class ScanActivity extends FragmentActivity {
                             // Check that there's enough data in the buffer
                             if(i+field_length >= scanRecord.length) {break;}
                             // Check the value against the expected service UUID
-                            byte[] received_uuid = Arrays.copyOfRange(scanRecord, i, i + field_length);
-                            if(Arrays.equals(received_uuid, mMeterServiceUUID)) {
+                            // Bytes are reversed in the scan record
+                            byte[] uuid_reversed_bytes = Arrays.copyOfRange(scanRecord, i, i + field_length);
+                            for(int j = 0; j < 8; j++) {
+                                uuid_reversed_bytes[   j] ^= uuid_reversed_bytes[15-j];
+                                uuid_reversed_bytes[15-j] ^= uuid_reversed_bytes[   j];
+                                uuid_reversed_bytes[   j] ^= uuid_reversed_bytes[15-j];
+                            }
+                            UUID received_uuid = Util.uuidFromBytes(uuid_reversed_bytes);
+                            if(received_uuid.equals(MooshimeterDevice.mUUID.METER_SERVICE)) {
                                 Log.d(null, "Mooshimeter found");
                                 is_meter = true;
-                            } else if(Arrays.equals(received_uuid, mOADServiceUUID)) {
+                            } else if(received_uuid.equals(MooshimeterDevice.mUUID.OAD_SERVICE_UUID)) {
                                 Log.d(null, "Mooshimeter found in OAD mode");
                                 is_meter = true;
                                 oad_mode = true;
@@ -796,25 +774,33 @@ public class ScanActivity extends FragmentActivity {
             m.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT,false);
             m.disconnect();
         } else {
-            int rval;
-            setStatus("Connecting...");
-            rval = m.connect();
-            if(BluetoothGatt.GATT_SUCCESS != rval ) {
-                setStatus(String.format("Connection failed.  Status: %d", rval));
-                return; }
-            setStatus("Discovering Services...");
-            rval = m.discover();
-            if(BluetoothGatt.GATT_SUCCESS != rval ) {
-                setStatus(String.format("Discovery failed.  Status: %d", rval));
-                m.disconnect();
-                return; }
-            setStatus("Connected!");
-            // If we've never connected to this meter before, make it a default for reconnection
-            if(!m.hasPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)) {
-                m.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT, true);
-            }
-            startSingleMeterActivity(m);
+            do {
+                int rval = BluetoothGatt.GATT_FAILURE;
+                int attempts = 0;
+                while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
+                    setStatus("Connecting... Attempt "+attempts);
+                    rval = m.connect();
+                }
+                if (BluetoothGatt.GATT_SUCCESS != rval) {
+                    setStatus(String.format("Connection failed.  Status: %d", rval));
+                    break;
+                }
+                setStatus("Discovering Services...");
+                rval = m.discover();
+                if (BluetoothGatt.GATT_SUCCESS != rval) {
+                    setStatus(String.format("Discovery failed.  Status: %d", rval));
+                    m.disconnect();
+                    break;
+                }
+                setStatus("Connected!");
+                // If we've never connected to this meter before, make it a default for reconnection
+                if (!m.hasPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)) {
+                    m.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT, true);
+                }
+                startSingleMeterActivity(m);
+            }while(false);
         }
+        error:
         runOnUiThread(new Runnable() {
             @Override
             public void run() {

@@ -45,6 +45,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class Util {
 
+    private final static String TAG = "UTIL";
+
     private static Context mContext = null;
     private static Handler mHandler = null;
     private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
@@ -84,7 +86,7 @@ public class Util {
             mFirmwareVersion = b.getInt();
         } catch (IOException e) {
             // Handle exceptions here
-            Log.e("UTIL", "Failed to unpack the firmware asset");
+            Log.e(TAG, "Failed to unpack the firmware asset");
         }
     }
 
@@ -109,7 +111,7 @@ public class Util {
 
     public static void checkOnMainThread() {
         if(!inMainThread()) {
-            Log.e("UTIL", "We're not in the main thread, but we should be!");
+            Log.e(TAG, "We're not in the main thread, but we should be!");
             Exception e = new Exception();
             e.printStackTrace();
         }
@@ -117,7 +119,7 @@ public class Util {
 
     public static void checkNotOnMainThread() {
         if(inMainThread()) {
-            Log.e("UTIL", "We're in the main thread, but we should not be!");
+            Log.e(TAG, "We're in the main thread, but we should not be!");
             Exception e = new Exception();
             e.printStackTrace();
         }
@@ -133,7 +135,7 @@ public class Util {
 
     public static void displayProgressBar(final Context context, final String title, final String message ) {
         if(mProgressDialogContainer[0] != null) {
-            Log.e("UTIL","Trying to display a progress bar with one already up!");
+            Log.e(TAG,"Trying to display a progress bar with one already up!");
             mProgressDialogContainer[0].dismiss();
         }
         Runnable r = new Runnable() {
@@ -156,7 +158,7 @@ public class Util {
 
     public static void setProgress(final int percent) {
         if(mProgressDialogContainer[0] == null) {
-            Log.e("UTIL", "Trying to set progress on a nonexistant bar!");
+            Log.e(TAG, "Trying to set progress on a nonexistant bar!");
             return;
         }
         Runnable r = new Runnable() {
@@ -175,7 +177,7 @@ public class Util {
 
     public static void dismissProgress() {
         if(mProgressDialogContainer[0] == null) {
-            Log.e("UTIL", "Trying to set progress on a nonexistant bar!");
+            Log.e(TAG, "Trying to set progress on a nonexistant bar!");
             return;
         }
         Runnable r = new Runnable() {
@@ -230,7 +232,7 @@ public class Util {
         final int[] response = new int[1]; // Capture the user's decision
 
         if(buttons.length>3) {
-            Log.e("UTIL","Can't have more than 3 choices!");
+            Log.e(TAG,"Can't have more than 3 choices!");
             new Exception().printStackTrace();
         }
 
@@ -295,6 +297,32 @@ public class Util {
         long high = bb.getLong();
         long low = bb.getLong();
         return new UUID(high, low);
+    }
+
+    private static byte[] uuidToBytes(final UUID arg) {
+        final byte[] s = arg.toString().getBytes();
+        byte[] rval = new byte[16];
+        for(int i = 0; i < 16; i++){ rval[i]=0; }
+        // We expect 16 bytes, but UUID strings are reverse order from byte arrays
+        int i = 31;
+        for(byte b:s) {
+            if( b >= 0x30 && b < 0x3A ) {        // Numbers 0-9
+                b -= 0x30;
+            } else if( b >= 0x41 && b < 0x47 ) { // Capital letters A-F
+                b -= 0x41;
+                b += 10;
+            } else if( b >= 0x61 && b < 0x67 ) { // Lower letters a-f
+                b -= 0x61;
+                b += 10;
+            } else { // Unrecognized symbol, probably a dash
+                continue;
+            }
+            // Is this the top or bottom nibble?
+            b <<= (i%2 == 0)?0:4;
+            rval[i/2] |= b;
+            i--;
+        }
+        return rval;
     }
 
     public static double getUTCTime() {
