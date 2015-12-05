@@ -210,11 +210,7 @@ public class PeripheralWrapper {
     }
 
     public int connect() {
-
-        if( mConnectionState == BluetoothProfile.STATE_CONNECTED ) {
-            return 0;
-        }
-        if( mConnectionState == BluetoothProfile.STATE_CONNECTING ) {
+        if( isConnected() || isConnecting()) {
             return 0;
         }
 
@@ -237,6 +233,10 @@ public class PeripheralWrapper {
     }
 
     public int discover() {
+        if(!isConnected()) {
+            new Exception().printStackTrace();
+            return -1;
+        }
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
@@ -257,20 +257,27 @@ public class PeripheralWrapper {
     }
 
     public int disconnect() {
+        if(isDisconnected()) {
+            new Exception().printStackTrace();
+            return 0;
+        }
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
                 mBluetoothGatt.disconnect();
-                while( mConnectionState != BluetoothProfile.STATE_DISCONNECTED ) {
+                while (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
                     bleStateCondition.await();
                 }
-                mRssi = bleStateCondition.stat;
                 return null;
             }
         });
     }
 
     public byte[] req(UUID uuid) {
+        if(!isConnected()) {
+            new Exception().printStackTrace();
+            return null;
+        }
         final BluetoothGattCharacteristic c = getChar(uuid);
         protectedCall(new Interruptable() {
             @Override
@@ -284,6 +291,10 @@ public class PeripheralWrapper {
     }
 
     public int send(final UUID uuid, final byte[] value) {
+        if(!isConnected()) {
+            new Exception().printStackTrace();
+            return -1;
+        }
         final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
         return protectedCall(new Interruptable() {
             @Override
@@ -298,12 +309,20 @@ public class PeripheralWrapper {
     }
 
     public boolean isNotificationEnabled(BluetoothGattCharacteristic c) {
+        if(!isConnected()) {
+            new Exception().printStackTrace();
+            return false;
+        }
         final BluetoothGattDescriptor d = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
         final byte[] dval = d.getValue();
         return (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
     }
 
     public int enableNotify(final UUID uuid, final boolean enable, final NotifyCallback on_notify) {
+        if(!isConnected()) {
+            new Exception().printStackTrace();
+            return -1;
+        }
         final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
         // Set up the notify callback
         if(on_notify != null) {
