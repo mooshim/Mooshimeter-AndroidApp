@@ -130,14 +130,14 @@ public class PeripheralWrapper {
         bleRSSICondition     = new StatLockManager(conditionLock);
         
         mGattCallbacks = new BluetoothGattCallback() {
-            @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { bleDiscoverCondition.l(stat);                              bleDiscoverCondition.sig(); bleDiscoverCondition.ul();}
-            @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { bleReadCondition    .l(stat);                              bleReadCondition    .sig(); bleReadCondition    .ul();}
-            @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) { bleWriteCondition   .l(stat);                              bleWriteCondition   .sig(); bleWriteCondition   .ul();}
-            @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { bleDReadCondition   .l(stat);                              bleDReadCondition   .sig(); bleDReadCondition   .ul();}
-            @Override public void onDescriptorWrite(BluetoothGatt g, BluetoothGattDescriptor d, int stat)         { bleDWriteCondition  .l(stat);                              bleDWriteCondition  .sig(); bleDWriteCondition  .ul();}
-            @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { bleRWriteCondition  .l(stat);                              bleRWriteCondition  .sig(); bleRWriteCondition  .ul();}
-            @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { bleRSSICondition    .l(stat); mRssi = rssi;                bleRSSICondition    .sig(); bleRSSICondition    .ul();}
-            @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         {
+            @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { Log.d(TAG,"GATTCB:DISCOVER");bleDiscoverCondition.l(stat);                              bleDiscoverCondition.sig(); bleDiscoverCondition.ul();}
+            @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { Log.d(TAG,"GATTCB:READ");    bleReadCondition    .l(stat);                              bleReadCondition    .sig(); bleReadCondition    .ul();}
+            @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) { Log.d(TAG,"GATTCB:WRITE");   bleWriteCondition   .l(stat);                              bleWriteCondition   .sig(); bleWriteCondition   .ul();}
+            @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { Log.d(TAG,"GATTCB:DREAD");   bleDReadCondition   .l(stat);                              bleDReadCondition   .sig(); bleDReadCondition   .ul();}
+            @Override public void onDescriptorWrite(BluetoothGatt g, BluetoothGattDescriptor d, int stat)         { Log.d(TAG,"GATTCB:DWRITE");  bleDWriteCondition  .l(stat);                              bleDWriteCondition  .sig(); bleDWriteCondition  .ul();}
+            @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { Log.d(TAG,"GATTCB:RWRITE");  bleRWriteCondition  .l(stat);                              bleRWriteCondition  .sig(); bleRWriteCondition  .ul();}
+            @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { Log.d(TAG,"GATTCB:RSSI");    bleRSSICondition    .l(stat); mRssi = rssi;                bleRSSICondition    .sig(); bleRSSICondition    .ul();}
+            @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         { Log.d(TAG,"GATTCB:CCHANGE");
                 bleChangedCondition .l(0);
                 final byte[] val = c.getValue();
                 // The BLE stack sometimes gives us a null here, unclear why.
@@ -158,6 +158,7 @@ public class PeripheralWrapper {
             }
             @Override
             public void onConnectionStateChange(BluetoothGatt g, int stat, int newState) {
+                Log.d(TAG,"GATTCB:CONN");
                 bleStateCondition   .l(stat);
                 mConnectionState = newState;
                 synchronized (mConnectionStateCB) {
@@ -228,6 +229,7 @@ public class PeripheralWrapper {
                     BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
                 }
                 // Try to connect
+                Log.d(TAG,"CONNECTGATT");
                 mBluetoothGatt = mDevice.connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
                 return null;
@@ -275,6 +277,7 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 // Discover services
+                Log.d(TAG,"DISCOVER");
                 mBluetoothGatt.discoverServices();
                 return null;
             }
@@ -301,6 +304,7 @@ public class PeripheralWrapper {
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
+                Log.d(TAG, "DISCONNECT");
                 mBluetoothGatt.disconnect();
                 while (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
                     bleStateCondition.await();
@@ -320,6 +324,7 @@ public class PeripheralWrapper {
         protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
+                Log.d(TAG,"READ");
                 mBluetoothGatt.readCharacteristic(c);
                 if(bleReadCondition.awaitMilli(1000)) {
                     mRval = -1;
@@ -343,6 +348,7 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 c.setValue(value);
+                Log.d(TAG, "WRITE");
                 mBluetoothGatt.writeCharacteristic(c);
                 if(bleWriteCondition.awaitMilli(1000)) {
                     mRval = -1;
@@ -390,13 +396,11 @@ public class PeripheralWrapper {
                     // Only bother setting the notification if the status has changed
                     if (mBluetoothGatt.setCharacteristicNotification(c, enable)) {
                         final BluetoothGattDescriptor clientConfig = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
-                        final byte[] enable_val;
-                        if(enable) {
-                            enable_val = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
-                        } else {
-                            enable_val = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                        final byte[] enable_val = enable?BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE:BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                        while(!clientConfig.setValue(enable_val)) {
+                            Log.e(TAG, "setValue Fail!");
                         }
-                        clientConfig.setValue(enable_val);
+                        Log.d(TAG, "DWRITE");
                         mBluetoothGatt.writeDescriptor(clientConfig);
                         if(bleDWriteCondition.awaitMilli(1000)) {
                             mRval = -1;
