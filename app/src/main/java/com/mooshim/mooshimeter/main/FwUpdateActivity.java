@@ -199,6 +199,14 @@ public class FwUpdateActivity extends MyActivity {
             Log.e(TAG, "startProgramming called, but programming already underway!");
             return;
         }
+
+        if(mMeter.oad_identity.build_time > Util.getBundledFirmwareVersion()) {
+            if(!Util.offerYesNoDialog(this,"Downgrading","You are about to upload a version of firmware older than the firmware on the Mooshimeter.  Are you sure you want to proceed?")) {
+                // User chose to abort, do nothing.
+                return;
+            }
+        }
+
         in_recovery = false;
         mLog.append("Programming started\n");
         mProgramming = true;
