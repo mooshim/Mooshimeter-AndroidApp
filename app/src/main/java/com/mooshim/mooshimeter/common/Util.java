@@ -80,7 +80,8 @@ public class Util {
 
             ByteBuffer b = ByteBuffer.wrap(mFileBuffer);
             b.order(ByteOrder.LITTLE_ENDIAN);
-            b.getShort(); // Skip crc
+            b.getShort(); // Skip crc0
+            b.getShort(); // Skip crc1
             b.getShort(); // Skip user version (unused)
             b.getShort(); // Skip len
             mFirmwareVersion = b.getInt();
