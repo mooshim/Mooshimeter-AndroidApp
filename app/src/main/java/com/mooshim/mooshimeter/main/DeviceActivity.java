@@ -61,7 +61,6 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -78,8 +77,6 @@ import com.mooshim.mooshimeter.common.*;
 
 public class DeviceActivity extends MyActivity {
     private static final String TAG = "DeviceActivity";
-
-    public static boolean isRunning = false;
 
 	// Activity
 	private static final int PREF_ACT_REQ = 0;
@@ -111,7 +108,6 @@ public class DeviceActivity extends MyActivity {
     private final static GradientDrawable DISABLE_GRADIENT = new GradientDrawable( GradientDrawable.Orientation.BOTTOM_TOP, new int[] {0xFFBBBBBB,0xFF888888});
     private final static GradientDrawable ENABLE_GRADIENT  = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFFFFFF,0xFFCCCCCC});
 
-    private boolean trend_view_running = false;
     private int count_since_settings_sent = 0;
 
 
@@ -119,8 +115,6 @@ public class DeviceActivity extends MyActivity {
 	public void onCreate(Bundle savedInstanceState) {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
-
-        isRunning = true;
 
         // GUI
         setContentView(R.layout.activity_meter);
@@ -157,10 +151,6 @@ public class DeviceActivity extends MyActivity {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-        isRunning = false;
-		finishActivity(PREF_ACT_REQ);
-		finishActivity(FWUPDATE_ACT_REQ);
-        finishActivity(TREND_ACT_REQ);
         setResult(RESULT_OK);
 	}
 
@@ -181,8 +171,7 @@ public class DeviceActivity extends MyActivity {
 			startPreferenceActivity();
 			break;
 		default:
-            setResult(RESULT_OK);
-            finish();
+            transitionToActivity(mMeter,ScanActivity.class);
             return true;
 		}
 		return true;
@@ -190,7 +179,8 @@ public class DeviceActivity extends MyActivity {
 
     @Override
     public void onBackPressed() {
-
+        Log.e(TAG, "What now");
+        transitionToActivity(mMeter, ScanActivity.class);
     }
 
     @Override
@@ -212,7 +202,7 @@ public class DeviceActivity extends MyActivity {
             // If we're in Portrait, continue as normal
             // If we're in landscape, handleOrientation will have started the trend activity
             Intent intent = getIntent();
-            mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+            mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
             onMeterInitialized();
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             setTitle(mMeter.getBLEDevice().getName());
@@ -233,11 +223,6 @@ public class DeviceActivity extends MyActivity {
             case PREF_ACT_REQ:
                 Toast.makeText(this, "Applying preferences", Toast.LENGTH_SHORT).show();
                 break;
-            case FWUPDATE_ACT_REQ:
-                break;
-            case TREND_ACT_REQ:
-                trend_view_running = false;
-                break;
             default:
                 setError("Unknown request code");
                 break;
@@ -248,17 +233,8 @@ public class DeviceActivity extends MyActivity {
         switch(this.getResources().getConfiguration().orientation) {
             case Configuration.ORIENTATION_LANDSCAPE:
                 // Start the trend view
-                if(!trend_view_running) {
-                    Log.i(TAG, "Starting trend view.");
-                    trend_view_running = true;
-                    Util.dispatch(new Runnable() {
-                        @Override
-                        public void run() {
-                            mMeter.pauseStream();
-                        }
-                    });
-                    startTrendActivity();
-                }
+                Log.i(TAG, "Starting trend view.");
+                transitionToActivity(mMeter, TrendActivity.class);
                 break;
             case Configuration.ORIENTATION_PORTRAIT:
                 // Do nothing, leave to external application
@@ -317,15 +293,9 @@ public class DeviceActivity extends MyActivity {
 
 	private void startPreferenceActivity() {
 		final Intent i = new Intent(this, PreferencesActivity.class);
-        i.putExtra("addr",mMeter.getAddress());
+        i.putExtra("addr", mMeter.getAddress());
 		startActivityForResult(i, PREF_ACT_REQ);
 	}
-
-    private void startTrendActivity() {
-        final Intent i = new Intent(this, TrendActivity.class);
-        i.putExtra("addr",mMeter.getAddress());
-        startActivityForResult(i, TREND_ACT_REQ);
-    }
 
 	private void setError(String txt) {
 		Toast.makeText(this, txt, Toast.LENGTH_LONG).show();

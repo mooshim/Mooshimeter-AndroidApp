@@ -144,8 +144,9 @@ public class FwUpdateActivity extends MyActivity {
         Log.d(TAG, "onBackPressed");
         if (mProgramming) {
             Toast.makeText(this, R.string.prog_ogoing, Toast.LENGTH_LONG).show();
-        } else
-            super.onBackPressed();
+        } else {
+            transitionToActivity(mMeter,ScanActivity.class);
+        }
     }
 
     @Override

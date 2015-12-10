@@ -170,6 +170,7 @@ public class TrendActivity extends MyActivity {
                 });
                 setResult(RESULT_OK);
                 finish();
+                transitionToActivity(mMeter,DeviceActivity.class);
                 break;
         }
     }

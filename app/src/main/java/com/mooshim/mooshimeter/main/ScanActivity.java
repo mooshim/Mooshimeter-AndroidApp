@@ -31,7 +31,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -52,20 +51,15 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ScanActivity extends FragmentActivity {
+public class ScanActivity extends MyActivity {
     // Defines
     private static String TAG = "ScanActivity";
     private static final int REQ_ENABLE_BT = 0;
-    private static final int REQ_DEVICE_ACT = 1;
-    private static final int REQ_OAD_ACT = 2;
-
-    private static final Map<String,MooshimeterDevice>  mMeterDict = new HashMap<String, MooshimeterDevice>();
 
     // GUI Widgets
     private TextView mEmptyMsg;
@@ -73,9 +67,8 @@ public class ScanActivity extends FragmentActivity {
     private Button mBtnScan = null;
     private LinearLayout mDeviceScrollView = null;
 
-    // Flags for the scan logic thread
+    // Helpers
     private static FilteredScanCallback mScanCb = null;
-
     private LayoutInflater mInflater;
 
     @Override
@@ -133,8 +126,37 @@ public class ScanActivity extends FragmentActivity {
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+        // Find if we have any connected meters, if so make sure they stop streaming
+        for(MooshimeterDevice m : mMeterDict.values()) {
+            if(m.isConnected() && m.isStreaming()) {
+                final MooshimeterDevice m_wrap = m;
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        m_wrap.pauseStream();
+                    }
+                });
+            }
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Find if we have any connected meters, if so make sure they resume streaming
+        for(MooshimeterDevice m : mMeterDict.values()) {
+            if(m.isConnected()) {
+                addDeviceToTileList(m);
+            }
+        }
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
+
         /*
         * Here I attempted to implement a feature addressing the "persistent connection" bug -
         * sometimes Android will maintain a connection to a BLE device after the app has closed
@@ -211,26 +233,6 @@ public class ScanActivity extends FragmentActivity {
         return true;
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        switch (requestCode) {
-            case REQ_DEVICE_ACT:
-                startScan();
-                break;
-            case REQ_OAD_ACT:
-                startScan();
-                break;
-            default:
-                setError("Unknown request code");
-                break;
-        }
-    }
-
-    public static MooshimeterDevice getDeviceWithAddress(String addr) {
-        return mMeterDict.get(addr);
-    }
-
     /////////////////////////////
     // GUI Element Manipulation
     /////////////////////////////
@@ -295,16 +297,14 @@ public class ScanActivity extends FragmentActivity {
         return null;
     }
 
-    private void addDeviceToScanList(final MooshimeterDevice d) {
+    private void addDeviceToTileList(final MooshimeterDevice d) {
         mEmptyMsg.setVisibility(View.GONE);
 
-        if(mMeterDict.containsValue(d)) {
+        if(findTileForMeter(d) != null) {
             // The meter as already been added
             Log.e(TAG, "Tried to add the same meter twice");
             return;
         }
-
-        mMeterDict.put(d.getAddress(), d);
 
         final LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
@@ -330,8 +330,8 @@ public class ScanActivity extends FragmentActivity {
         wrapper.addView(mInflater.inflate(R.layout.element_mm_titlebar, wrapper, false));
         wrapper.setTag(d);
 
-        refreshMeterTile(wrapper);
         mDeviceScrollView.addView(wrapper);
+        refreshMeterTile(wrapper);
 
         if (mMeterDict.size() > 1)
             setStatus(mMeterDict.size() + " devices");
@@ -393,15 +393,20 @@ public class ScanActivity extends FragmentActivity {
             Util.dispatch(new Runnable() {
                 @Override
                 public void run() {
-                    if(!d.isNotificationEnabled(d.getChar(MooshimeterDevice.mUUID.METER_SAMPLE))) {
+                    if(!d.meter_sample.isNotificationEnabled()) {
                         // We need to enable notifications
                         d.playSampleStream(new PeripheralWrapper.NotifyCallback() {
                             @Override
                             public void notify(double timestamp_utc, byte[] payload) {
-                                TextView ch1 = (TextView)wrapper.findViewById(R.id.ch1_value_label);
-                                TextView ch2 = (TextView)wrapper.findViewById(R.id.ch2_value_label);
-                                TextView ch1_unit = (TextView)wrapper.findViewById(R.id.ch1_unit_label);
-                                TextView ch2_unit = (TextView)wrapper.findViewById(R.id.ch2_unit_label);
+                                View v = findTileForMeter(d);
+                                if(v==null) {
+                                    Log.e(TAG,"Couldn't find tile for meter!");
+                                    return;
+                                }
+                                TextView ch1 = (TextView)v.findViewById(R.id.ch1_value_label);
+                                TextView ch2 = (TextView)v.findViewById(R.id.ch2_value_label);
+                                TextView ch1_unit = (TextView)v.findViewById(R.id.ch1_unit_label);
+                                TextView ch2_unit = (TextView)v.findViewById(R.id.ch2_unit_label);
                                 valueLabelRefresh(0,d, ch1, ch1_unit);
                                 valueLabelRefresh(1,d, ch2, ch2_unit);
                             }
@@ -423,28 +428,6 @@ public class ScanActivity extends FragmentActivity {
             final ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
             refreshMeterTile(vg);
         }
-    }
-
-    /////////////////////////////
-    // Data Structure Manipulation
-    /////////////////////////////
-
-    private void startDeviceActivity(MooshimeterDevice d) {
-        if(DeviceActivity.isRunning) {
-            return;
-        }
-        Intent deviceIntent = new Intent(this, DeviceActivity.class);
-        deviceIntent.putExtra("addr",d.getAddress());
-        startActivityForResult(deviceIntent, REQ_DEVICE_ACT);
-    }
-    private void stopDeviceActivity() {
-        finishActivity(REQ_DEVICE_ACT);
-    }
-
-    private void startOADActivity(MooshimeterDevice d) {
-        Intent deviceIntent = new Intent(this, FwUpdateActivity.class);
-        deviceIntent.putExtra("addr",d.getAddress());
-        startActivityForResult(deviceIntent, REQ_OAD_ACT);
     }
 
     /////////////////////////////
@@ -523,11 +506,12 @@ public class ScanActivity extends FragmentActivity {
                 MooshimeterDevice m = mMeterDict.get(device.getAddress());
                 if(m==null) {
                     m = new MooshimeterDevice(device,getApplicationContext());
+                    mMeterDict.put(m.getAddress(), m);
                     final MooshimeterDevice wrapped = m;
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            addDeviceToScanList(wrapped);
+                            addDeviceToTileList(wrapped);
                         }
                     });
                 }
@@ -543,25 +527,33 @@ public class ScanActivity extends FragmentActivity {
 
     private class MainScanCallback extends FilteredScanCallback {
         void FilteredCallback(final MooshimeterDevice m) {
-            if(   m.hasPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)
-               && m.getPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)) {
-                // We've found a meter with the autoconnect feature enabled
-                // Connect to it!
-                setStatus("Autoconnecting...");
-                stopScan();
-                Util.dispatch(new Runnable() {
-                    @Override
-                    public void run() {
-                        toggleConnectionState(m);
-                    }
-                });
-            }
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     refreshMeterTile((ViewGroup) findTileForMeter(m));
                 }
             });
+            if(   m.hasPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)
+               && m.getPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT)) {
+                // We've found a meter with the autoconnect feature enabled
+                // Connect to it!
+                setStatus("Autoconnecting...");
+                stopScan();
+                // Why the crazy nesting?
+                // At this point there might be a few runnables on the main queue that need to run
+                // before we can toggle the connection state.
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Util.dispatch(new Runnable() {
+                            @Override
+                            public void run() {
+                                toggleConnectionState(m);
+                            }
+                        });
+                    }
+                });
+            }
         }
     }
 
@@ -725,7 +717,7 @@ public class ScanActivity extends FragmentActivity {
 
     private void startSingleMeterActivity(MooshimeterDevice m) {
         if(m.isInOADMode()) {
-            startOADActivity(m);
+            transitionToActivity(m, FwUpdateActivity.class);
         } else {
             // Check the firmware version against our bundled version
             /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
@@ -756,11 +748,11 @@ public class ScanActivity extends FragmentActivity {
                         break;
                     case 1:
                         // Continue without viewing
-                        startDeviceActivity(m);
+                        transitionToActivity(m, DeviceActivity.class);
                         break;
                 }
             } else {
-                startDeviceActivity(m);
+                transitionToActivity(m, DeviceActivity.class);
             }
         }
     }
