@@ -343,14 +343,14 @@ public class PeripheralWrapper {
             new Exception().printStackTrace();
             return -1;
         }
-        final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
+        final BluetoothGattCharacteristic c = getChar(uuid);
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
                 c.setValue(value);
                 Log.d(TAG, "WRITE");
                 mBluetoothGatt.writeCharacteristic(c);
-                if(bleWriteCondition.awaitMilli(1000)) {
+                if (bleWriteCondition.awaitMilli(1000)) {
                     mRval = -1;
                 } else {
                     mRval = bleWriteCondition.stat;
@@ -360,7 +360,11 @@ public class PeripheralWrapper {
         });
     }
 
-    public boolean isNotificationEnabled(BluetoothGattCharacteristic c) {
+    public NotifyCallback getNotificationCallback(UUID uuid) {
+        return mNotifyCB.get(uuid);
+    }
+
+    public boolean isNotificationEnabled(UUID uuid) {
         if(!isConnected()) {
             Log.e(TAG,"Trying to read notification on a disconnected peripheral");
             new Exception().printStackTrace();
@@ -382,14 +386,14 @@ public class PeripheralWrapper {
             new Exception().printStackTrace();
             return -1;
         }
-        final BluetoothGattCharacteristic c = mCharacteristics.get(uuid);
+        final BluetoothGattCharacteristic c = getChar(uuid);
         // Set up the notify callback
         if(on_notify != null) {
             mNotifyCB.put(uuid, on_notify);
         } else {
             mNotifyCB.remove(uuid);
         }
-        if(isNotificationEnabled(c) != enable) {
+        if(isNotificationEnabled(uuid) != enable) {
             return protectedCall(new Interruptable() {
                 @Override
                 public Void call() throws InterruptedException {

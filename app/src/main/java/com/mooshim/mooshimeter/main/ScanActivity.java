@@ -207,7 +207,7 @@ public class ScanActivity extends MyActivity {
                 }
             }
         }*/
-        startScan();
+        //startScan();
     }
 
     @Override
@@ -316,8 +316,8 @@ public class ScanActivity extends MyActivity {
                 Util.dispatch(new Runnable() {
                     @Override
                     public void run() {
-                        if (   d.isConnected()
-                            || d.isConnecting()) {
+                        if (d.isConnected()
+                                || d.isConnecting()) {
                             startSingleMeterActivity(d);
                         } else {
                             toggleConnectionState(d);

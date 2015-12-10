@@ -113,10 +113,11 @@ public class TrendActivity extends MyActivity {
 
     @Override
     protected void onResume() {
-        // Log.d(TAG, "onResume");
         super.onResume();
 
+        // Hide the top bar
         if(null!=getActionBar()){getActionBar().hide();}
+        // Force the screen to stay on
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         if(!mPlaying) {
@@ -132,21 +133,35 @@ public class TrendActivity extends MyActivity {
 
             setupAxisTitles();
 
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    trendViewPlay();
-                }
-            });
+            if(mBufferMode) {
+                // Do we want to refresh?  Nah.
+            } else {
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        trendViewPlay();
+                    }
+                });
+            }
         }
     }
 
     @Override
     protected void onPause() {
-        // Log.d(TAG, "onPause");
         super.onPause();
         if(null!=getActionBar()){getActionBar().show();}
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        if(mBufferMode) {
+            // Do we want to refresh?  Nah.
+        } else {
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    trendViewPause();
+                }
+            });
+        }
     }
 
     @Override

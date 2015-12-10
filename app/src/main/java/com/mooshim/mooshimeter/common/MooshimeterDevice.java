@@ -177,6 +177,14 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         /**
+         * Tells you whether notifications are enabled for this characteristic
+         * @return boolean Is it enabled or aint it
+         */
+        public boolean isNotificationEnabled() {
+            return mInstance.isNotificationEnabled(getUUID());
+        }
+
+        /**
          * Enable or disable notifications on this field and set the callbacks.
          * @param enable        If true, enable the notification.  If false, disable.
          * @param on_notify     When a notify event is received, this is called.
@@ -807,6 +815,10 @@ public class MooshimeterDevice extends PeripheralWrapper {
 
         meter_sample.enableNotify(true,on_notify);
         meter_settings.send();
+    }
+
+    public boolean isStreaming() {
+        return meter_sample.isNotificationEnabled();
     }
 
     public static String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {
