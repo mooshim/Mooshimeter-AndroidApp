@@ -72,7 +72,7 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
 
-public class PreferencesActivity extends FragmentActivity {
+public class PreferencesActivity extends MyActivity {
 
     public MooshimeterDevice mMeter;
     final Button rateButtons[] = {null,null,null,null};

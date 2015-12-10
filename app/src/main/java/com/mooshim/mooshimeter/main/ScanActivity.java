@@ -559,7 +559,7 @@ public class ScanActivity extends FragmentActivity {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    refreshAllMeterTiles();
+                    refreshMeterTile((ViewGroup) findTileForMeter(m));
                 }
             });
         }
@@ -614,8 +614,13 @@ public class ScanActivity extends FragmentActivity {
         if(mScanCb==null) {
             return;
         }
-        mBtnScan.setEnabled(true);
-        updateScanningButton(false);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mBtnScan.setEnabled(true);
+                updateScanningButton(false);
+            }
+        });
         final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         bluetoothAdapter.stopLeScan(mScanCb);
         mScanCb = null;
@@ -761,7 +766,13 @@ public class ScanActivity extends FragmentActivity {
     }
 
     private void toggleConnectionState(final MooshimeterDevice m) {
-        final Button bv = (Button) findTileForMeter(m).findViewById(R.id.btnConnect);;
+        ViewGroup vg = (ViewGroup) findTileForMeter(m);
+        if(vg==null) {
+            Log.e(TAG, "trying to toggle connection state on a tile that hasn't been instantiated");
+            new Exception().printStackTrace();
+            return;
+        }
+        final Button bv = (Button) vg.findViewById(R.id.btnConnect);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -800,7 +811,6 @@ public class ScanActivity extends FragmentActivity {
                 startSingleMeterActivity(m);
             }while(false);
         }
-        error:
         runOnUiThread(new Runnable() {
             @Override
             public void run() {

@@ -42,7 +42,7 @@ import com.jjoe64.graphview.series.LineGraphSeries;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
 
-public class TrendActivity extends Activity {
+public class TrendActivity extends MyActivity {
 
     private static final String TAG="TrendActivity";
 
@@ -321,7 +321,7 @@ public class TrendActivity extends Activity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            addDataPoint(new_time,val[0],val[1]);
+                            addDataPoint(new_time, val[0], val[1]);
                             mGraph.forceRefresh(true, false);
                         }
                     });

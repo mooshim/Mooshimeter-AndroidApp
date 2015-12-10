@@ -76,7 +76,7 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
 
-public class DeviceActivity extends FragmentActivity {
+public class DeviceActivity extends MyActivity {
     private static final String TAG = "DeviceActivity";
 
     public static boolean isRunning = false;
@@ -113,6 +113,7 @@ public class DeviceActivity extends FragmentActivity {
 
     private boolean trend_view_running = false;
     private int count_since_settings_sent = 0;
+
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -194,7 +195,6 @@ public class DeviceActivity extends FragmentActivity {
 
     @Override
     protected void onPause() {
-        Log.d(TAG, "onPause");
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         Util.dispatch(new Runnable() {
@@ -289,13 +289,13 @@ public class DeviceActivity extends FragmentActivity {
                         // Save a local copy of settings
                         byte[] save = mMeter.meter_settings.pack();
                         // This switch provides settling time
-                        if(count_since_settings_sent > 0) {
+                        if (count_since_settings_sent > 0) {
                             mMeter.applyAutorange();
                         }
                         byte[] compare = mMeter.meter_settings.pack();
                         // TODO: There must be a more efficient way to do this.  But I think like a c-person
                         // Check if anything changed, and if so apply changes
-                        if(!Arrays.equals(save, compare)) {
+                        if (!Arrays.equals(save, compare)) {
                             count_since_settings_sent = 0;
                             Util.dispatch(new Runnable() {
                                 @Override
@@ -309,7 +309,7 @@ public class DeviceActivity extends FragmentActivity {
                         }
                     }
                 });
-                Log.i(TAG,"Stream requested");
+                Log.i(TAG, "Stream requested");
                 refreshAllControls();
             }
         });

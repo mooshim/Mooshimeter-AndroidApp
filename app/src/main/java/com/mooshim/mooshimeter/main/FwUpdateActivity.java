@@ -77,7 +77,7 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.util.concurrent.Semaphore;
 
-public class FwUpdateActivity extends Activity {
+public class FwUpdateActivity extends MyActivity {
     // Activity
     private static final int FILE_BUFFER_SIZE = 0x40000;
     private static final int OAD_BLOCK_SIZE = 16;
@@ -98,10 +98,9 @@ public class FwUpdateActivity extends Activity {
     // Housekeeping
     private boolean mProgramming = false;
 
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        Log.d(TAG, "onCreate");
-
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
@@ -131,6 +130,8 @@ public class FwUpdateActivity extends Activity {
         mLegacyMode.setEnabled(true);
 
         updateStartButton();
+
+        unpackFirmwareFileBuffer();
     }
 
     @Override
@@ -296,8 +297,9 @@ public class FwUpdateActivity extends Activity {
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
-                    if(nextBlock != mProgInfo.nBlocks) {
-                        programBlock(nextBlock++);
+                    programBlock(nextBlock++);
+                    if(nextBlock==mProgInfo.nBlocks) {
+                        nextBlock--;
                     }
                 }
             }
@@ -319,7 +321,7 @@ public class FwUpdateActivity extends Activity {
         // as soon as it receives the final block.  Since the blocks are sent in gangs, we may not
         // receive confirmation notifications on the last 4-5 blocks, otherwise I would just check
         // mProgInfo.requestedBlock here instead of nextBlock
-        if ( nextBlock == mProgInfo.nBlocks ) {
+        if ( nextBlock >= mProgInfo.nBlocks - 1 ) {
             mLog.append("Programming complete!\n");
         } else {
             mLog.append("Programming cancelled\n");
