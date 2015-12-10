@@ -53,7 +53,7 @@ public class PeripheralWrapper {
     protected Map<UUID,BluetoothGattService> mServices;
     protected Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
     private Map<UUID,NotifyCallback> mNotifyCB;
-    private HashMap<Integer, List<Runnable>> mConnectionStateCB;
+    private final HashMap<Integer, List<Runnable>> mConnectionStateCB;
     private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
     private List<Runnable> mRSSICallbacks;
 
@@ -160,9 +160,11 @@ public class PeripheralWrapper {
             public void onConnectionStateChange(BluetoothGatt g, int stat, int newState) {
                 bleStateCondition   .l(stat);
                 mConnectionState = newState;
-                List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
-                for(Runnable cb : cbs) {
-                    Util.dispatch(cb);
+                synchronized (mConnectionStateCB) {
+                    List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
+                    for(Runnable cb : cbs) {
+                        Util.dispatch(cb);
+                    }
                 }
                 bleStateCondition   .sig();
                 bleStateCondition   .ul();
@@ -171,22 +173,26 @@ public class PeripheralWrapper {
     }
 
     public int addConnectionStateCB(int state,Runnable cb) {
-        List<Runnable> l = mConnectionStateCB.get(state);
-        l.add(cb);
-        mConnectionStateCBByHandle.put(connectionStateCBHandle,cb);
+        synchronized (mConnectionStateCB) {
+            List<Runnable> l = mConnectionStateCB.get(state);
+            l.add(cb);
+            mConnectionStateCBByHandle.put(connectionStateCBHandle, cb);
+        }
         connectionStateCBHandle++;
         return connectionStateCBHandle;
     }
 
     public void cancelConnectionStateCB(int handle) {
-        Runnable cb = mConnectionStateCBByHandle.get(handle);
-        mConnectionStateCBByHandle.remove(handle);
-        if(cb!=null) {
-            for( List<Runnable> l : mConnectionStateCB.values() ) {
-                for( Runnable r : l ) {
-                    if(r==cb) {
-                        l.remove(r);
-                        return;
+        synchronized (mConnectionStateCB) {
+            Runnable cb = mConnectionStateCBByHandle.get(handle);
+            mConnectionStateCBByHandle.remove(handle);
+            if (cb != null) {
+                for (List<Runnable> l : mConnectionStateCB.values()) {
+                    for (Runnable r : l) {
+                        if (r == cb) {
+                            l.remove(r);
+                            return;
+                        }
                     }
                 }
             }
@@ -352,6 +358,11 @@ public class PeripheralWrapper {
         if(!isConnected()) {
             Log.e(TAG,"Trying to read notification on a disconnected peripheral");
             new Exception().printStackTrace();
+            return false;
+        }
+        BluetoothGattCharacteristic c = getChar(uuid);
+        if(c == null) {
+            Log.e(TAG, "Asked for a characteristic that doesn't exist!");
             return false;
         }
         final BluetoothGattDescriptor d = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
