@@ -98,10 +98,17 @@ public class MooshimeterDevice extends PeripheralWrapper {
         DIODE
     }
 
+    public enum TEMP_UNITS {
+        CELSIUS,
+        FAHRENHEIT,
+        KELVIN
+    }
+
     // Display control settings
     public final boolean[] disp_ac         = new boolean[]{false,false};
     public final boolean[] disp_hex        = new boolean[]{false,false};
     public CH3_MODES       disp_ch3_mode   = CH3_MODES.VOLTAGE;
+    public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
     public final boolean[] disp_range_auto = new boolean[]{true,true};
     public boolean         disp_rate_auto  = true;
     public boolean         disp_depth_auto = true;
@@ -173,7 +180,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * you must wait for cb to be called.
          */
         public int send() {
-            return mInstance.send(getUUID(),pack());
+            return mInstance.send(getUUID(), pack());
         }
 
         /**
@@ -779,8 +786,8 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
 
         meter_sample.enableNotify(false,null);
-        meter_ch1_buf.enableNotify(true,null);
-        meter_ch2_buf.enableNotify(true,null);
+        meter_ch1_buf.enableNotify(true, null);
+        meter_ch2_buf.enableNotify(true, null);
         meter_ch2_buf.buf_full_cb = onReceived;
 
         meter_ch1_buf.buf_i = 0;
@@ -813,7 +820,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
         meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
 
-        meter_sample.enableNotify(true,on_notify);
+        meter_sample.enableNotify(true, on_notify);
         meter_settings.send();
     }
 
@@ -1333,7 +1340,18 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public double adcVoltageToTemp(double adc_voltage) {
         adc_voltage -= 145.3e-3; // 145.3mV @ 25C
         adc_voltage /= 490e-6;   // 490uV / C
-        return 25.0 + adc_voltage;
+        double temp_c = 25.0 + adc_voltage;
+        switch(disp_temp_units) {
+            case CELSIUS:
+                return temp_c;
+            case FAHRENHEIT:
+                return temp_c*1.8 + 32;
+            case KELVIN:
+                return temp_c + 273.15;
+        }
+        // Should never get here
+        new Exception().printStackTrace();
+        return temp_c;
     }
 
     /**
@@ -1510,6 +1528,14 @@ public class MooshimeterDevice extends PeripheralWrapper {
                         return "?";
                 }
             case 0x04:
+                switch( disp_temp_units ) {
+                    case CELSIUS:
+                        return "C";
+                    case FAHRENHEIT:
+                        return "F";
+                    case KELVIN:
+                        return "K";
+                }
                 return "C";
             case 0x09:
                 switch( disp_ch3_mode ) {

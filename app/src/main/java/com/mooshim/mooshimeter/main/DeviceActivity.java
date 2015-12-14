@@ -673,7 +673,22 @@ public class DeviceActivity extends MyActivity {
     }
 
     private void onUnitsClick(int c) {
-        mMeter.disp_hex[c] ^= true;
+        if(0x04 == (mMeter.meter_settings.chset[c] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)) {
+            // If we're measuring temperature, provide some options for units
+            if(mMeter.disp_hex[c]) {
+                mMeter.disp_hex[c] = false;
+            } else {
+                int o = mMeter.disp_temp_units.ordinal()+1;
+                if(o == mMeter.disp_temp_units.values().length) {
+                    mMeter.disp_hex[c] = true;
+                    mMeter.disp_temp_units = mMeter.disp_temp_units.values()[0];
+                } else {
+                    mMeter.disp_temp_units = mMeter.disp_temp_units.values()[o];
+                }
+            }
+        } else {
+            mMeter.disp_hex[c] ^= true;
+        }
         refreshAllControls();
     }
 
