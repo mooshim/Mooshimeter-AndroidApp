@@ -393,25 +393,22 @@ public class ScanActivity extends MyActivity {
             Util.dispatch(new Runnable() {
                 @Override
                 public void run() {
-                    if(!d.meter_sample.isNotificationEnabled()) {
-                        // We need to enable notifications
-                        d.playSampleStream(new PeripheralWrapper.NotifyCallback() {
-                            @Override
-                            public void notify(double timestamp_utc, byte[] payload) {
-                                View v = findTileForMeter(d);
-                                if(v==null) {
-                                    Log.e(TAG,"Couldn't find tile for meter!");
-                                    return;
-                                }
-                                TextView ch1 = (TextView)v.findViewById(R.id.ch1_value_label);
-                                TextView ch2 = (TextView)v.findViewById(R.id.ch2_value_label);
-                                TextView ch1_unit = (TextView)v.findViewById(R.id.ch1_unit_label);
-                                TextView ch2_unit = (TextView)v.findViewById(R.id.ch2_unit_label);
-                                valueLabelRefresh(0,d, ch1, ch1_unit);
-                                valueLabelRefresh(1,d, ch2, ch2_unit);
+                    d.playSampleStream(new PeripheralWrapper.NotifyCallback() {
+                        @Override
+                        public void notify(double timestamp_utc, byte[] payload) {
+                            View v = findTileForMeter(d);
+                            if(v==null) {
+                                Log.e(TAG,"Couldn't find tile for meter!");
+                                return;
                             }
-                        });
-                    }
+                            TextView ch1 = (TextView)v.findViewById(R.id.ch1_value_label);
+                            TextView ch2 = (TextView)v.findViewById(R.id.ch2_value_label);
+                            TextView ch1_unit = (TextView)v.findViewById(R.id.ch1_unit_label);
+                            TextView ch2_unit = (TextView)v.findViewById(R.id.ch2_unit_label);
+                            valueLabelRefresh(0,d, ch1, ch1_unit);
+                            valueLabelRefresh(1,d, ch2, ch2_unit);
+                        }
+                    });
                 }
             });
         } else {

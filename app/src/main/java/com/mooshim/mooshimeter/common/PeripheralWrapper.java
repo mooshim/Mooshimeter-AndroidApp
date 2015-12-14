@@ -380,43 +380,68 @@ public class PeripheralWrapper {
         return (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
     }
 
+    private HashMap<UUID,Boolean> notification_disable_preempted = new HashMap<UUID, Boolean>();
+
+    private int enableNotifyDirect(final UUID uuid, final boolean enable) {
+        final BluetoothGattCharacteristic c = getChar(uuid);
+        return protectedCall(new Interruptable() {
+            @Override
+            public Void call() throws InterruptedException {
+                // Only bother setting the notification if the status has changed
+                if (mBluetoothGatt.setCharacteristicNotification(c, enable)) {
+                    final BluetoothGattDescriptor clientConfig = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
+                    final byte[] enable_val = enable?BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE:BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
+                    while(!clientConfig.setValue(enable_val)) {
+                        Log.e(TAG, "setValue Fail!");
+                    }
+                    Log.d(TAG, "DWRITE");
+                    mBluetoothGatt.writeDescriptor(clientConfig);
+                    if(bleDWriteCondition.awaitMilli(1000)) {
+                        mRval = -1;
+                    } else {
+                        mRval = bleDWriteCondition.stat;
+                    }
+                } else {
+                    mRval = 0;
+                }
+                return null;
+            }
+        });
+    }
+
     public int enableNotify(final UUID uuid, final boolean enable, final NotifyCallback on_notify) {
         if(!isConnected()) {
             Log.e(TAG,"Trying to set notification on a disconnected peripheral");
             new Exception().printStackTrace();
             return -1;
         }
-        final BluetoothGattCharacteristic c = getChar(uuid);
         // Set up the notify callback
         if(on_notify != null) {
             mNotifyCB.put(uuid, on_notify);
         } else {
             mNotifyCB.remove(uuid);
         }
+        if(enable) {
+            notification_disable_preempted.put(uuid,Boolean.TRUE);
+        }
         if(isNotificationEnabled(uuid) != enable) {
-            return protectedCall(new Interruptable() {
-                @Override
-                public Void call() throws InterruptedException {
-                    // Only bother setting the notification if the status has changed
-                    if (mBluetoothGatt.setCharacteristicNotification(c, enable)) {
-                        final BluetoothGattDescriptor clientConfig = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
-                        final byte[] enable_val = enable?BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE:BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
-                        while(!clientConfig.setValue(enable_val)) {
-                            Log.e(TAG, "setValue Fail!");
+            if(enable==true) {
+                // Enable immediately
+                enableNotifyDirect(uuid,true);
+            } else {
+                // Disable only after a delay
+                notification_disable_preempted.put(uuid,Boolean.FALSE);
+                Util.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(notification_disable_preempted.get(uuid).equals(Boolean.TRUE)) {
+                            // If the disable was preempted, don't disable
+                            return;
                         }
-                        Log.d(TAG, "DWRITE");
-                        mBluetoothGatt.writeDescriptor(clientConfig);
-                        if(bleDWriteCondition.awaitMilli(1000)) {
-                            mRval = -1;
-                        } else {
-                            mRval = bleDWriteCondition.stat;
-                        }
-                    } else {
-                        mRval = 0;
+                        enableNotifyDirect(uuid, false);
                     }
-                    return null;
-                }
-            });
+                }, 3000);
+            }
         }
         return 0;
     }
