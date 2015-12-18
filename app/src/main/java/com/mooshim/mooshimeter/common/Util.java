@@ -59,6 +59,8 @@ public class Util {
 
     // Singleton resources for accessing the bundled firmware image
     private static final int FILE_BUFFER_SIZE = 0x40000;
+    public static final int OAD_BLOCK_SIZE = 16;
+    public static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
     private static final byte[] mFileBuffer = new byte[FILE_BUFFER_SIZE];
     private static int mFirmwareVersion;
 
@@ -68,6 +70,12 @@ public class Util {
 
     public static byte[] getFileBuffer() {
         return mFileBuffer;
+    }
+
+    public static byte[] getFileBlock(short bnum) {
+        final byte rval[] = new byte[OAD_BLOCK_SIZE];
+        System.arraycopy(mFileBuffer, bnum*OAD_BLOCK_SIZE, rval, 0, OAD_BLOCK_SIZE);
+        return rval;
     }
 
     private static void loadFile() {

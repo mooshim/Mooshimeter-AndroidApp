@@ -80,8 +80,6 @@ import java.util.concurrent.Semaphore;
 public class FwUpdateActivity extends MyActivity {
     // Activity
     private static final int FILE_BUFFER_SIZE = 0x40000;
-    private static final int OAD_BLOCK_SIZE = 16;
-    private static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
     private static final int HAL_FLASH_WORD_SIZE = 4;
     // Log
     private static String TAG = "FwUpdateActivity";
@@ -228,19 +226,19 @@ public class FwUpdateActivity extends MyActivity {
             public void notify(double timestamp_utc, byte[] payload) {
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
-                Log.d(TAG,"Meter requested block " + rb);
-                if(legacy_mode) {
+                Log.d(TAG, "Meter requested block " + rb);
+                if (legacy_mode) {
                     // In legacy mode, we always send only the block that has been requested
                     nextBlock = rb;
                     blockPacer.release();
                 } else {
-                    if(!in_recovery && rb+10 < nextBlock) {
+                    if (!in_recovery && rb + 10 < nextBlock) {
                         // Something went wrong and we've skipped ahead
-                        Log.e(TAG,"ERROR: Meter requested discontinuous block: " + rb);
+                        Log.e(TAG, "ERROR: Meter requested discontinuous block: " + rb);
                         nextBlock = rb;
                         in_recovery = true;
                     }
-                    if(in_recovery) {
+                    if (in_recovery) {
                         // Give a 500ms delay for the BLE stack to catch up and clear
                         delayed_poster.postDelayed(new Runnable() {
                             @Override
@@ -253,7 +251,7 @@ public class FwUpdateActivity extends MyActivity {
                         blockPacer.release();
                     }
                 }
-                if(rb%32==0) {
+                if (rb % 32 == 0) {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -291,8 +289,7 @@ public class FwUpdateActivity extends MyActivity {
                     @Override
                     public void run() {
                         mMeter.cancelConnectionStateCB(cb_handle[0]);
-                        setResult(RESULT_OK);
-                        finish();
+                        transitionToActivity(mMeter, ScanActivity.class);
                     }
                 }, 3000);
             }
@@ -373,7 +370,7 @@ public class FwUpdateActivity extends MyActivity {
 
     private void displayStats() {
         String txt;
-        final int iBytes = mProgInfo.requestedBlock*OAD_BLOCK_SIZE;
+        final int iBytes = mProgInfo.requestedBlock*Util.OAD_BLOCK_SIZE;
         final double byteRate;
         final double elapsed = (Util.getUTCTime() - mProgInfo.timeStart);
         if (elapsed > 0) {
@@ -425,12 +422,8 @@ public class FwUpdateActivity extends MyActivity {
             return;
 
         // Prepare block
-        final byte oadBuffer[] = new byte[OAD_BLOCK_SIZE];
-        final byte[] mFileBuffer = Util.getFileBuffer();
-        System.arraycopy(mFileBuffer, bnum*OAD_BLOCK_SIZE, oadBuffer, 0, OAD_BLOCK_SIZE);
-
         mMeter.oad_block.blockNum = bnum;
-        mMeter.oad_block.bytes = oadBuffer;
+        mMeter.oad_block.bytes = Util.getFileBlock(bnum);
 
         Log.d(TAG, "Sending block " + bnum);
         int rval;
@@ -453,7 +446,7 @@ public class FwUpdateActivity extends MyActivity {
 
         void reset() {
             timeStart = Util.getUTCTime();
-            nBlocks = (short) (mMeter.oad_identity.len / (OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
+            nBlocks = (short) (mMeter.oad_identity.len / (Util.OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }
 
