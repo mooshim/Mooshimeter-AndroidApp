@@ -56,6 +56,7 @@ package com.mooshim.mooshimeter.main;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -126,6 +127,16 @@ public class FwUpdateActivity extends MyActivity {
         // If we're on an older version of Android, enable the checkbox by default
         mLegacyMode.setChecked(android.os.Build.VERSION.SDK_INT < 21);
         mLegacyMode.setEnabled(true);
+
+        if(mLegacyMode.isChecked()) {
+            final Context context = this;
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    Util.blockOnAlertBox(context, "Warning: Unstable upload", "This version of Android is known to be unstable when updating firmware.  We recommend using Android 5.0 or later, or performing the firmware upload from an iOS device.");
+                }
+            });
+        }
 
         updateStartButton();
 
