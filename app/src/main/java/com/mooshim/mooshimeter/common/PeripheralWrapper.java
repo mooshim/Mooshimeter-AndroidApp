@@ -459,9 +459,9 @@ public class PeripheralWrapper {
         // If this is not called during connection, the GATT layer will simply return the last cached
         // services and refuse to do the service discovery process.
         try {
-            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh", new Class[0]);
+            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh");
             if (localMethod != null) {
-                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt, new Object[0])).booleanValue();
+                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt)).booleanValue();
                 return b;
             } else {
                 Log.e(TAG, "Unable to wipe the GATT Cache");

@@ -679,11 +679,11 @@ public class DeviceActivity extends MyActivity {
                 mMeter.disp_hex[c] = false;
             } else {
                 int o = mMeter.disp_temp_units.ordinal()+1;
-                if(o == mMeter.disp_temp_units.values().length) {
+                if(o == MooshimeterDevice.TEMP_UNITS.values().length) {
                     mMeter.disp_hex[c] = true;
-                    mMeter.disp_temp_units = mMeter.disp_temp_units.values()[0];
+                    mMeter.disp_temp_units = MooshimeterDevice.TEMP_UNITS.values()[0];
                 } else {
-                    mMeter.disp_temp_units = mMeter.disp_temp_units.values()[o];
+                    mMeter.disp_temp_units = MooshimeterDevice.TEMP_UNITS.values()[o];
                 }
             }
         } else {

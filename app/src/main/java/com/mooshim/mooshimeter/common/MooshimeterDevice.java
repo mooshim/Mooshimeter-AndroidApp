@@ -32,7 +32,7 @@ import java.util.UUID;
 
 import static java.util.UUID.fromString;
 
-public class MooshimeterDevice extends PeripheralWrapper {
+public class MooshimeterDevice extends MooshimeterDeviceBase {
 
     /*
     mUUID stores the UUID values of all the Mooshimeter fields.
@@ -115,34 +115,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
 
     public boolean offset_on      = false;
     public final double[] offsets = new double[]{0,0,0};
-
-    private static void putInt24(ByteBuffer b, int arg) {
-        // Puts the bottom 3 bytes of arg on to b
-        ByteBuffer tmp = ByteBuffer.allocate(4);
-        byte[] tb = new byte[3];
-        tmp.putInt(arg);
-        tmp.flip();
-        tmp.get(tb);
-        b.put( tb );
-    }
-    private static int  getInt24(ByteBuffer b) {
-        // Pulls out a 3 byte int, expands it to 4 bytes
-        // Advances the buffer by 3 bytes
-        byte[] tb = new byte[4];
-        b.get(tb, 0, 3);                   // Grab 3 bytes of the input
-        if(tb[2] < 0) {tb[3] = (byte)0xFF;}// Sign extend
-        else          {tb[3] = (byte)0x00;}
-        ByteBuffer tmp = ByteBuffer.wrap(tb);
-        tmp.order(ByteOrder.LITTLE_ENDIAN);
-        return tmp.getInt();
-    }
-
-    private static ByteBuffer wrap(byte[] in) {
-        // Generates a little endian byte buffer wrapping the byte[]
-        ByteBuffer b = ByteBuffer.wrap(in);
-        b.order(ByteOrder.LITTLE_ENDIAN);
-        return b;
-    }
 
     /*
     All fields in the Mooshimeter BLE profile are stored as structs
@@ -1185,11 +1157,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
     
     public static final int METER_CH_SETTINGS_PGA_MASK = 0x70;
     public static final int METER_CH_SETTINGS_INPUT_MASK = 0x0F;
-
-    public class SignificantDigits {
-        public int high;
-        public int n_digits;
-    }
 
     /**
      * Examines the measurement settings for the given channel and returns the effective number of bits
