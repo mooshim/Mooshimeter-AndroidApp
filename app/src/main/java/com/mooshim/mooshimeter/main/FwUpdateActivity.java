@@ -103,7 +103,7 @@ public class FwUpdateActivity extends MyActivity {
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
-        mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = (MooshimeterDevice)ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
 
         // GUI init
         setContentView(R.layout.activity_fwupdate);

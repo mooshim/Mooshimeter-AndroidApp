@@ -121,7 +121,7 @@ public class TrendActivity extends MyActivity {
 
         if(!mPlaying) {
             Intent intent = getIntent();
-            mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+            mMeter = (MooshimeterDevice)ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
 
             mGraph.getViewport().setXAxisBoundsManual(true);
             mGraph.getViewport().setYAxisBoundsManual(true);

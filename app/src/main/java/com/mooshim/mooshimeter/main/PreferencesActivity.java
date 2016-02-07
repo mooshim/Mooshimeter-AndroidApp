@@ -86,7 +86,7 @@ public class PreferencesActivity extends MyActivity {
       super.onCreate(savedInstanceState);
       final PreferencesActivity mThis = this;
       Intent intent = getIntent();
-      mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+      mMeter = (MooshimeterDevice)ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
       setContentView(R.layout.activity_meter_preference);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
       rateButtons[0] = (Button)findViewById(R.id.rate_button0);

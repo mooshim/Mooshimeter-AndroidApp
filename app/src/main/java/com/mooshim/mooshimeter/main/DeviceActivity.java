@@ -202,7 +202,7 @@ public class DeviceActivity extends MyActivity {
             // If we're in Portrait, continue as normal
             // If we're in landscape, handleOrientation will have started the trend activity
             Intent intent = getIntent();
-            mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+            mMeter = (MooshimeterDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
             onMeterInitialized();
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             setTitle(mMeter.getBLEDevice().getName());
