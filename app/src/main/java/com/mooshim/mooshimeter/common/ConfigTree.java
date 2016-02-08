@@ -14,6 +14,7 @@ import java.util.zip.Deflater;
 import java.util.zip.Inflater;
 
 import org.msgpack.MessagePack;
+import org.msgpack.type.IntegerValue;
 import org.msgpack.type.Value;
 import static org.msgpack.template.Templates.*;
 
@@ -60,7 +61,7 @@ public class ConfigTree {
     public static ConfigNode nodeFactory(int ntype_arg){
         Class c = NodesByType[ntype_arg];
         try {
-            return (ConfigNode) c.getConstructor().newInstance(ntype_arg);
+            return (ConfigNode) c.getConstructor(int.class,String.class,List.class).newInstance(ntype_arg,null,null);
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -117,7 +118,9 @@ public class ConfigTree {
         public String toString() {
             String s = "";
             if(code != -1) {
-                s += code + ':' + name;
+                s += code + ":" + name;
+            } else {
+                s = name;
             }
             return s;
         }
@@ -127,8 +130,8 @@ public class ConfigTree {
         private void getPath(List<Integer> rval) {
             if(parent!=null) {
                 parent.getPath(rval);
+                rval.add(getIndex());
             }
-            rval.add(getIndex());
         }
         public List<Integer> getPath() {
             List<Integer> rval = new ArrayList<Integer>();
@@ -170,16 +173,23 @@ public class ConfigTree {
         }
         @Override
         public void unpackFromFrontOfList(List<Value> l) {
-            int check_ntype = l.remove(0).asIntegerValue().getInt();
+            assert l.size()>0;
+            assert l.get(0).isIntegerValue();
+            assert !(l instanceof java.util.AbstractList);
+            Value tmp_Value = l.remove(0);
+            IntegerValue tmp_Int = tmp_Value.asIntegerValue();
+            int check_ntype = tmp_Int.getInt();
             if(check_ntype != ntype) {
                 Log.e(TAG,"WRONG NODE TYPE");
                 // Exception?
             }
             name=l.remove(0).toString();
-            List<Value> children_packed = l.remove(0).asArrayValue();
+            Log.d(TAG,this.toString());
+            List<Value> children_packed = new ArrayList<Value>(l.remove(0).asArrayValue());
             while(children_packed.size()>0) {
                 int c_ntype = children_packed.get(0).asIntegerValue().getInt();
                 ConfigNode child = ConfigTree.nodeFactory(c_ntype);
+                assert child != null;
                 child.unpackFromFrontOfList(children_packed);
                 children.add(child);
             }
@@ -199,8 +209,8 @@ public class ConfigTree {
             return (ntype==NTYPE.CHOOSER);
         }
     }
-    public static class RefNode extends ConfigNode {
-        List<Integer> path = null;
+    public static class RefNode        extends ConfigNode {
+        String path = "";
         public RefNode(int ntype_arg, String name_arg, List<ConfigNode> children_arg) {
             super(ntype_arg, name_arg, children_arg);
         }
@@ -211,29 +221,26 @@ public class ConfigTree {
                 Log.e(TAG,"WRONG NODE TYPE");
                 // Exception?
             }
-            List<Value> new_path = l.remove(0).asArrayValue();
-            path = new ArrayList<Integer>();
-            for(Value v:new_path) {
-                path.add(v.asIntegerValue().getInt());
-            }
+            path = l.remove(0).toString();
         }
         @Override
         public void packToEndOfList(List<Object> l) {
             l.add(ntype);
             l.add(path);
         }
+        @Override
         public String toString() {
             String s = "";
             if(ntype==NTYPE.COPY) {
                 s+="COPY: "+path;
             }
             if(ntype==NTYPE.LINK) {
-                s +="LINK:"+ path + ":" + tree.getNodeAtPath(path).getPath();
+                s +="LINK:"+ path + ":" + tree.getNodeAtLongname(path).getPath();
             }
             return s;
         }
     }
-    public static class ValueNode extends ConfigNode{
+    public static class ValueNode      extends ConfigNode{
         public ValueNode(int ntype_arg, String name_arg, List<ConfigNode> children_arg) {
             super(ntype_arg, name_arg, children_arg);
         }
@@ -245,6 +252,7 @@ public class ConfigTree {
                 // Exception?
             }
             name=l.remove(0).toString();
+            Log.d(TAG,this.toString());
         }
         @Override
         public void packToEndOfList(List<Object> l) {
@@ -325,9 +333,16 @@ public class ConfigTree {
     }
     public void assignShortCodes() {
         final int[] g_code = {0};
+        final ConfigTree self = this;
         NodeProcessor p = new NodeProcessor() {
             @Override
             public void process(ConfigNode n) {
+                n.tree = self;
+                if(n.children!=null) {
+                    for(ConfigNode c:n.children) {
+                        c.parent=n;
+                    }
+                }
                 if(n.needsShortCode()) {
                     n.code = g_code[0];
                     g_code[0]++;

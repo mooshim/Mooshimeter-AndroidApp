@@ -55,7 +55,7 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
     ////////////////////////////////
 
     private void interpretAggregate() {
-        int expecting_bytes = 0;
+        int expecting_bytes;
         while(recv_buf.size()>0) {
             // FIXME: Can't find a nice way of wrapping a ByteBuffer around a list of bytes.
             // Create a new array and copy bytes over.
@@ -169,6 +169,7 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
             public void handle(Object notification) {
                 try {
                     tree.unpack((byte[])notification);
+                    code_list = tree.getShortCodeList();
                     tree.enumerate();
                 } catch (DataFormatException e) {
                     e.printStackTrace();
