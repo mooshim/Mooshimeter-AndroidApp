@@ -61,7 +61,7 @@ public class ConfigTree {
     public static ConfigNode nodeFactory(int ntype_arg){
         Class c = NodesByType[ntype_arg];
         try {
-            return (ConfigNode) c.getConstructor(int.class,String.class,List.class).newInstance(ntype_arg,null,null);
+            return (ConfigNode) c.getConstructor(int.class).newInstance(ntype_arg);
         } catch(Exception e) {
             e.printStackTrace();
         }
@@ -85,6 +85,8 @@ public class ConfigTree {
         protected ConfigTree tree   = null;
         public NotificationHandler notification_handler = null;
 
+        public Object last_value = null;
+
         public ConfigNode(int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
             ntype=ntype_arg;
             name=name_arg;
@@ -94,7 +96,6 @@ public class ConfigTree {
                 }
             }
         }
-
         public ConfigNode(int ntype_arg) {
             this(ntype_arg,null,null);
         }
@@ -133,6 +134,9 @@ public class ConfigTree {
                 rval.add(getIndex());
             }
         }
+        public Object getValue() {
+            return last_value;
+        }
         public List<Integer> getPath() {
             List<Integer> rval = new ArrayList<Integer>();
             getPath(rval);
@@ -153,14 +157,23 @@ public class ConfigTree {
             rval.deleteCharAt(rval.length()-1);
             return rval.toString();
         }
+        public ConfigNode getChildByName(String name_arg) {
+            for(ConfigNode c:children) {
+                if(c.name.equals(name_arg)) {
+                    return c;
+                }
+            }
+            return null;
+        }
         public boolean needsShortCode() {
             return false;
         }
-        public void assignShortCode(int new_code) {
+        public void finalizeTree(int new_code) {
             code=new_code;
         }
         public void notify(Object notification) {
             Log.d(TAG,name+":"+notification);
+            last_value = notification;
             if(notification_handler==null) {
                 return;
             }
@@ -173,9 +186,6 @@ public class ConfigTree {
         }
         @Override
         public void unpackFromFrontOfList(List<Value> l) {
-            assert l.size()>0;
-            assert l.get(0).isIntegerValue();
-            assert !(l instanceof java.util.AbstractList);
             Value tmp_Value = l.remove(0);
             IntegerValue tmp_Int = tmp_Value.asIntegerValue();
             int check_ntype = tmp_Int.getInt();
@@ -210,7 +220,7 @@ public class ConfigTree {
         }
     }
     public static class RefNode        extends ConfigNode {
-        String path = "";
+        public String path = "";
         public RefNode(int ntype_arg, String name_arg, List<ConfigNode> children_arg) {
             super(ntype_arg, name_arg, children_arg);
         }
@@ -354,16 +364,10 @@ public class ConfigTree {
     public ConfigNode getNodeAtLongname(String name) {
         String[] tokens = name.split(":");
         ConfigNode n = root;
-        boolean found = false;
         for(String t:tokens) {
-            for(ConfigNode c:n.children) {
-                if(c.name.equals(t)) {
-                    n = c;
-                    found=true;
-                    break;
-                }
-            }
-            if(!found) {
+            n = n.getChildByName(t);
+            if(n==null) {
+                // Not found!
                 return null;
             }
         }
@@ -375,6 +379,27 @@ public class ConfigTree {
             n = n.children.get(i);
         }
         return n;
+    }
+    public Object getValueAt(String name) {
+        ConfigNode n = getNodeAtLongname(name);
+        if(n==null) {
+            return null;
+        }
+        return n.getValue();
+    }
+    public ConfigNode getChosenNode(String name) {
+        ConfigNode n = getNodeAtLongname(name);
+        assert n != null;
+        assert n.ntype == NTYPE.CHOOSER;
+        if(n.last_value==null) {
+            // FIXME: Assume always initialized to zero!
+            n.last_value = 0;
+        }
+        assert n.children.size() > (Integer)n.last_value;
+        return n.children.get((Integer)n.last_value);
+    }
+    public String getChosenName(String name) {
+        return getChosenNode(name).name;
     }
     public Map<Integer,ConfigNode> getShortCodeList() {
         final HashMap<Integer,ConfigNode> rval = new HashMap<Integer, ConfigNode>();

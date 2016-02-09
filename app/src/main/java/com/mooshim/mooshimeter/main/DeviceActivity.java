@@ -84,7 +84,7 @@ public class DeviceActivity extends MyActivity {
     private static final int TREND_ACT_REQ = 2;
 
 	// BLE
-    private MooshimeterDevice mMeter = null;
+    private MooshimeterDeviceBase mMeter = null;
 
     // GUI
     private final TextView[] value_labels = new TextView[2];
@@ -202,7 +202,7 @@ public class DeviceActivity extends MyActivity {
             // If we're in Portrait, continue as normal
             // If we're in landscape, handleOrientation will have started the trend activity
             Intent intent = getIntent();
-            mMeter = (MooshimeterDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
+            mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
             onMeterInitialized();
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             setTitle(mMeter.getBLEDevice().getName());
@@ -261,27 +261,11 @@ public class DeviceActivity extends MyActivity {
                         valueLabelRefresh(0);
                         valueLabelRefresh(1);
 
-                        // Handle autoranging
-                        // Save a local copy of settings
-                        byte[] save = mMeter.meter_settings.pack();
-                        // This switch provides settling time
-                        if (count_since_settings_sent > 0) {
-                            mMeter.applyAutorange();
-                        }
-                        byte[] compare = mMeter.meter_settings.pack();
-                        // TODO: There must be a more efficient way to do this.  But I think like a c-person
-                        // Check if anything changed, and if so apply changes
-                        if (!Arrays.equals(save, compare)) {
-                            count_since_settings_sent = 0;
-                            Util.dispatch(new Runnable() {
-                                @Override
-                                public void run() {
-                                    mMeter.meter_settings.send();
-                                }
-                            });
+                        if(mMeter.applyAutorange()) {
+                            // Settings changed
                             refreshAllControls();
-                        } else {
-                            count_since_settings_sent++;
+                            // Add autoranging cooldown
+                            // TODO
                         }
                     }
                 });
@@ -337,8 +321,7 @@ public class DeviceActivity extends MyActivity {
     }
 
     private void rate_button_refresh() {
-        byte rate_setting = (byte)(mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK);
-        int rate = 125 * (1<<rate_setting);
+        int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
         disableableButtonRefresh(rate_button, title, !mMeter.disp_rate_auto);
     }
@@ -348,14 +331,13 @@ public class DeviceActivity extends MyActivity {
     }
 
     private void depth_button_refresh() {
-        byte depth_setting = (byte)(mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2);
-        int depth = (1<<depth_setting);
+        int depth = mMeter.getBufferDepth();
         String title = String.format("%dsmpl", depth);
         disableableButtonRefresh(depth_button, title, !mMeter.disp_depth_auto);
     }
 
     private void logging_button_refresh() {
-        final boolean b = mMeter.meter_log_settings.target_logging_state!=MooshimeterDevice.LOGGING_OFF;
+        final boolean b = mMeter.getLoggingOn();
         final GradientDrawable bg = b?AUTO_GRADIENT:MANUAL_GRADIENT;
         final String title = b?"Logging:ON":"Logging:OFF";
         logging_button.setBackground(bg);
@@ -363,7 +345,8 @@ public class DeviceActivity extends MyActivity {
     }
 
     private void zero_button_refresh() {
-        final GradientDrawable bg = mMeter.offset_on?AUTO_GRADIENT:MANUAL_GRADIENT;
+        // FIXME
+        final GradientDrawable bg = false?AUTO_GRADIENT:MANUAL_GRADIENT;
         zero_button.setBackground(bg);
     }
 
@@ -388,162 +371,30 @@ public class DeviceActivity extends MyActivity {
 
     private void units_button_refresh(final int c) {
         String unit_str;
-        if(!mMeter.disp_hex[c]) {
-            MooshimeterDevice.SignificantDigits digits = mMeter.getSigDigits(c);
-            final String[] prefixes = {"μ","m","","k","M"};
-            byte prefix_i = 2;
-            //TODO: Unify prefix handling.
-            while(digits.high > 4) {
-                digits.high -= 3;
-                prefix_i++;
-            }
-            while(digits.high <=0) {
-                digits.high += 3;
-                prefix_i--;
-            }
-            unit_str = String.format("%s%s",prefixes[prefix_i],mMeter.getUnits(c));
-        } else {
-            unit_str = "RAW";
+        MooshimeterDeviceBase.SignificantDigits digits = mMeter.getSigDigits(c);
+        final String[] prefixes = {"μ","m","","k","M"};
+        byte prefix_i = 2;
+        //TODO: Unify prefix handling.
+        while(digits.high > 4) {
+            digits.high -= 3;
+            prefix_i++;
         }
+        while(digits.high <=0) {
+            digits.high += 3;
+            prefix_i--;
+        }
+        unit_str = String.format("%s%s",prefixes[prefix_i],mMeter.getUnits(c));
         units_buttons[c].setText(unit_str);
     }
 
     private void range_button_refresh(final int c) {
-        // How many different ranges do we want to support?
-        // Supporting a range for every single PGA gain seems mighty excessive.
-
-        byte channel_setting = mMeter.meter_settings.chset[c];
-        byte measure_setting = mMeter.meter_settings.measure_settings;
-        String lval = "";
-
-        switch(channel_setting & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK) {
-            case 0x00:
-                // Electrode input
-                switch(c) {
-                    case 0:
-                        switch(channel_setting & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK) {
-                            case 0x10:
-                                lval = "10A";
-                                break;
-                            case 0x40:
-                                lval = "2.5A";
-                                break;
-                            case 0x60:
-                                lval = "1A";
-                                break;
-                        }
-                        break;
-                    case 1:
-                        switch(mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_GPIO_MASK) {
-                        case 0x00:
-                            lval = "1.2V";
-                            break;
-                        case 0x10:
-                            lval = "60V";
-                            break;
-                        case 0x20:
-                            lval = "600V";
-                            break;
-                    }
-                    break;
-                }
-                break;
-            case 0x04:
-                // Temp input
-                lval = "60C";
-                break;
-            case 0x09:
-                switch(mMeter.disp_ch3_mode) {
-                case VOLTAGE:
-                case DIODE:
-                    switch(channel_setting & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK) {
-                        case 0x10:
-                            lval = "1.2V";
-                            break;
-                        case 0x40:
-                            lval = "300mV";
-                            break;
-                        case 0x60:
-                            lval = "100mV";
-                            break;
-                    }
-                    break;
-                case RESISTANCE:
-                    switch((channel_setting & MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK) | (measure_setting & (MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_LVL|MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON))) {
-                        case 0x13:
-                            lval = "10kΩ";
-                            break;
-                        case 0x43:
-                            lval = "2.5kΩ";
-                            break;
-                        case 0x63:
-                            lval = "1kΩ";
-                            break;
-                        case 0x12:
-                            lval = "250kΩ";
-                            break;
-                        case 0x42:
-                            lval = "100kΩ";
-                            break;
-                        case 0x62:
-                            lval = "25kΩ";
-                            break;
-                        case 0x11:
-                            lval = "10MΩ";
-                            break;
-                        case 0x41:
-                            lval = "2.5MΩ";
-                            break;
-                        case 0x61:
-                            lval = "1MΩ";
-                            break;
-                    }
-                    break;
-            }
-            break;
-        }
+        String lval = mMeter.getRangeLabel(c);
         disableableButtonRefresh(range_buttons[c],lval,!mMeter.disp_range_auto[c]);
     }
 
     private void valueLabelRefresh(final int c) {
-        final boolean ac = mMeter.disp_ac[c];
         final TextView v = value_labels[c];
-        double val;
-        int lsb_int;
-        if(ac) { lsb_int = (int)(Math.sqrt(mMeter.meter_sample.reading_ms[c])); }
-        else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
-
-        final String label_text;
-
-        if( mMeter.disp_hex[c]) {
-            lsb_int &= 0x00FFFFFF;
-            label_text = String.format("0x%06X", lsb_int);
-
-        } else {
-            // If at the edge of your range, say overload
-            // Remember the bounds are asymmetrical
-            final int upper_limit_lsb = (int) (1.1*(1<<22));
-            final int lower_limit_lsb = (int) (-0.9*(1<<22));
-
-            if(   lsb_int > upper_limit_lsb
-                    || lsb_int < lower_limit_lsb ) {
-                label_text = "OVERLOAD";
-            } else {
-                // FIXME: Resistance measurement completely breaks all our idioms because it is presented
-                // by the meter in native units AND as LSB.  This is a transitional issue... future firmware
-                // versions will be sending native units across the link, but we're stuck in the in-between
-                // right now.
-                if(     0x09==(mMeter.meter_settings.chset[c]&MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)
-                        &&  (mMeter.meter_info.build_time > 1445139447)  // And we have a firmware version late enough that the resistance is calculated in firmware
-                        &&  0x00!=(mMeter.meter_settings.calc_settings&MooshimeterDevice.METER_CALC_SETTINGS_RES) ) {
-                    // FIXME: We're packing the calculated resistance in to the mean-square field!
-                    val = mMeter.meter_sample.reading_ms[c];
-                } else {
-                    val = mMeter.lsbToNativeUnits(lsb_int, c);
-                }
-                label_text = MooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
-            }
-        }
+        final String label_text = mMeter.getValueLabel(c);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -557,6 +408,7 @@ public class DeviceActivity extends MyActivity {
     ////////////////////////
 
     private void clearOffsets() {
+        /*
         // If we are switching through a mode change that involves toggling the iSRC
         // we must invalidate the offsets
         for(int i = 0; i < 3; i++) {mMeter.offsets[i]=0;}
@@ -566,128 +418,38 @@ public class DeviceActivity extends MyActivity {
     private void cycleCH3Mode() {
         switch(mMeter.disp_ch3_mode) {
             case VOLTAGE:
-                mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.RESISTANCE;
+                mMeter.disp_ch3_mode = MooshimeterDeviceBase.CH3_MODES.RESISTANCE;
                 clearOffsets();
                 break;
             case RESISTANCE:
-                mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.DIODE;
+                mMeter.disp_ch3_mode = MooshimeterDeviceBase.CH3_MODES.DIODE;
                 break;
             case DIODE:
-                mMeter.disp_ch3_mode = MooshimeterDevice.CH3_MODES.VOLTAGE;
+                mMeter.disp_ch3_mode = MooshimeterDeviceBase.CH3_MODES.VOLTAGE;
                 clearOffsets();
                 break;
-        }
+        }*/
     }
 
     private void onDisplaySetClick(int c) {
         // If on normal electrode input, toggle between AC and DC display
         // If reading CH3, cycle from VauxDC->VauxAC->Resistance->Diode
         // If reading temp, do nothing
-        byte setting = (byte) (mMeter.meter_settings.chset[c] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
-        switch(setting) {
-            case 0x00:
-                // Electrode input
-                mMeter.disp_ac[c] ^= true;
-                break;
-            case 0x04:
-                // Temp input
-                break;
-            case 0x09:
-                switch(mMeter.disp_ch3_mode) {
-                case VOLTAGE:
-                    mMeter.disp_ac[c] ^= true;
-                    if(!mMeter.disp_ac[c]){cycleCH3Mode();}
-                    break;
-                case RESISTANCE:
-                    cycleCH3Mode();
-                    break;
-                case DIODE:
-                    cycleCH3Mode();
-                    break;
-            }
-            switch(mMeter.disp_ch3_mode) {
-                case VOLTAGE:
-                    mMeter.meter_settings.measure_settings &=~MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON;
-                    mMeter.meter_settings.measure_settings &=~MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_LVL;
-                    mMeter.meter_settings.calc_settings    &=~MooshimeterDevice.METER_CALC_SETTINGS_RES;
-                    break;
-                case RESISTANCE:
-                    mMeter.meter_settings.measure_settings |= MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON;
-                    mMeter.meter_settings.calc_settings    |= MooshimeterDevice.METER_CALC_SETTINGS_RES;
-                    break;
-                case DIODE:
-                    mMeter.meter_settings.measure_settings |= MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON;
-                    mMeter.meter_settings.calc_settings    &=~MooshimeterDevice.METER_CALC_SETTINGS_RES;
-                    break;
-            }
-            break;
-        }
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.meter_settings.send();
-            }
-        });
+        mMeter.cycleInputSubMapping(c);
         refreshAllControls();
     }
 
     private void onInputSetClick(int c) {
-        byte setting       = mMeter.meter_settings.chset[c];
-        byte other_setting = mMeter.meter_settings.chset[(c+1)%2];
-        switch(setting & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK) {
-            case 0x00:
-                // Electrode input: Advance to CH3 unless the other channel is already on CH3
-                if((other_setting & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK) == 0x09 ) {
-                    setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
-                    setting |= 0x04;
-                    setting &=~MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK;
-                    setting |= 0x10;
-                    mMeter.disp_ac[c] = false;
-                } else {
-                    setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
-                    setting |= 0x09;
-                }
-                break;
-            case 0x09:
-                // CH3 input
-                setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
-                setting |= 0x04;
-                setting &=~MooshimeterDevice.METER_CH_SETTINGS_PGA_MASK;
-                setting |= 0x10;
-                mMeter.disp_ac[c] = false;
-                break;
-            case 0x04:
-                // Temp input
-                setting &= ~MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK;
-                setting |= 0x00;
-                break;
-        }
-        mMeter.meter_settings.chset[c] = setting;
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.meter_settings.send();
-            }
-        });
+        mMeter.cycleInputMapping(c);
         refreshAllControls();
     }
 
     private void onUnitsClick(int c) {
-        if(0x04 == (mMeter.meter_settings.chset[c] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)) {
+        if(mMeter.getInputMappingIndex(c)==2) {
             // If we're measuring temperature, provide some options for units
-            if(mMeter.disp_hex[c]) {
-                mMeter.disp_hex[c] = false;
-            } else {
-                int o = mMeter.disp_temp_units.ordinal()+1;
-                if(o == MooshimeterDevice.TEMP_UNITS.values().length) {
-                    mMeter.disp_hex[c] = true;
-                    mMeter.disp_temp_units = MooshimeterDevice.TEMP_UNITS.values()[0];
-                } else {
-                    mMeter.disp_temp_units = MooshimeterDevice.TEMP_UNITS.values()[o];
-                }
-            }
-        } else {
-            mMeter.disp_hex[c] ^= true;
+            int o = mMeter.disp_temp_units.ordinal()+1;
+            o %= MooshimeterDeviceBase.TEMP_UNITS.values().length;
+            mMeter.disp_temp_units = MooshimeterDeviceBase.TEMP_UNITS.values()[o];
         }
         refreshAllControls();
     }
@@ -697,19 +459,13 @@ public class DeviceActivity extends MyActivity {
             return;
         }
 
-        mMeter.bumpRange(c,true,true);
+        mMeter.bumpRange(c, true, true);
 
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.meter_settings.send();
-            }
-        });
         refreshAllControls();
     }
 
     public void onCh1DisplaySetClick(View v) {
-        Log.i(TAG,"onCh1DisplaySetClick");
+        Log.i(TAG, "onCh1DisplaySetClick");
         onDisplaySetClick(0);
     }
 
@@ -768,38 +524,18 @@ public class DeviceActivity extends MyActivity {
 
     public void onRateClick(View v) {
         Log.i(TAG,"onRateClick");
+        mMeter.cycleSampleRate();
         if(mMeter.disp_rate_auto) {
             // If auto is on, do nothing
         } else {
-            byte rate_setting = (byte)(mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK);
-            rate_setting++;
-            rate_setting %= 7;
-            mMeter.meter_settings.adc_settings &= ~MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK;
-            mMeter.meter_settings.adc_settings |= rate_setting;
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    mMeter.meter_settings.send();
-                }
-            });
-
+            mMeter.cycleSampleRate();
             refreshAllControls();
         }
     }
 
     public void onLoggingClick(View v) {
-        Log.i(TAG,"onLoggingClick");
-        if(mMeter.meter_log_settings.target_logging_state != MooshimeterDevice.LOGGING_SAMPLING) {
-            mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_SAMPLING;
-        } else {
-            mMeter.meter_log_settings.target_logging_state = MooshimeterDevice.LOGGING_OFF;
-        }
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.meter_log_settings.send();
-            }
-        });
+        Log.i(TAG, "onLoggingClick");
+        mMeter.setLoggingOn(!mMeter.getLoggingOn());
         refreshAllControls();
     }
 
@@ -810,39 +546,30 @@ public class DeviceActivity extends MyActivity {
     }
 
     public void onDepthClick(View v) {
-        Log.i(TAG,"onDepthClick");
+        Log.i(TAG, "onDepthClick");
         if(mMeter.disp_depth_auto) {
             // If auto is on, do nothing
         } else {
-            byte depth_setting = (byte)(mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2);
-            depth_setting++;
-            depth_setting %= 9;
-            mMeter.meter_settings.calc_settings &= ~MooshimeterDevice.METER_CALC_SETTINGS_DEPTH_LOG2;
-            mMeter.meter_settings.calc_settings |= depth_setting;
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    mMeter.meter_settings.send();
-                }
-            });
+            mMeter.cycleBufferDepth();
             refreshAllControls();
         }
     }
 
     private void auxZero(int c) {
+        /*
         final int lsb = mMeter.meter_sample.reading_lsb[c];
-        if( 0 != (mMeter.meter_settings.measure_settings & MooshimeterDevice.METER_MEASURE_SETTINGS_ISRC_ON) ) {
+        if( 0 != (mMeter.meter_settings.measure_settings & MooshimeterDeviceBase.METER_MEASURE_SETTINGS_ISRC_ON) ) {
             final double isrc_current = mMeter.getIsrcCurrent();
             // Save aux offset as a resistance
             mMeter.offsets[2] = mMeter.lsbToNativeUnits(lsb, c);
             // FIXME: Logic here for PCB version I diode mode
-            if( mMeter.disp_ch3_mode != MooshimeterDevice.CH3_MODES.RESISTANCE ) {
+            if( mMeter.disp_ch3_mode != MooshimeterDeviceBase.CH3_MODES.RESISTANCE ) {
                 mMeter.offsets[2] /= isrc_current;
             }
         } else {
             // Current source is off, save as a simple voltage offset
             mMeter.offsets[2] = lsb;
-        }
+        }*/
     }
 
     public void onZeroClick(View v) {
@@ -854,9 +581,10 @@ public class DeviceActivity extends MyActivity {
         // When iSRC is off, offset in the ADC dominates
 
         // Toggle
+        /*
         mMeter.offset_on ^= true;
         if(mMeter.offset_on) {
-            byte channel_setting = (byte) (mMeter.meter_settings.chset[0] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
+            byte channel_setting = (byte) (mMeter.meter_settings.chset[0] & MooshimeterDeviceBase.METER_CH_SETTINGS_INPUT_MASK);
             switch(channel_setting) {
                 case 0x00: // Electrode input
                     if(mMeter.meter_info.pcb_version == 7) {
@@ -868,7 +596,7 @@ public class DeviceActivity extends MyActivity {
                 case 0x09:
                     auxZero(0);
             }
-            channel_setting = (byte) (mMeter.meter_settings.chset[1] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK);
+            channel_setting = (byte) (mMeter.meter_settings.chset[1] & MooshimeterDeviceBase.METER_CH_SETTINGS_INPUT_MASK);
             switch(channel_setting) {
                 case 0x00: // Electrode input
                     mMeter.offsets[1] = mMeter.meter_sample.reading_lsb[1];
@@ -878,7 +606,7 @@ public class DeviceActivity extends MyActivity {
             }
         } else {
             for(int i=0; i<mMeter.offsets.length; i++) {mMeter.offsets[i]=0;}
-        }
+        }*/
         refreshAllControls();
     }
 }

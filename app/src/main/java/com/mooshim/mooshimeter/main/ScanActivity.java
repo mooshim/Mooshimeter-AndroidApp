@@ -630,45 +630,43 @@ public class ScanActivity extends MyActivity {
     }
 
     private void startSingleMeterActivity(MooshimeterDeviceBase m) {
-        if(false) {
-            if (m.isInOADMode()) {
-                transitionToActivity(m, FwUpdateActivity.class);
+        if (m.isInOADMode()) {
+            transitionToActivity(m, FwUpdateActivity.class);
+        } else {
+            // Check the firmware version against our bundled version
+        /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
+                && offerFirmwareUpgrade() ) {
+            // Perform a firmware upgrade!
+            if(reconnectInOADMode(m)) {
+                // If we reconnect successfully, our original meter reference is no longer valid
+                // but its address still is
+                m = getDeviceWithAddress(m.getAddress());
+                startOADActivity(m);
             } else {
-                // Check the firmware version against our bundled version
-            /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
-                    && offerFirmwareUpgrade() ) {
-                // Perform a firmware upgrade!
-                if(reconnectInOADMode(m)) {
-                    // If we reconnect successfully, our original meter reference is no longer valid
-                    // but its address still is
-                    m = getDeviceWithAddress(m.getAddress());
-                    startOADActivity(m);
-                } else {
-                    Util.blockOnAlertBox(this, "Reboot to OAD failed", "Sorry, this version of Android can't manually reconnect to the Mooshimeter in bootloader mode.  \n\nYou can do it manually by resetting the Mooshimeter and connecting while it is blinking slowly.");
-                    Log.e(TAG,"FAILED TO RECONNECT IN OAD");
-                    m.disconnect();
+                Util.blockOnAlertBox(this, "Reboot to OAD failed", "Sorry, this version of Android can't manually reconnect to the Mooshimeter in bootloader mode.  \n\nYou can do it manually by resetting the Mooshimeter and connecting while it is blinking slowly.");
+                Log.e(TAG,"FAILED TO RECONNECT IN OAD");
+                m.disconnect();
+            }
+        } else {
+            startDeviceActivity(m);
+        }*/
+            if (m.mBuildTime < Util.getBundledFirmwareVersion()) {
+                String[] choices = {"See Instructions", "Continue without updating"};
+                int choice = Util.offerChoiceDialog(this, "Firmware update available", "A newer firmware version is available for this Mooshimeter, upgrading is recommended.", choices);
+                switch (choice) {
+                    case 0:
+                        // View the instructions
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
+                        startActivity(browserIntent);
+                        m.disconnect();
+                        break;
+                    case 1:
+                        // Continue without viewing
+                        transitionToActivity(m, DeviceActivity.class);
+                        break;
                 }
             } else {
-                startDeviceActivity(m);
-            }*/
-                if (m.mBuildTime < Util.getBundledFirmwareVersion()) {
-                    String[] choices = {"See Instructions", "Continue without updating"};
-                    int choice = Util.offerChoiceDialog(this, "Firmware update available", "A newer firmware version is available for this Mooshimeter, upgrading is recommended.", choices);
-                    switch (choice) {
-                        case 0:
-                            // View the instructions
-                            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
-                            startActivity(browserIntent);
-                            m.disconnect();
-                            break;
-                        case 1:
-                            // Continue without viewing
-                            transitionToActivity(m, DeviceActivity.class);
-                            break;
-                    }
-                } else {
-                    transitionToActivity(m, DeviceActivity.class);
-                }
+                transitionToActivity(m, DeviceActivity.class);
             }
         }
     }

@@ -325,11 +325,8 @@ public class TrendActivity extends MyActivity {
                     int lsb_int;
                     final double[] val = new double[2];
                     for (int c = 0; c < 2; c++) {
-                        if (mMeter.disp_ac[c]) {
-                            lsb_int = (int) (Math.sqrt(mMeter.meter_sample.reading_ms[c]));
-                        } else {
-                            lsb_int = mMeter.meter_sample.reading_lsb[c];
-                        }
+                        // ADJUST
+                        lsb_int = mMeter.meter_sample.reading_lsb[c];
                         val[c] = mMeter.lsbToNativeUnits(lsb_int, c);
                     }
                     resetViewBounds();

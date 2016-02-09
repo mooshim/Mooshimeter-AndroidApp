@@ -28,6 +28,7 @@ import android.util.Log;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
@@ -92,12 +93,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
     public static final byte LOGGING_OFF=0;     // No logging activity, revert here on error
     public static final byte LOGGING_SAMPLING=3;// Meter is presently sampling for writing to the log
 
-    public enum CH3_MODES {
-        VOLTAGE,
-        RESISTANCE,
-        DIODE
-    }
-
     public enum TEMP_UNITS {
         CELSIUS,
         FAHRENHEIT,
@@ -105,13 +100,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     // Display control settings
-    public final boolean[] disp_ac         = new boolean[]{false,false};
     public final boolean[] disp_hex        = new boolean[]{false,false};
-    public CH3_MODES       disp_ch3_mode   = CH3_MODES.VOLTAGE;
-    public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
-    public final boolean[] disp_range_auto = new boolean[]{true,true};
-    public boolean         disp_rate_auto  = true;
-    public boolean         disp_depth_auto = true;
+    public int             disp_submap_i[] = {0,0}; // Whatever input we're measuring, there are several ways to interpret it (AC vs. DC, RES vs. DIODE)
+    // For native input, 0:DC, 1:AC
+    // For ch3 input, 0:AUXDC 1:AUXAC, 2:RES, 3:DIODE
 
     public boolean offset_on      = false;
     public final double[] offsets = new double[]{0,0,0};
@@ -917,8 +909,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                 // Temp input
                 return 0;
             case 0x09:
-                switch(disp_ch3_mode) {
-                case VOLTAGE:
+                switch(disp_submap_i[channel]) {
+                case 0:
+                case 1:
                     switch(pga_setting) {
                         case 0x60:
                             return 0;
@@ -928,8 +921,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                             return (int)(0.25*(1<<22));
                     }
                     break;
-                case RESISTANCE:
-                case DIODE:
+                case 2:
+                case 3:
                     if(meter_info.pcb_version==7) {
                         switch(pga_setting) {
                             case 0x60:
@@ -1059,12 +1052,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                 // Temp input
                 break;
             case 0x09:
-                switch(disp_ch3_mode) {
-                case VOLTAGE:
+                switch(disp_submap_i[channel]) {
+                case 0:
+                case 1:
                     channel_setting = pga_cycle(channel_setting,expand,wrap);
                     break;
-                case RESISTANCE:
-                case DIODE:
+                case 2:
+                case 3:
                     if(meter_info.pcb_version==7) {
                         // This case is annoying.  We want PGA to always wrap if we are in the low range and going up OR in the high range and going down
                         if( 0 != ((expand?0:METER_MEASURE_SETTINGS_ISRC_LVL) ^ (meter_settings.measure_settings & METER_MEASURE_SETTINGS_ISRC_LVL))) {
@@ -1099,12 +1093,20 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
             break;
         }
         meter_settings.chset[channel] = channel_setting;
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                meter_settings.send();
+            }
+        });
     }
 
-    public void applyAutorange() {
-        final boolean ac_used = disp_ac[0] || disp_ac[1];
+    public boolean applyAutorange() {
+        final boolean ac_used = (disp_submap_i[0] == 1) || (disp_submap_i[1] == 1);
         final int upper_limit_lsb = (int)( 0.85*(1<<22));
         final int lower_limit_lsb = (int)(-0.85*(1<<22));
+
+        byte[] start = meter_settings.pack();
 
         // Autorange sample rate and buffer depth.
         // If anything is doing AC, we need a deep buffer and fast sample
@@ -1136,6 +1138,19 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                 }
             }
         }
+
+        // Did we change any settings?
+        byte[] end = meter_settings.pack();
+        if(!Arrays.equals(start,end)) {
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    meter_settings.send();
+                }
+            });
+            return true;
+        }
+        return false;
     }
 
     //////////////////////////////////////
@@ -1420,7 +1435,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                     adc_volts = lsbToADCInVoltage(lsb,ch);
                     ohms = 0;
                 }
-                if( disp_ch3_mode == CH3_MODES.RESISTANCE ) {
+                if( disp_submap_i[ch] == 2 ) { //RESISTANCE
                     // Convert to Ohms
                     return ohms;
                 } else {
@@ -1444,10 +1459,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
             case 0x00:
                 switch (channel) {
                     case 0:
-                        if(disp_ac[channel]){return "Current AC";}
+                        if(disp_submap_i[channel]==1){return "Current AC";}
                         else {return "Current DC";}
                     case 1:
-                        if(disp_ac[channel]){return "Voltage AC";}
+                        if(disp_submap_i[channel]==1){return "Voltage AC";}
                         else {return "Voltage DC";}
                     default:
                         return "Invalid";
@@ -1457,13 +1472,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                 return "Temperature";
             case 0x09:
                 // Channel 3 in
-                switch( disp_ch3_mode ) {
-                    case VOLTAGE:
-                        if(disp_ac[channel]){return "Aux Voltage AC";}
-                        else {return "Aux Voltage DC";}
-                    case RESISTANCE:
+                switch( disp_submap_i[channel] ) {
+                    case 0:
+                        return "Aux Voltage DC";
+                    case 1:
+                        return "Aux Voltage AC";
+                    case 2:
                         return "Resistance";
-                    case DIODE:
+                    case 3:
                         return "Diode Test";
                 }
                 break;
@@ -1505,13 +1521,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                 }
                 return "C";
             case 0x09:
-                switch( disp_ch3_mode ) {
-                    case VOLTAGE:
+                switch( disp_submap_i[channel] ) {
+                    case 0:
+                    case 1:
+                    case 3:
                         return "V";
-                    case RESISTANCE:
+                    case 2:
                         return "Ω";
-                    case DIODE:
-                        return "V";
                 }
             default:
                 Log.w(TAG,"Unrecognized chset[0] setting");
@@ -1546,4 +1562,337 @@ public class MooshimeterDevice extends MooshimeterDeviceBase {
                 return "";
         }
     }
+
+    @Override
+    public int cycleSampleRate() {
+        byte rate_setting = (byte)(meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK);
+        rate_setting++;
+        rate_setting %= 7;
+        meter_settings.adc_settings &= ~ADC_SETTINGS_SAMPLERATE_MASK;
+        meter_settings.adc_settings |= rate_setting;
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                meter_settings.send();
+            }
+        });
+        return rate_setting;
+    }
+
+    @Override
+    public int getSampleRateHz() {
+        byte rate_setting = (byte)(meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK);
+        return 125 * (1<<rate_setting);
+    }
+
+    @Override
+    public int cycleBufferDepth() {
+        byte depth_setting = (byte)(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2);
+        depth_setting++;
+        depth_setting %= 9;
+        meter_settings.calc_settings &= ~METER_CALC_SETTINGS_DEPTH_LOG2;
+        meter_settings.calc_settings |= depth_setting;
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                meter_settings.send();
+            }
+        });
+        return depth_setting;
+    }
+
+    @Override
+    public int getBufferDepth() {
+        byte depth_setting = (byte)(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2);
+        return (1<<depth_setting);
+    }
+
+    @Override
+    public boolean getLoggingOn() {
+        return meter_log_settings.target_logging_state!=LOGGING_OFF;
+    }
+
+    @Override
+    public void setLoggingOn(boolean on) {
+        meter_log_settings.target_logging_state = on?LOGGING_SAMPLING:LOGGING_OFF;
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                meter_log_settings.send();
+            }
+        });
+    }
+
+    @Override
+    public int getLoggingStatus() {
+        return meter_log_settings.logging_error;
+    }
+
+    @Override
+    public String getRangeLabel(int c) {
+        byte channel_setting = meter_settings.chset[c];
+        byte measure_setting = meter_settings.measure_settings;
+        String lval = "";
+
+        switch(channel_setting & METER_CH_SETTINGS_INPUT_MASK) {
+            case 0x00:
+                // Electrode input
+                switch(c) {
+                    case 0:
+                        switch(channel_setting & METER_CH_SETTINGS_PGA_MASK) {
+                            case 0x10:
+                                lval = "10A";
+                                break;
+                            case 0x40:
+                                lval = "2.5A";
+                                break;
+                            case 0x60:
+                                lval = "1A";
+                                break;
+                        }
+                        break;
+                    case 1:
+                        switch(meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK) {
+                            case 0x00:
+                                lval = "1.2V";
+                                break;
+                            case 0x10:
+                                lval = "60V";
+                                break;
+                            case 0x20:
+                                lval = "600V";
+                                break;
+                        }
+                        break;
+                }
+                break;
+            case 0x04:
+                // Temp input
+                lval = "60C";
+                break;
+            case 0x09:
+                switch(disp_submap_i[c]) {
+                    case 0:
+                    case 1:
+                    case 3:
+                        switch(channel_setting & METER_CH_SETTINGS_PGA_MASK) {
+                            case 0x10:
+                                lval = "1.2V";
+                                break;
+                            case 0x40:
+                                lval = "300mV";
+                                break;
+                            case 0x60:
+                                lval = "100mV";
+                                break;
+                        }
+                        break;
+                    case 2:
+                        switch((channel_setting & METER_CH_SETTINGS_PGA_MASK) | (measure_setting & (METER_MEASURE_SETTINGS_ISRC_LVL|METER_MEASURE_SETTINGS_ISRC_ON))) {
+                            case 0x13:
+                                lval = "10kΩ";
+                                break;
+                            case 0x43:
+                                lval = "2.5kΩ";
+                                break;
+                            case 0x63:
+                                lval = "1kΩ";
+                                break;
+                            case 0x12:
+                                lval = "250kΩ";
+                                break;
+                            case 0x42:
+                                lval = "100kΩ";
+                                break;
+                            case 0x62:
+                                lval = "25kΩ";
+                                break;
+                            case 0x11:
+                                lval = "10MΩ";
+                                break;
+                            case 0x41:
+                                lval = "2.5MΩ";
+                                break;
+                            case 0x61:
+                                lval = "1MΩ";
+                                break;
+                        }
+                        break;
+                }
+                break;
+        }
+        return lval;
+    }
+
+    @Override
+    public String getValueLabel(int c) {
+        final boolean ac = disp_submap_i[c]==1;
+
+        double val;
+        int lsb_int;
+        if(ac) { lsb_int = (int)(Math.sqrt(meter_sample.reading_ms[c])); }
+        else   { lsb_int = meter_sample.reading_lsb[c]; }
+
+        final String label_text;
+
+        if( disp_hex[c]) {
+            lsb_int &= 0x00FFFFFF;
+            label_text = String.format("0x%06X", lsb_int);
+
+        } else {
+            // If at the edge of your range, say overload
+            // Remember the bounds are asymmetrical
+            final int upper_limit_lsb = (int) (1.1*(1<<22));
+            final int lower_limit_lsb = (int) (-0.9*(1<<22));
+
+            if(   lsb_int > upper_limit_lsb
+                    || lsb_int < lower_limit_lsb ) {
+                label_text = "OVERLOAD";
+            } else {
+                // FIXME: Resistance measurement completely breaks all our idioms because it is presented
+                // by the meter in native units AND as LSB.  This is a transitional issue... future firmware
+                // versions will be sending native units across the link, but we're stuck in the in-between
+                // right now.
+                if(     0x09==(meter_settings.chset[c]&METER_CH_SETTINGS_INPUT_MASK)
+                        &&  (meter_info.build_time > 1445139447)  // And we have a firmware version late enough that the resistance is calculated in firmware
+                        &&  0x00!=(meter_settings.calc_settings&METER_CALC_SETTINGS_RES) ) {
+                    // FIXME: We're packing the calculated resistance in to the mean-square field!
+                    val = meter_sample.reading_ms[c];
+                } else {
+                    val = lsbToNativeUnits(lsb_int, c);
+                }
+                label_text = MooshimeterDeviceBase.formatReading(val, getSigDigits(c));
+            }
+        }
+        return label_text;
+    }
+
+    @Override
+    public int getInputMappingIndex(int c) {
+        byte setting       = meter_settings.chset[c];
+        switch(setting&METER_CH_SETTINGS_INPUT_MASK) {
+            case 0x00:
+                // Native
+                return 0;
+            case 0x09:
+                // CH3
+                return 1;
+            case 0x04:
+                // TEMP
+                return 2;
+        }
+        return -1;
+    }
+
+    @Override
+    public int getInputSubMappingIndex(int c) {
+        return disp_submap_i[c];
+    }
+
+    @Override
+    public int setInputMappingIndex(int c, int mapping) {
+        switch(mapping) {
+            case 0:
+                // Native
+                meter_settings.chset[c] = 0x10;
+            break;
+            case 1:
+                // CH3
+                meter_settings.chset[c] = 0x19;
+            break;
+            case 2:
+                // TEMP
+                meter_settings.chset[c] = 0x14;
+            break;
+        }
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                meter_settings.send();
+            }
+        });
+        return mapping;
+    }
+
+    @Override
+    public int setInputSubMappingIndex(int c, int mapping) {
+        switch(getInputMappingIndex(c)) {
+            case 0:
+                //NATIVE
+                if(mapping>1) {
+                    Log.e(TAG,"ILLEGAL MAPPING");
+                    new Exception().printStackTrace();
+                }
+                break;
+            case 1:
+                //CH3
+                if(mapping>4) {
+                    Log.e(TAG,"ILLEGAL MAPPING");
+                    new Exception().printStackTrace();
+                }
+                switch(mapping) {
+                    case 0:
+                    case 1:
+                        meter_settings.measure_settings &=~METER_MEASURE_SETTINGS_ISRC_ON;
+                        meter_settings.measure_settings &=~METER_MEASURE_SETTINGS_ISRC_LVL;
+                        meter_settings.calc_settings    &=~METER_CALC_SETTINGS_RES;
+                    case 2:
+                        meter_settings.measure_settings |= METER_MEASURE_SETTINGS_ISRC_ON;
+                        meter_settings.calc_settings    |= METER_CALC_SETTINGS_RES;
+                        break;
+                    case 3:
+                        meter_settings.measure_settings |= METER_MEASURE_SETTINGS_ISRC_ON;
+                        meter_settings.calc_settings    &=~METER_CALC_SETTINGS_RES;
+                        break;
+                }
+                Util.dispatch(new Runnable() {
+                    @Override
+                    public void run() {
+                        meter_settings.send();
+                    }
+                });
+                break;
+            case 2:
+                //TEMP
+                if(mapping>0) {
+                    Log.e(TAG,"ILLEGAL MAPPING");
+                    new Exception().printStackTrace();
+                }
+                break;
+        }
+        disp_submap_i[c] = mapping;
+        return mapping;
+    }
+
+    @Override
+    public int cycleInputMapping(int c) {
+        int ch_i       = getInputMappingIndex(c);
+        int other_ch_i = getInputMappingIndex((c + 1) % 2);
+        do {
+            ch_i++;
+            ch_i %= 3;
+        }while(ch_i==other_ch_i);
+        setInputSubMappingIndex(c,0);
+        return setInputMappingIndex(c,ch_i);
+    }
+
+    @Override
+    public int cycleInputSubMapping(int c) {
+        int tmp = disp_submap_i[c]+1;
+        switch(getInputMappingIndex(c)) {
+            case 0:
+                tmp%=2;
+                break;
+            case 1:
+                tmp%=4;
+                break;
+            case 2:
+                tmp=0;
+                break;
+        }
+        setInputSubMappingIndex(c,tmp);
+        return disp_submap_i[c];
+    }
+
+
 }

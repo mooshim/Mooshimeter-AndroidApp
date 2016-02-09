@@ -270,6 +270,29 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
     }
 
     ////////////////////////////////
+    // Private helpers
+    ////////////////////////////////
+
+    private int cycleChoiceAt(String chooser_name) {
+        int choice_i = (Integer)tree.getValueAt(chooser_name);
+        choice_i++;
+        choice_i %= tree.getNodeAtLongname(chooser_name).children.size();
+        sendCommand(chooser_name+" "+choice_i);
+        return choice_i;
+    }
+
+    private ConfigTree.ConfigNode getInputNode(int channel) {
+        assert channel<2;
+        String channel_str = (channel==0?"CH1":"CH2");
+        ConfigTree.ConfigNode mapnode = tree.getChosenNode(channel_str+":MAPPING");
+        // Follow link
+        while(mapnode.ntype== ConfigTree.NTYPE.LINK) {
+            mapnode = tree.getChosenNode(((ConfigTree.RefNode)mapnode).path);
+        }
+        return mapnode;
+    }
+
+    ////////////////////////////////
     // MooshimeterBaseDevice methods
     ////////////////////////////////
 
@@ -286,7 +309,8 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
 
     @Override
     public int getBufLen() {
-        return 0;
+        String dstring = tree.getChosenName("SAMPLING:DEPTH");
+        return Integer.parseInt(dstring);
     }
 
     @Override
@@ -296,17 +320,21 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
 
     @Override
     public void pauseStream() {
-
+        // Sampling off
+        sendCommand("SAMPLING:TRIGGER 0");
     }
 
     @Override
     public void playSampleStream(NotifyCallback on_notify) {
-
+        // Sampling Continuous
+        sendCommand("SAMPLING:TRIGGER 2");
+        // FIXME:
+        ConfigTree.ConfigNode
     }
 
     @Override
     public boolean isStreaming() {
-        return false;
+        return tree.getChosenName("SAMPLING:TRIGGER").equals("OFF");
     }
 
     @Override
@@ -315,13 +343,16 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
     }
 
     @Override
-    public void applyAutorange() {
-
+    public boolean applyAutorange() {
+        return false;
     }
 
     @Override
     public SignificantDigits getSigDigits(int channel) {
-        return null;
+        SignificantDigits rval = new SignificantDigits();
+        rval.high=3;
+        rval.n_digits=7;
+        return rval;
     }
 
     @Override
@@ -337,5 +368,93 @@ public class MooshimeterDeviceNew extends MooshimeterDeviceBase{
     @Override
     public String getInputLabel(int channel) {
         return null;
+    }
+
+    @Override
+    public int cycleSampleRate() {
+        return cycleChoiceAt("SAMPLING:RATE");
+    }
+
+    @Override
+    public int getSampleRateHz() {
+        String dstring = tree.getChosenName("SAMPLING:RATE");
+        return Integer.parseInt(dstring);
+    }
+
+    @Override
+    public int cycleBufferDepth() {
+        return cycleChoiceAt("SAMPLING:DEPTH");
+    }
+
+    @Override
+    public int getBufferDepth() {
+        String dstring = tree.getChosenName("SAMPLING:DEPTH");
+        return Integer.parseInt(dstring);
+    }
+
+    @Override
+    public boolean getLoggingOn() {
+        Integer i = (Integer)tree.getValueAt("LOGGING:ON");
+        return i!=0;
+    }
+
+    @Override
+    public void setLoggingOn(boolean on) {
+        int i=on?1:0;
+        sendCommand("LOGGING:ON "+i);
+    }
+
+    @Override
+    public int getLoggingStatus() {
+        return (Integer)tree.getValueAt("LOGGING:STATUS");
+    }
+
+    @Override
+    public String getRangeLabel(int c) {
+        ConfigTree.ConfigNode mapnode = getInputNode(c);
+        // Get range
+        ConfigTree.ConfigNode rangenode = mapnode.getChildByName("RANGE");
+        return rangenode.children.get((Integer) rangenode.getValue()).name;
+    }
+
+    @Override
+    public String getValueLabel(int c) {
+        // TODO: Respect significant digits
+        ConfigTree.ConfigNode mapnode = getInputNode(c);
+        ConfigTree.ConfigNode valuenode = mapnode.getChildByName("VALUE");
+        return valuenode.getValue().toString();
+    }
+
+    @Override
+    public int getInputMappingIndex(int c) {
+        return (Integer)getInputNode(c).getValue();
+    }
+
+    @Override
+    public int getInputSubMappingIndex(int c) {
+        return 0;
+    }
+
+    @Override
+    public int setInputMappingIndex(int c, int mapping) {
+        String s = (c==0?"CH1":"CH2") + ":MAPPING " + mapping;
+        sendCommand(s);
+        return (Integer)tree.getValueAt(s);
+    }
+
+    @Override
+    public int setInputSubMappingIndex(int c, int mapping) {
+        return 0;
+    }
+
+    @Override
+    public int cycleInputMapping(int c) {
+        String s = (c==0?"CH1":"CH2") + ":MAPPING";
+        return cycleChoiceAt(s);
+    }
+
+    @Override
+    public int cycleInputSubMapping(int c) {
+        return 0;
     }
 }

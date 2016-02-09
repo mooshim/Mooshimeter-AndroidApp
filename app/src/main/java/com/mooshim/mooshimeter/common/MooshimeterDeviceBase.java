@@ -66,8 +66,6 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     }
 
     // Display control settings
-    public final boolean[] disp_ac         = new boolean[]{false,false};
-    public final boolean[] disp_hex        = new boolean[]{false,false};
     public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
     public final boolean[] disp_range_auto = new boolean[]{true,true};
     public boolean         disp_rate_auto  = true;
@@ -246,10 +244,11 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
      */
     public abstract void bumpRange(int channel, boolean expand, boolean wrap);
 
-    public abstract void applyAutorange();
+    // Return true if settings changed
+    public abstract boolean applyAutorange();
 
     //////////////////////////////////////
-    // Data conversion
+    // Representation helpers
     //////////////////////////////////////
 
     /**
@@ -284,4 +283,27 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
      */
 
     public abstract String getInputLabel(final int channel);
+
+    public abstract int cycleSampleRate();
+    public abstract int getSampleRateHz();
+
+    public abstract int cycleBufferDepth();
+    public abstract int getBufferDepth();
+
+    public abstract boolean getLoggingOn();
+    public abstract void setLoggingOn(boolean on);
+
+    public abstract int getLoggingStatus();
+
+    public abstract String getRangeLabel(int c);
+    public abstract String getValueLabel(int c);
+
+    public abstract int getInputMappingIndex(int c);
+    public abstract int getInputSubMappingIndex(int c);
+    public abstract int setInputMappingIndex(int c,int mapping);
+    public abstract int setInputSubMappingIndex(int c,int mapping);
+    public abstract int cycleInputMapping(int c);
+    public abstract int cycleInputSubMapping(int c);
+
+
 }
