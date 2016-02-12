@@ -54,7 +54,6 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.main;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
@@ -72,9 +71,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
+import com.mooshim.mooshimeter.main.legacy.MyActivity;
 
 import java.util.concurrent.Semaphore;
 

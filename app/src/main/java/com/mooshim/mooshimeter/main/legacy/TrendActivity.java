@@ -17,9 +17,8 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.main.legacy;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -41,6 +40,8 @@ import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
+import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
+import com.mooshim.mooshimeter.main.ScanActivity;
 
 public class TrendActivity extends MyActivity {
 

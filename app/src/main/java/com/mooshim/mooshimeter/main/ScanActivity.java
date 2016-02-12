@@ -45,15 +45,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
+import com.mooshim.mooshimeter.main.legacy.DeviceActivity;
+import com.mooshim.mooshimeter.main.legacy.MyActivity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public class ScanActivity extends MyActivity {
@@ -502,7 +502,11 @@ public class ScanActivity extends MyActivity {
             if(is_meter) {
                 MooshimeterDevice m = mMeterDict.get(device.getAddress());
                 if(m==null) {
-                    m = new MooshimeterDevice(device,getApplicationContext());
+                    if(build_time > 743) { // FIXME find actual build time
+                        m = new MooshimeterDevice(device,getApplicationContext());
+                    } else {
+                        m = new MooshimeterDevice(device,getApplicationContext());
+                    }
                     mMeterDict.put(m.getAddress(), m);
                     final MooshimeterDevice wrapped = m;
                     runOnUiThread(new Runnable() {
@@ -623,120 +627,31 @@ public class ScanActivity extends MyActivity {
         return Util.offerYesNoDialog(this,"Firmware upgrade available","Would you like to upgrade firmware now?");
     }
 
-    private boolean reconnectInOADMode(final MooshimeterDevice m) {
-        // Force a reboot on the peripheral side
-        m.meter_settings.target_meter_state = MooshimeterDevice.METER_SHUTDOWN;
-        m.meter_settings.send();
-        // When we reconnect, the meter should be in bootloader mode
-        Log.d(TAG, "Reconnecting...");
-        m.disconnect();
-
-        return false;
-        /*
-        * Abandon hope, all ye that enter here
-        * Android refuses to reconnect to the Mooshimeter in a timely manner.
-        * Reconnection happens only after so much time has passed that the Mooshimeter reverts
-        * to Application mode.
-         */
-        //Util.displayProgressBar(this, "Resetting to Bootloader...", "");
-        //m.reconnect();
-        //Util.setProgress(50);
-        //m.discover();
-        //Util.setProgress(100);
-        //Util.dismissProgress();
-        //return m.isInOADMode();
-        /*
-        setStatus("Disconnecting...");
-        Log.d(TAG, "Disconnecting...");
-
-        m.disconnect();
-
-        Log.d(TAG, "Listening...");
-        // Listen until we hear the device advertising in OAD mode
-        final Semaphore tmpsem = new Semaphore(0);
-
-        class reconnectScanCallback extends FilteredScanCallback {
-            MooshimeterDevice matchingMeter = null;
-            void FilteredCallback(MooshimeterDevice scanned_meter) {
-                if(scanned_meter.getBLEDevice().getAddress().equals(m.getBLEDevice().getAddress())) {
-                    Log.d(TAG,"Found the reconnecting meter in");
-                    Log.d(TAG,scanned_meter.isInOADMode()?"OAD mode":"Meter mode");
-                    matchingMeter = scanned_meter;
-                    tmpsem.release();
-                }
-            }
-        }
-
-        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        final reconnectScanCallback cb = new reconnectScanCallback();
-
-        if( !bluetoothAdapter.startLeScan(cb) ) {
-            // Starting the scan failed!
-            Log.e(TAG,"Failed to start BLE Scan");
-        } else {
-            // Block until the scan handler releases us
-            try {
-                tmpsem.acquire();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-
-        // From here on out, the meter we were passed as an argument is no longer valid
-        // Remove all references to it, then manually add our new meter
-        mMeterList.remove(m);
-        mMeterDict.remove(m.getAddress());
-        mMeterList.add(cb.matchingMeter);
-        mMeterDict.put(cb.matchingMeter.getAddress(), cb.matchingMeter);
-
-
-        bluetoothAdapter.stopLeScan(cb);
-        // FIXME: For some reason if we try to reconnect immediately, it takes forever.
-        // Block for a little.
-        Util.pokeAfter(tmpsem, 500);
-
-        try {
-            tmpsem.acquire();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        setStatus("Reconnecting...");
-        Log.d(TAG, "Reconnecting...");
-        cb.matchingMeter.connect();
-        setStatus("Discovering services");
-        Log.d(TAG, "Connected!");
-        cb.matchingMeter.discover();
-        Log.d(TAG, "Services discovered");
-
-        return cb.matchingMeter.isInOADMode();*/
-    }
-
     private void startSingleMeterActivity(MooshimeterDevice m) {
-        if(m.isInOADMode()) {
+        if (m.isInOADMode()) {
             transitionToActivity(m, FwUpdateActivity.class);
         } else {
             // Check the firmware version against our bundled version
-            /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
-                    && offerFirmwareUpgrade() ) {
-                // Perform a firmware upgrade!
-                if(reconnectInOADMode(m)) {
-                    // If we reconnect successfully, our original meter reference is no longer valid
-                    // but its address still is
-                    m = getDeviceWithAddress(m.getAddress());
-                    startOADActivity(m);
-                } else {
-                    Util.blockOnAlertBox(this, "Reboot to OAD failed", "Sorry, this version of Android can't manually reconnect to the Mooshimeter in bootloader mode.  \n\nYou can do it manually by resetting the Mooshimeter and connecting while it is blinking slowly.");
-                    Log.e(TAG,"FAILED TO RECONNECT IN OAD");
-                    m.disconnect();
-                }
+        /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
+                && offerFirmwareUpgrade() ) {
+            // Perform a firmware upgrade!
+            if(reconnectInOADMode(m)) {
+                // If we reconnect successfully, our original meter reference is no longer valid
+                // but its address still is
+                m = getDeviceWithAddress(m.getAddress());
+                startOADActivity(m);
             } else {
-                startDeviceActivity(m);
-            }*/
-            if(m.meter_info.build_time < Util.getBundledFirmwareVersion() ) {
+                Util.blockOnAlertBox(this, "Reboot to OAD failed", "Sorry, this version of Android can't manually reconnect to the Mooshimeter in bootloader mode.  \n\nYou can do it manually by resetting the Mooshimeter and connecting while it is blinking slowly.");
+                Log.e(TAG,"FAILED TO RECONNECT IN OAD");
+                m.disconnect();
+            }
+        } else {
+            startDeviceActivity(m);
+        }*/
+            if (m.mBuildTime < Util.getBundledFirmwareVersion()) {
                 String[] choices = {"See Instructions", "Continue without updating"};
-                int choice = Util.offerChoiceDialog(this,"Firmware update available","A newer firmware version is available for this Mooshimeter, upgrading is recommended.",choices);
-                switch(choice) {
+                int choice = Util.offerChoiceDialog(this, "Firmware update available", "A newer firmware version is available for this Mooshimeter, upgrading is recommended.", choices);
+                switch (choice) {
                     case 0:
                         // View the instructions
                         Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
@@ -812,6 +727,8 @@ public class ScanActivity extends MyActivity {
     }
 
     private void valueLabelRefresh(final int c, final MooshimeterDevice mMeter, final TextView v,final TextView v_unit) {
+        // FIXME
+        /*
         final boolean ac = mMeter.disp_ac[c];
         double val;
         int lsb_int;
@@ -859,7 +776,7 @@ public class ScanActivity extends MyActivity {
                 v.setText(label_text);
                 v_unit.setText(unit_text);
             }
-        });
+        });*/
     }
 
     ///////////////////////////////

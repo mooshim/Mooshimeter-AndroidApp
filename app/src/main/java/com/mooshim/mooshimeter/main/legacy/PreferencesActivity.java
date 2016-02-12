@@ -51,14 +51,13 @@
 
 
  **************************************************************************************************/
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.main.legacy;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MenuItem;
@@ -70,7 +69,8 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.*;
+import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
+import com.mooshim.mooshimeter.main.ScanActivity;
 
 public class PreferencesActivity extends MyActivity {
 

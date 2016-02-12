@@ -1,11 +1,11 @@
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.main.legacy;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
+import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
 
 import java.util.HashMap;
 import java.util.Map;

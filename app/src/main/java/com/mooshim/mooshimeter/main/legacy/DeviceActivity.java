@@ -52,7 +52,7 @@
 
 
  **************************************************************************************************/
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.main.legacy;
 
 import java.util.Arrays;
 
@@ -74,6 +74,8 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
+import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
+import com.mooshim.mooshimeter.main.ScanActivity;
 
 public class DeviceActivity extends MyActivity {
     private static final String TAG = "DeviceActivity";

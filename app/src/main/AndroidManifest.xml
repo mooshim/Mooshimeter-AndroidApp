@@ -36,28 +36,28 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".main.DeviceActivity"
+            android:name=".main.legacy.DeviceActivity"
             android:parentActivityName=".main.ScanActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="fullSensor" />
         <activity
             android:name=".main.FwUpdateActivity"
-            android:parentActivityName=".main.DeviceActivity"
+            android:parentActivityName=".main.legacy.DeviceActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".main.PreferencesActivity"
+            android:name=".main.legacy.PreferencesActivity"
             android:label="Preferences"
-            android:parentActivityName=".main.DeviceActivity"
+            android:parentActivityName=".main.legacy.DeviceActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".main.TrendActivity"
+            android:name=".main.legacy.TrendActivity"
             android:label="@string/title_activity_trend"
-            android:parentActivityName=".main.DeviceActivity"
+            android:parentActivityName=".main.legacy.DeviceActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="fullSensor" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value="com.mooshim.mooshimeter.main.DeviceActivity" />
+                android:value=".main.legacy.DeviceActivity" />
         </activity>
     </application>
 
