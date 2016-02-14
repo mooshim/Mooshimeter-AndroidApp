@@ -138,6 +138,9 @@ public class ConfigTree {
             getPath(rval);
             return rval;
         }
+        public String getShortName() {
+            return name;
+        }
         private void getLongName(StringBuffer rval, String sep) {
             // This is the recursive call
             if(parent!=null) {
@@ -173,7 +176,9 @@ public class ConfigTree {
             return false;
         }
         public void addNotifyHandler(NotifyHandler h) {
-            notify_handlers.add(h);
+            if(h!=null) {
+                notify_handlers.add(h);
+            }
         }
         public void removeNotifyHandler(NotifyHandler h) {
             notify_handlers.remove(h);
@@ -187,7 +192,7 @@ public class ConfigTree {
         public void notify(final double time_utc, final Object notification) {
             Log.d(TAG,name+":"+notification);
             last_value = notification;
-            for(final NotifyHandler handler:notify_handlers) {
+            for(NotifyHandler handler:notify_handlers) {
                 handler.onReceived(time_utc, notification);
             }
         }
@@ -242,6 +247,10 @@ public class ConfigTree {
         }
         public RefNode(int ntype_arg) {
             super(ntype_arg);
+        }
+        @Override
+        public String getShortName() {
+            return tree.getNodeAtLongname(path).getShortName();
         }
         @Override
         public void unpackFromFrontOfList(List<Value> l) {

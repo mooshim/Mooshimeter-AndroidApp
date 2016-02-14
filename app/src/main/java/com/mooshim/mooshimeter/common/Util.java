@@ -386,7 +386,9 @@ public class Util {
                     return false;
                 }
             });
+            i++;
         }
+        rval.show();
         return rval;
     }
 }

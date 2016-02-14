@@ -366,8 +366,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     private Object getValueAt(String p) {
         Object rval = tree.getValueAt(p);
         if(rval==null) {
-            refreshValueAt(p);
-            rval = tree.getValueAt(p);
+            // FIXME: hack
+            return 0;
+            //refreshValueAt(p);
+            //rval = tree.getValueAt(p);
         }
         return rval;
     }
@@ -574,6 +576,12 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public List<String> getInputList(int c) {
-        return null;
+        List<String> inputs = new ArrayList<String>();
+        String s = getChString(c) + ":MAPPING";
+        ConfigTree.ConfigNode n = tree.getNodeAtLongname(s);
+        for(ConfigTree.ConfigNode child:n.children) {
+            inputs.add(child.getShortName());
+        }
+        return inputs;
     }
 }
