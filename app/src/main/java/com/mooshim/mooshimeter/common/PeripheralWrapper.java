@@ -52,7 +52,7 @@ public class PeripheralWrapper {
     private BluetoothGattCallback mGattCallbacks;
     protected Map<UUID,BluetoothGattService> mServices;
     protected Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
-    private Map<UUID,NotifyCallback> mNotifyCB;
+    private Map<UUID,NotifyHandler> mNotifyCB;
     private final HashMap<Integer, List<Runnable>> mConnectionStateCB;
     private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
     private List<Runnable> mRSSICallbacks;
@@ -72,9 +72,7 @@ public class PeripheralWrapper {
     public int mRssi;
     public int mConnectionState;
 
-    public static abstract class NotifyCallback {
-        public abstract void notify(double timestamp_utc, byte[] payload);
-    }
+    public static final UUID CLIENT_CHARACTERISTIC_CONFIG = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     private class Interruptable implements Callable<Void> {
         public int mRval = 0;
@@ -111,7 +109,7 @@ public class PeripheralWrapper {
 
         mCharacteristics   = new HashMap<UUID, BluetoothGattCharacteristic>();
         mServices          = new HashMap<UUID, BluetoothGattService>();
-        mNotifyCB          = new HashMap<UUID, NotifyCallback>();
+        mNotifyCB          = new HashMap<UUID, NotifyHandler>();
         mConnectionStateCB = new HashMap<Integer, List<Runnable>>();
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTED,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTING,new ArrayList<Runnable>());
@@ -142,14 +140,14 @@ public class PeripheralWrapper {
                 final byte[] val = c.getValue();
                 // The BLE stack sometimes gives us a null here, unclear why.
                 if( val != null ) {
-                    final NotifyCallback cb = mNotifyCB.get(c.getUuid());
+                    final NotifyHandler cb = mNotifyCB.get(c.getUuid());
                     if (cb != null) {
                         final byte[] payload = val.clone();
                         final double timestamp = Util.getNanoTime();
-                        Util.dispatch(new Runnable() {
+                        Util.dispatch_cb(new Runnable() {
                             @Override
                             public void run() {
-                                cb.notify(timestamp,payload);
+                                cb.onReceived(timestamp,payload);
                             }
                         });
                     }
@@ -360,7 +358,7 @@ public class PeripheralWrapper {
         });
     }
 
-    public NotifyCallback getNotificationCallback(UUID uuid) {
+    public NotifyHandler getNotificationCallback(UUID uuid) {
         return mNotifyCB.get(uuid);
     }
 
@@ -375,7 +373,7 @@ public class PeripheralWrapper {
             Log.e(TAG, "Asked for a characteristic that doesn't exist!");
             return false;
         }
-        final BluetoothGattDescriptor d = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
+        final BluetoothGattDescriptor d = c.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG);
         final byte[] dval = d.getValue();
         return (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
     }
@@ -389,7 +387,7 @@ public class PeripheralWrapper {
             public Void call() throws InterruptedException {
                 // Only bother setting the notification if the status has changed
                 if (mBluetoothGatt.setCharacteristicNotification(c, enable)) {
-                    final BluetoothGattDescriptor clientConfig = c.getDescriptor(GattInfo.CLIENT_CHARACTERISTIC_CONFIG);
+                    final BluetoothGattDescriptor clientConfig = c.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG);
                     final byte[] enable_val = enable?BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE:BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE;
                     while(!clientConfig.setValue(enable_val)) {
                         Log.e(TAG, "setValue Fail!");
@@ -409,7 +407,7 @@ public class PeripheralWrapper {
         });
     }
 
-    public int enableNotify(final UUID uuid, final boolean enable, final NotifyCallback on_notify) {
+    public int enableNotify(final UUID uuid, final boolean enable, final NotifyHandler on_notify) {
         if(!isConnected()) {
             Log.e(TAG,"Trying to set notification on a disconnected peripheral");
             new Exception().printStackTrace();
@@ -425,7 +423,7 @@ public class PeripheralWrapper {
             notification_disable_preempted.put(uuid,Boolean.TRUE);
         }
         if(isNotificationEnabled(uuid) != enable) {
-            if(enable==true) {
+            if(enable) {
                 // Enable immediately
                 enableNotifyDirect(uuid,true);
             } else {
@@ -459,9 +457,9 @@ public class PeripheralWrapper {
         // If this is not called during connection, the GATT layer will simply return the last cached
         // services and refuse to do the service discovery process.
         try {
-            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh", new Class[0]);
+            Method localMethod = mBluetoothGatt.getClass().getMethod("refresh");
             if (localMethod != null) {
-                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt, new Object[0])).booleanValue();
+                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt)).booleanValue();
                 return b;
             } else {
                 Log.e(TAG, "Unable to wipe the GATT Cache");

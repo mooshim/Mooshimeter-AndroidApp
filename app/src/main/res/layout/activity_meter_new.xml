@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TODO: The proportions on all graphical elements here should be reset to look more like the iOS
+app.  https://itunes.apple.com/us/app/mooshimeter/id945898277?mt=8
+The iOS app screen is in 10 rows, 6 columns.-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="CH1 LABEL"
+            android:id="@+id/ch1_input_set_button"
+            android:layout_weight="2"
+            android:onClick="onCh1InputSetClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="RANGE"
+            android:id="@+id/ch1_range_button"
+            android:layout_weight="1"
+            android:onClick="onCh1RangeClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="OVERLOAD"
+            android:id="@+id/ch1_value_label"
+            android:textSize="74dp"
+            android:layout_weight="2.36"
+            android:textAlignment="center"
+            android:typeface="monospace"
+            android:textIsSelectable="false" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="MATH"
+            android:id="@+id/ch1_math_button"
+            android:layout_weight="1"
+            android:onClick="onCh1MathClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+        <Button
+            style="@style/AppBaseTheme"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="ZERO"
+            android:id="@+id/ch1_zero_button"
+            android:layout_weight="1"
+            android:onClick="onCh1ZeroClick"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background"/>
+
+        <Button
+            style="@style/AppBaseTheme"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="SOUND"
+            android:id="@+id/ch1_sound_button"
+            android:layout_weight="1"
+            android:onClick="onCh1SoundClick"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background"/>
+    </LinearLayout>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="20px"
+        android:background="#ff000000" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="CH2 LABEL"
+            android:id="@+id/ch2_input_set_button"
+            android:layout_weight="2"
+            android:onClick="onCh2InputSetClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="RANGE"
+            android:id="@+id/ch2_range_button"
+            android:layout_weight="1"
+            android:onClick="onCh2RangeClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="OVERLOAD"
+            android:id="@+id/ch2_value_label"
+            android:textSize="74dp"
+            android:layout_weight="2.36"
+            android:textAlignment="center"
+            android:typeface="monospace"
+            android:textIsSelectable="false" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="MATH"
+            android:id="@+id/ch2_math_button"
+            android:layout_weight="1"
+            android:onClick="onCh2MathClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+        <Button
+            style="@style/AppBaseTheme"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="ZERO"
+            android:id="@+id/ch2_zero_button"
+            android:layout_weight="1"
+            android:onClick="onCh2ZeroClick"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background"/>
+
+        <Button
+            style="@style/AppBaseTheme"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="SOUND"
+            android:id="@+id/ch2_sound_button"
+            android:layout_weight="1"
+            android:onClick="onCh2SoundClick"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background"/>
+    </LinearLayout>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="20px"
+        android:background="#ff000000" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="125Hz"
+            android:id="@+id/rate_button"
+            android:layout_weight="2"
+            android:onClick="onRateClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="32smpl"
+            android:id="@+id/depth_button"
+            android:layout_weight="2"
+            android:onClick="onDepthClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+    </LinearLayout>
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="LOGGING:OFF"
+            android:id="@+id/log_button"
+            android:layout_weight="2"
+            android:onClick="onLoggingClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+
+        <Button
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="GRAPH"
+            android:id="@+id/graph_button"
+            android:layout_weight="2"
+            android:onClick="onGraphClick"
+            style="@style/AppBaseTheme"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background" />
+    </LinearLayout>
+</LinearLayout>

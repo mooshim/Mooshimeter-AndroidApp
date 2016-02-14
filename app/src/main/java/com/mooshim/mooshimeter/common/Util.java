@@ -26,11 +26,15 @@ import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.PopupMenu;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -101,10 +105,15 @@ public class Util {
 
     // Worker thread
     private static final class NamedThreadFactory implements ThreadFactory {
+        private String name;
+        public NamedThreadFactory(String n) {
+            name=n;
+        }
         public Thread newThread(Runnable r) {
-            return new Thread(r, "background_thread");
+            return new Thread(r, name);
         }
     }
+    // TODO don't repeat yourself
     private static final BlockingQueue<Runnable> worker_tasks = new LinkedBlockingQueue<Runnable>();
     private static final ExecutorService worker = new ThreadPoolExecutor(
             1,  // Number of worker threads to run
@@ -112,7 +121,17 @@ public class Util {
             1,  // Timeout
             TimeUnit.SECONDS, // Timeout units
             worker_tasks, // Queue of runnables
-            new NamedThreadFactory() // Thread factory to generate named thread for easy debug
+            new NamedThreadFactory("main_background") // Thread factory to generate named thread for easy debug
+    );
+
+    private static final BlockingQueue<Runnable> cb_worker_tasks = new LinkedBlockingQueue<Runnable>();
+    private static final ExecutorService cb_worker = new ThreadPoolExecutor(
+            1,  // Number of worker threads to run
+            1,  // Maximum number of worker threads to run
+            1,  // Timeout
+            TimeUnit.SECONDS, // Timeout units
+            cb_worker_tasks, // Queue of runnables
+            new NamedThreadFactory("cb_background") // Thread factory to generate named thread for easy debug
     );
     static boolean inMainThread() {
         return Looper.getMainLooper().getThread() == Thread.currentThread();
@@ -138,8 +157,15 @@ public class Util {
         worker.execute(r);
     }
 
+    public static void dispatch_cb(Runnable r) {
+        cb_worker.execute(r);
+    }
+
     public static void postDelayed(Runnable r, int ms) {
         mHandler.postDelayed(r, ms);
+    }
+    public static void cancel(Runnable r) {
+        mHandler.removeCallbacks(r);
     }
 
     public static void displayProgressBar(final Context context, final String title, final String message ) {
@@ -344,5 +370,23 @@ public class Util {
 
     public static Context getRootContext() {
         return mContext;
+    }
+
+    public static PopupMenu generatePopupMenuWithOptions(final Context context, final List<String> options,final View anchor,final NotifyHandler cb) {
+        final PopupMenu rval = new PopupMenu(context,anchor);
+        int i = 0;
+        for(String s:options) {
+            rval.getMenu().add(0,i,i,s);
+            rval.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                @Override
+                public boolean onMenuItemClick(MenuItem menuItem) {
+                    int choice = menuItem.getItemId();
+                    rval.dismiss();
+                    cb.onReceived(getUTCTime(),choice);
+                    return false;
+                }
+            });
+        }
+        return rval;
     }
 }

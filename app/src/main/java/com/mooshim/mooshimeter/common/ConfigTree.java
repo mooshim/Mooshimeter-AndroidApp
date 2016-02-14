@@ -73,17 +73,13 @@ public class ConfigTree {
     //////////////////////
 
     public static class ConfigNode {
-        public static abstract class NotificationHandler {
-            public abstract void handle(Object notification);
-        }
-
         protected int code = -1;
         protected int ntype = NTYPE.NOTSET;
         protected String name = null;
         protected List<ConfigNode> children = new ArrayList<ConfigNode>();
         protected ConfigNode parent = null;
         protected ConfigTree tree   = null;
-        public NotificationHandler notification_handler = null;
+        public List<NotifyHandler> notify_handlers = new ArrayList<NotifyHandler>();
 
         public Object last_value = null;
 
@@ -150,12 +146,20 @@ public class ConfigTree {
             rval.append(name);
             rval.append(sep);
         }
+        String cache_longname=null;
         public String getLongName(String sep) {
-            StringBuffer rval = new StringBuffer();
-            getLongName(rval,sep);
-            // This will have an extra seperator on the end
-            rval.deleteCharAt(rval.length()-1);
-            return rval.toString();
+            if(cache_longname==null) {
+                StringBuffer rval = new StringBuffer();
+                getLongName(rval, sep);
+                // This will have an extra seperator on the end and beginning
+                rval.deleteCharAt(rval.length() - 1);
+                rval.deleteCharAt(0);
+                cache_longname = rval.toString();
+            }
+            return cache_longname;
+        }
+        public String getLongName() {
+            return getLongName(":");
         }
         public ConfigNode getChildByName(String name_arg) {
             for(ConfigNode c:children) {
@@ -168,21 +172,32 @@ public class ConfigTree {
         public boolean needsShortCode() {
             return false;
         }
-        public void finalizeTree(int new_code) {
-            code=new_code;
+        public void addNotifyHandler(NotifyHandler h) {
+            notify_handlers.add(h);
+        }
+        public void removeNotifyHandler(NotifyHandler h) {
+            notify_handlers.remove(h);
+        }
+        public void clearNotifyHandlers() {
+            notify_handlers.clear();
         }
         public void notify(Object notification) {
+            notify(0,notification);
+        }
+        public void notify(final double time_utc, final Object notification) {
             Log.d(TAG,name+":"+notification);
             last_value = notification;
-            if(notification_handler==null) {
-                return;
+            for(final NotifyHandler handler:notify_handlers) {
+                handler.onReceived(time_utc, notification);
             }
-            notification_handler.handle(notification);
         }
     }
     public static class StructuralNode extends ConfigNode {
-        public StructuralNode(int ntype_arg, String name_arg, List<ConfigNode> children_arg) {
-            super(ntype_arg, name_arg, children_arg);
+        public StructuralNode(int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
+            super(ntype_arg,name_arg,children_arg);
+        }
+        public StructuralNode(int ntype_arg) {
+            super(ntype_arg);
         }
         @Override
         public void unpackFromFrontOfList(List<Value> l) {
@@ -193,7 +208,8 @@ public class ConfigTree {
                 Log.e(TAG,"WRONG NODE TYPE");
                 // Exception?
             }
-            name=l.remove(0).toString();
+            // Forgive me this terrible line.  Value.toString returns a StringBuilder, StringBuilder.toString returns a String
+            name=l.remove(0).asRawValue().getString();
             Log.d(TAG,this.toString());
             List<Value> children_packed = new ArrayList<Value>(l.remove(0).asArrayValue());
             while(children_packed.size()>0) {
@@ -221,8 +237,11 @@ public class ConfigTree {
     }
     public static class RefNode        extends ConfigNode {
         public String path = "";
-        public RefNode(int ntype_arg, String name_arg, List<ConfigNode> children_arg) {
-            super(ntype_arg, name_arg, children_arg);
+        public RefNode(int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
+            super(ntype_arg,name_arg,children_arg);
+        }
+        public RefNode(int ntype_arg) {
+            super(ntype_arg);
         }
         @Override
         public void unpackFromFrontOfList(List<Value> l) {
@@ -231,7 +250,7 @@ public class ConfigTree {
                 Log.e(TAG,"WRONG NODE TYPE");
                 // Exception?
             }
-            path = l.remove(0).toString();
+            path = l.remove(0).asRawValue().getString();
         }
         @Override
         public void packToEndOfList(List<Object> l) {
@@ -251,9 +270,13 @@ public class ConfigTree {
         }
     }
     public static class ValueNode      extends ConfigNode{
-        public ValueNode(int ntype_arg, String name_arg, List<ConfigNode> children_arg) {
-            super(ntype_arg, name_arg, children_arg);
+        public ValueNode(int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
+            super(ntype_arg,name_arg,children_arg);
         }
+        public ValueNode(int ntype_arg) {
+            super(ntype_arg);
+        }
+
         @Override
         public void unpackFromFrontOfList(List<Value> l) {
             int check_ntype = l.remove(0).asIntegerValue().getInt();
@@ -261,7 +284,7 @@ public class ConfigTree {
                 Log.e(TAG,"WRONG NODE TYPE");
                 // Exception?
             }
-            name=l.remove(0).toString();
+            name=l.remove(0).asRawValue().getString();
             Log.d(TAG,this.toString());
         }
         @Override
@@ -324,6 +347,7 @@ public class ConfigTree {
         inflater.end();
         MessagePack msgpack = new MessagePack();
         List<Value> l = msgpack.read(plain,tList(TValue));
+        Log.d(TAG,l.toString());
         root = nodeFactory(l.get(0).asIntegerValue().getInt());
         root.unpackFromFrontOfList(l);
         assignShortCodes();
@@ -395,8 +419,7 @@ public class ConfigTree {
             // FIXME: Assume always initialized to zero!
             n.last_value = 0;
         }
-        assert n.children.size() > (Integer)n.last_value;
-        return n.children.get((Integer)n.last_value);
+        return n.children.get((Integer) n.last_value);
     }
     public String getChosenName(String name) {
         return getChosenNode(name).name;

@@ -36,28 +36,33 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".main.legacy.DeviceActivity"
+            android:name=".main.legacy.LegacyDeviceActivity"
+            android:parentActivityName=".main.ScanActivity"
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="fullSensor" />
+        <activity
+            android:name=".main.DeviceActivity"
             android:parentActivityName=".main.ScanActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="fullSensor" />
         <activity
             android:name=".main.FwUpdateActivity"
-            android:parentActivityName=".main.legacy.DeviceActivity"
+            android:parentActivityName=".main.legacy.LegacyDeviceActivity"
             android:screenOrientation="portrait" />
         <activity
             android:name=".main.legacy.PreferencesActivity"
             android:label="Preferences"
-            android:parentActivityName=".main.legacy.DeviceActivity"
+            android:parentActivityName=".main.legacy.LegacyDeviceActivity"
             android:screenOrientation="portrait" />
         <activity
             android:name=".main.legacy.TrendActivity"
             android:label="@string/title_activity_trend"
-            android:parentActivityName=".main.legacy.DeviceActivity"
+            android:parentActivityName=".main.legacy.LegacyDeviceActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="fullSensor" >
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".main.legacy.DeviceActivity" />
+                android:value=".main.legacy.LegacyDeviceActivity" />
         </activity>
     </application>
 

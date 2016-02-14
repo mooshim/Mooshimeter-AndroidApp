@@ -40,8 +40,8 @@ import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.*;
-import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
-import com.mooshim.mooshimeter.main.ScanActivity;
+import com.mooshim.mooshimeter.common.legacy.LegacyMooshimeterDevice;
+import com.mooshim.mooshimeter.main.MyActivity;
 
 public class TrendActivity extends MyActivity {
 
@@ -59,7 +59,7 @@ public class TrendActivity extends MyActivity {
     private Button mGraphPlayButton;
     private ProgressBar mProgressSpinner;
 
-    private MooshimeterDevice mMeter;
+    private LegacyMooshimeterDevice mMeter;
     private final LineGraphSeries[] dataSeries = new LineGraphSeries[2];
     private double start_time;
 
@@ -123,7 +123,7 @@ public class TrendActivity extends MyActivity {
 
         if(!mPlaying) {
             Intent intent = getIntent();
-            mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+            mMeter = (LegacyMooshimeterDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
 
             mGraph.getViewport().setXAxisBoundsManual(true);
             mGraph.getViewport().setYAxisBoundsManual(true);
@@ -186,7 +186,7 @@ public class TrendActivity extends MyActivity {
                 });
                 setResult(RESULT_OK);
                 finish();
-                transitionToActivity(mMeter,DeviceActivity.class);
+                transitionToActivity(mMeter,LegacyDeviceActivity.class);
                 break;
         }
     }
@@ -319,9 +319,9 @@ public class TrendActivity extends MyActivity {
     private void trendViewPlay() {
         initializeDataSeries();
         start_time = Util.getNanoTime();
-        mMeter.playSampleStream(new PeripheralWrapper.NotifyCallback() {
+        mMeter.playSampleStream(new NotifyHandler() {
             @Override
-            public void notify(double timestamp_utc, byte[] payload) {
+            public void onReceived(double timestamp_utc, Object payload) {
                 if (!mBufferMode) {
                     final double new_time = timestamp_utc - start_time;
                     int lsb_int;
@@ -344,7 +344,7 @@ public class TrendActivity extends MyActivity {
                     });
                 }
             }
-        });
+        },null);
         Log.i(TAG, "Stream requested");
         mPlaying = true;
     }
@@ -380,7 +380,7 @@ public class TrendActivity extends MyActivity {
 
                         final int buf_len = mMeter.getBufLen();
                         double dt = 1./125;
-                        for(int i = 0; i < (mMeter.meter_settings.adc_settings & MooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK); i++) {
+                        for(int i = 0; i < (mMeter.meter_settings.adc_settings & LegacyMooshimeterDevice.ADC_SETTINGS_SAMPLERATE_MASK); i++) {
                             dt /= 2;
                         }
                         double t = 0.0;

@@ -69,12 +69,12 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
-import com.mooshim.mooshimeter.main.ScanActivity;
+import com.mooshim.mooshimeter.common.legacy.LegacyMooshimeterDevice;
+import com.mooshim.mooshimeter.main.MyActivity;
 
 public class PreferencesActivity extends MyActivity {
 
-    public MooshimeterDevice mMeter;
+    public LegacyMooshimeterDevice mMeter;
     final Button rateButtons[] = {null,null,null,null};
     private CheckBox auto_connect_checkbox;
 
@@ -86,7 +86,7 @@ public class PreferencesActivity extends MyActivity {
       super.onCreate(savedInstanceState);
       final PreferencesActivity mThis = this;
       Intent intent = getIntent();
-      mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+      mMeter = (LegacyMooshimeterDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
       setContentView(R.layout.activity_meter_preference);
       final EditText name_editor = (EditText) findViewById(R.id.meter_rename_edit);
       rateButtons[0] = (Button)findViewById(R.id.rate_button0);
@@ -95,12 +95,12 @@ public class PreferencesActivity extends MyActivity {
       rateButtons[3] = (Button)findViewById(R.id.rate_button3);
 
       auto_connect_checkbox = (CheckBox)findViewById(R.id.auto_connect_checkbox);
-      auto_connect_checkbox.setChecked(mMeter.getPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT));
+      auto_connect_checkbox.setChecked(mMeter.getPreference(LegacyMooshimeterDevice.mPreferenceKeys.AUTOCONNECT));
       auto_connect_checkbox.setEnabled(true);
       auto_connect_checkbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
           @Override
           public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-              mMeter.setPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT, auto_connect_checkbox.isChecked());
+              mMeter.setPreference(LegacyMooshimeterDevice.mPreferenceKeys.AUTOCONNECT, auto_connect_checkbox.isChecked());
           }
       });
 
@@ -150,7 +150,7 @@ public class PreferencesActivity extends MyActivity {
                 .setCancelable(false)
                 .setPositiveButton("Hibernate",new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog,int id) {
-                        mMeter.meter_settings.target_meter_state = MooshimeterDevice.METER_HIBERNATE;
+                        mMeter.meter_settings.target_meter_state = LegacyMooshimeterDevice.METER_HIBERNATE;
                         mMeter.meter_settings.send();
                     }
                 })

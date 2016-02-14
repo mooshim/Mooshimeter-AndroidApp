@@ -25,17 +25,19 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.common.PeripheralWrapper;
+import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.List;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
 
-public class MooshimeterDevice extends PeripheralWrapper {
+public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     /*
     mUUID stores the UUID values of all the Mooshimeter fields.
@@ -119,34 +121,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public boolean offset_on      = false;
     public final double[] offsets = new double[]{0,0,0};
 
-    private static void putInt24(ByteBuffer b, int arg) {
-        // Puts the bottom 3 bytes of arg on to b
-        ByteBuffer tmp = ByteBuffer.allocate(4);
-        byte[] tb = new byte[3];
-        tmp.putInt(arg);
-        tmp.flip();
-        tmp.get(tb);
-        b.put( tb );
-    }
-    private static int  getInt24(ByteBuffer b) {
-        // Pulls out a 3 byte int, expands it to 4 bytes
-        // Advances the buffer by 3 bytes
-        byte[] tb = new byte[4];
-        b.get(tb, 0, 3);                   // Grab 3 bytes of the input
-        if(tb[2] < 0) {tb[3] = (byte)0xFF;}// Sign extend
-        else          {tb[3] = (byte)0x00;}
-        ByteBuffer tmp = ByteBuffer.wrap(tb);
-        tmp.order(ByteOrder.LITTLE_ENDIAN);
-        return tmp.getInt();
-    }
-
-    private static ByteBuffer wrap(byte[] in) {
-        // Generates a little endian byte buffer wrapping the byte[]
-        ByteBuffer b = ByteBuffer.wrap(in);
-        b.order(ByteOrder.LITTLE_ENDIAN);
-        return b;
-    }
-
     /*
     All fields in the Mooshimeter BLE profile are stored as structs
     MeterStructure provides a common framework to access them.
@@ -199,13 +173,15 @@ public class MooshimeterDevice extends PeripheralWrapper {
          * @param enable        If true, enable the notification.  If false, disable.
          * @param on_notify     When a notify event is received, this is called.
          */
-        public int enableNotify(boolean enable, final NotifyCallback on_notify) {
-            return mInstance.enableNotify(getUUID(), enable, new NotifyCallback() {
+        public int enableNotify(boolean enable, final NotifyHandler on_notify) {
+            return mInstance.enableNotify(getUUID(), enable, new NotifyHandler() {
+
                 @Override
-                public void notify(double timestamp_utc, byte[] payload) {
+                public void onReceived(double timestamp_utc, Object payload) {
                     boolean success = true;
+                    byte[] bytes = (byte[])payload;
                     try {
-                        unpack(payload);
+                        unpack(bytes);
                     }
                     catch(BufferUnderflowException e){
                         success = false;
@@ -214,7 +190,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
                     }
                     finally {
                         if(success && on_notify!=null) {
-                            on_notify.notify(timestamp_utc, payload);
+                            on_notify.onReceived(timestamp_utc,payload);
                         }
                     }
                 }
@@ -649,7 +625,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
     }
 
     // Used so the inner classes have something to grab
-    public MooshimeterDevice mInstance;
+    public LegacyMooshimeterDevice mInstance;
 
     public int              mBuildTime;
     public boolean          mOADMode;
@@ -667,7 +643,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
     public OADIdentity      oad_identity;
     public OADBlock         oad_block;
 
-    public MooshimeterDevice(final BluetoothDevice device, final Context context) {
+    public LegacyMooshimeterDevice(final BluetoothDevice device, final Context context) {
         // Initialize super
         super(device,context);
 
@@ -766,6 +742,11 @@ public class MooshimeterDevice extends PeripheralWrapper {
         return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
+    @Override
+    public void getBuffer(NotifyHandler onReceived) {
+
+    }
+
     /**
      * Downloads the complete sample buffer from the Mooshimeter.
      * This interaction spans many connection intervals, the exact length depends on the number of samples in the buffer
@@ -814,14 +795,19 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
     }
 
+    @Override
+    public void playSampleStream(NotifyHandler ch1_notify, NotifyHandler ch2_notify) {
+
+    }
+
     /**
      * Start streaming samples from the meter.  Samples will be streamed continuously until pauseStream is called
      * @param on_notify Called whenever a new sample is received
      */
-    public void playSampleStream(final NotifyCallback on_notify) {
-        meter_settings.calc_settings |= MooshimeterDevice.METER_CALC_SETTINGS_MEAN | MooshimeterDevice.METER_CALC_SETTINGS_MS;
-        meter_settings.calc_settings &=~MooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
-        meter_settings.target_meter_state = MooshimeterDevice.METER_RUNNING;
+    public void playSampleStream(final NotifyHandler on_notify) {
+        meter_settings.calc_settings |= LegacyMooshimeterDevice.METER_CALC_SETTINGS_MEAN | LegacyMooshimeterDevice.METER_CALC_SETTINGS_MS;
+        meter_settings.calc_settings &=~LegacyMooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
+        meter_settings.target_meter_state = LegacyMooshimeterDevice.METER_RUNNING;
 
         meter_sample.enableNotify(true, on_notify);
         meter_settings.send();
@@ -831,7 +817,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         return meter_sample.isNotificationEnabled();
     }
 
-    public static String formatReading(double val, MooshimeterDevice.SignificantDigits digits) {
+    public static String formatReading(double val, LegacyMooshimeterDevice.SignificantDigits digits) {
         //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
         // is being applied
         while(digits.high > 4) {
@@ -1132,7 +1118,9 @@ public class MooshimeterDevice extends PeripheralWrapper {
         meter_settings.chset[channel] = channel_setting;
     }
 
-    public void applyAutorange() {
+    @Override
+    public boolean applyAutorange() {
+        boolean rval=false;
         final boolean ac_used = disp_ac[0] || disp_ac[1];
         final int upper_limit_lsb = (int)( 0.85*(1<<22));
         final int lower_limit_lsb = (int)(-0.85*(1<<22));
@@ -1167,6 +1155,8 @@ public class MooshimeterDevice extends PeripheralWrapper {
                 }
             }
         }
+        // TODO figure out rval
+        return rval;
     }
 
     //////////////////////////////////////
@@ -1188,11 +1178,6 @@ public class MooshimeterDevice extends PeripheralWrapper {
     
     public static final int METER_CH_SETTINGS_PGA_MASK = 0x70;
     public static final int METER_CH_SETTINGS_INPUT_MASK = 0x0F;
-
-    public class SignificantDigits {
-        public int high;
-        public int n_digits;
-    }
 
     /**
      * Examines the measurement settings for the given channel and returns the effective number of bits
@@ -1235,13 +1220,7 @@ public class MooshimeterDevice extends PeripheralWrapper {
         return enob;
     }
 
-    /**
-     * Based on the ENOB and the measurement range for the given channel, determine which digits are
-     * significant in the output.
-     * @param channel The channel index (0 or 1)
-     * @return  A SignificantDigits structure, "high" is the number of digits to the left of the decimal point and "digits" is the number of significant digits
-     */
-
+    @Override
     public SignificantDigits getSigDigits(final int channel) {
         SignificantDigits retval = new SignificantDigits();
         final double enob = getEnob(channel);
@@ -1555,6 +1534,81 @@ public class MooshimeterDevice extends PeripheralWrapper {
         }
     }
 
+    @Override
+    public int cycleSampleRate() {
+        return 0;
+    }
+
+    @Override
+    public int getSampleRateHz() {
+        return 0;
+    }
+
+    @Override
+    public int setSampleRateIndex(int i) {
+        return 0;
+    }
+
+    @Override
+    public List<String> getSampleRateListHz() {
+        return null;
+    }
+
+    @Override
+    public int cycleBufferDepth() {
+        return 0;
+    }
+
+    @Override
+    public int getBufferDepth() {
+        return 0;
+    }
+
+    @Override
+    public int setBufferDepthIndex(int i) {
+        return 0;
+    }
+
+    @Override
+    public List<String> getBufferDepthList() {
+        return null;
+    }
+
+    @Override
+    public boolean getLoggingOn() {
+        return false;
+    }
+
+    @Override
+    public void setLoggingOn(boolean on) {
+
+    }
+
+    @Override
+    public int getLoggingStatus() {
+        return 0;
+    }
+
+    @Override
+    public String getRangeLabel(int c) {
+        return null;
+    }
+
+    @Override
+    public List<String> getRangeList(int c) {
+        return null;
+    }
+
+    @Override
+    public List<String> setRangeIndex(int c, int r) {
+        return null;
+    }
+
+    @Override
+    public String getValueLabel(int c) {
+        return null;
+    }
+
     /**
      *
      * @param channel The channel index (0 or 1)
@@ -1581,5 +1635,25 @@ public class MooshimeterDevice extends PeripheralWrapper {
                 Log.w(TAG,"Unrecognized setting");
                 return "";
         }
+    }
+
+    @Override
+    public int getInputIndex(int c) {
+        return 0;
+    }
+
+    @Override
+    public int setInputIndex(int c, int mapping) {
+        return 0;
+    }
+
+    @Override
+    public int cycleInput(int c) {
+        return 0;
+    }
+
+    @Override
+    public List<String> getInputList(int c) {
+        return null;
     }
 }

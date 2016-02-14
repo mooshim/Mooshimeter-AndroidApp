@@ -71,10 +71,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.legacy.MooshimeterDevice;
-import com.mooshim.mooshimeter.common.PeripheralWrapper;
+import com.mooshim.mooshimeter.common.NotifyHandler;
+import com.mooshim.mooshimeter.common.legacy.LegacyMooshimeterDevice;
 import com.mooshim.mooshimeter.common.Util;
-import com.mooshim.mooshimeter.main.legacy.MyActivity;
 
 import java.util.concurrent.Semaphore;
 
@@ -92,7 +91,7 @@ public class FwUpdateActivity extends MyActivity {
     private Button mBtnStart;
     private CheckBox mLegacyMode;
     // BLE
-    private MooshimeterDevice mMeter;
+    private LegacyMooshimeterDevice mMeter;
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
@@ -103,7 +102,7 @@ public class FwUpdateActivity extends MyActivity {
         super.onCreate(savedInstanceState);
 
         Intent intent = getIntent();
-        mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = (LegacyMooshimeterDevice) ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
 
         // GUI init
         setContentView(R.layout.activity_fwupdate);
@@ -232,9 +231,9 @@ public class FwUpdateActivity extends MyActivity {
         final Handler delayed_poster = new Handler();
 
         // Send image notification
-        mMeter.oad_block.enableNotify(true, new PeripheralWrapper.NotifyCallback() {
+        mMeter.oad_block.enableNotify(true, new NotifyHandler() {
             @Override
-            public void notify(double timestamp_utc, byte[] payload) {
+            public void onReceived(double timestamp_utc, Object payload) {
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG, "Meter requested block " + rb);
@@ -273,9 +272,9 @@ public class FwUpdateActivity extends MyActivity {
                 }
             }
         });
-        mMeter.oad_identity.enableNotify(true, new PeripheralWrapper.NotifyCallback() {
+        mMeter.oad_identity.enableNotify(true, new NotifyHandler() {
             @Override
-            public void notify(double timestamp_utc, byte[] payload) {
+            public void onReceived(double timestamp_utc, Object payload) {
                 Log.d(TAG, "OAD Image identify notification!");
             }
         });

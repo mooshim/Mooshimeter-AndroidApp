@@ -67,7 +67,7 @@ public class StatLockManager {
         }
         return false;
     }
-    public void await() {
-        awaitMilli(0);
+    public boolean await() {
+        return awaitMilli(0);
     }
 }
