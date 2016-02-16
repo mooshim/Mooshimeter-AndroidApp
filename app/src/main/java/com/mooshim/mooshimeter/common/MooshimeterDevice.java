@@ -44,11 +44,11 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // MEMBERS
     ////////////////////////////////
 
-    int send_seq_n = 0;
-    int recv_seq_n = 0;
-    ConfigTree tree = null;
-    Map<Integer,ConfigTree.ConfigNode> code_list = null;
-    List<Byte> recv_buf = new ArrayList<Byte>();
+    private int send_seq_n = 0;
+    private int recv_seq_n = 0;
+    private ConfigTree tree = null;
+    private Map<Integer,ConfigTree.ConfigNode> code_list = null;
+    private List<Byte> recv_buf = new ArrayList<Byte>();
 
     ////////////////////////////////
     // NOTIFICATION CALLBACKS
@@ -374,6 +374,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
 
+    private static List<String> getChildNameList(ConfigTree.ConfigNode n) {
+        List<String> inputs = new ArrayList<String>();
+        for(ConfigTree.ConfigNode child:n.children) {
+            inputs.add(child.getShortName());
+        }
+        return inputs;
+    }
+
     ////////////////////////////////
     // MooshimeterBaseDevice methods
     ////////////////////////////////
@@ -441,17 +449,18 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public String getDescriptor(int channel) {
-        return null;
+        return getInputNode(channel).getShortName();
     }
 
     @Override
     public String getUnits(int channel) {
-        return null;
+        // This one we will have to do manually
+        return "UNITS";
     }
 
     @Override
     public String getInputLabel(int channel) {
-        return null;
+        return getInputNode(channel).getShortName();
     }
 
     @Override
@@ -467,12 +476,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public int setSampleRateIndex(int i) {
+        String cmd = "SAMPLING:RATE " + i;
+        sendCommand(cmd);
         return 0;
     }
 
     @Override
     public List<String> getSampleRateListHz() {
-        return null;
+        return getChildNameList(tree.getNodeAtLongname("SAMPLING:RATE"));
     }
 
     @Override
@@ -488,12 +499,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public int setBufferDepthIndex(int i) {
+        String cmd = "SAMPLING:DEPTH " + i;
+        sendCommand(cmd);
         return 0;
     }
 
     @Override
     public List<String> getBufferDepthList() {
-        return null;
+        return getChildNameList(tree.getNodeAtLongname("SAMPLING:DEPTH"));
     }
 
     @Override
@@ -505,7 +518,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public void setLoggingOn(boolean on) {
         int i=on?1:0;
-    sendCommand("LOG:ON "+i);
+        sendCommand("LOG:ON "+i);
     }
 
     @Override
@@ -527,12 +540,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public List<String> getRangeList(int c) {
-        return null;
+        return getChildNameList(getInputNode(c).getChildByName("RANGE"));
     }
 
     @Override
-    public List<String> setRangeIndex(int c, int r) {
-        return null;
+    public int setRangeIndex(int c, int r) {
+        String cmd = getInputNode(c).getLongName() + ":RANGE " + r;
+        sendCommand(cmd);
+        return 0;
     }
 
     @Override

@@ -1600,8 +1600,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
-    public List<String> setRangeIndex(int c, int r) {
-        return null;
+    public int setRangeIndex(int c, int r) {
+        return -1;
     }
 
     @Override

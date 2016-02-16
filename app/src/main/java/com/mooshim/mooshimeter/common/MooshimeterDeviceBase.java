@@ -70,9 +70,9 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
 
     // Display control settings
     public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
-    public final boolean[] disp_range_auto = new boolean[]{true,true};
-    public boolean         disp_rate_auto  = true;
-    public boolean         disp_depth_auto = true;
+    public final boolean[] range_auto = new boolean[]{true,true};
+    public boolean         rate_auto = true;
+    public boolean         depth_auto = true;
 
     public final double[] offsets = new double[]{0,0,0};
 
@@ -287,7 +287,7 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
 
     public abstract String       getRangeLabel(int c);
     public abstract List<String> getRangeList(int c);
-    public abstract List<String> setRangeIndex(int c,int r);
+    public abstract int          setRangeIndex(int c,int r);
 
     public abstract String getValueLabel(int c);
 

@@ -77,7 +77,6 @@ import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.main.legacy.PreferencesActivity;
-import com.mooshim.mooshimeter.main.legacy.TrendActivity;
 
 public class DeviceActivity extends MyActivity {
     private static final String TAG = "DeviceActivity";
@@ -176,34 +175,27 @@ public class DeviceActivity extends MyActivity {
 
     @Override
     public void onBackPressed() {
-        Log.e(TAG, "What now");
-        transitionToActivity(mMeter, ScanActivity.class);
+        Log.e(TAG, "Back pressed");
+        //transitionToActivity(mMeter, ScanActivity.class);
+        setResult(RESULT_OK);
+        finish();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.pauseStream();
-            }
-        });
     }
 
 	@Override
 	protected void onResume() {
 		super.onResume();
-        if(Configuration.ORIENTATION_PORTRAIT == this.getResources().getConfiguration().orientation) {
-            // If we're in Portrait, continue as normal
-            // If we're in landscape, handleOrientation will have started the trend activity
-            Intent intent = getIntent();
-            mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
-            onMeterInitialized();
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            setTitle(mMeter.getBLEDevice().getName());
-        }
+        Intent intent = getIntent();
+        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+        onMeterInitialized();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setTitle(mMeter.getBLEDevice().getName());
+
 	}
 
     @Override
@@ -288,16 +280,15 @@ public class DeviceActivity extends MyActivity {
     }
 
     private void rate_button_refresh() {
-
         int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
-        disableableButtonRefresh(rate_button, title, !mMeter.disp_rate_auto);
+        disableableButtonRefresh(rate_button, title, !mMeter.rate_auto);
     }
 
     private void depth_button_refresh() {
         int depth = mMeter.getBufferDepth();
         String title = String.format("%dsmpl", depth);
-        disableableButtonRefresh(depth_button, title, !mMeter.disp_depth_auto);
+        disableableButtonRefresh(depth_button, title, !mMeter.depth_auto);
     }
 
     private void logging_button_refresh() {
@@ -315,7 +306,7 @@ public class DeviceActivity extends MyActivity {
     private void range_button_refresh(final int c) {
         String lval = "";
         lval = mMeter.getRangeLabel(c);
-        disableableButtonRefresh(range_buttons[c],lval,!mMeter.disp_range_auto[c]);
+        disableableButtonRefresh(range_buttons[c],lval,!mMeter.range_auto[c]);
     }
 
     private void valueLabelRefresh(final int c) {
@@ -333,13 +324,6 @@ public class DeviceActivity extends MyActivity {
     // Button Click Handlers
     ////////////////////////
 
-    private void clearOffsets() {
-        // If we are switching through a mode change that involves toggling the iSRC
-        // we must invalidate the offsets
-        for(int i = 0; i < 3; i++) {mMeter.offsets[i]=0;}
-        //mMeter.offset_on = false;
-    }
-
     PopupMenu popupMenu = null;
 
     private void onInputSetClick(final int c) {
@@ -353,9 +337,9 @@ public class DeviceActivity extends MyActivity {
                 public void onReceived(double timestamp_utc, Object payload) {
                     popupMenu = null;
                     mMeter.setInputIndex(c, (Integer) payload);
+                    refreshAllControls();
                 }
             });
-            refreshAllControls();
         } else {
             popupMenu.dismiss();
             popupMenu = null;
@@ -373,9 +357,9 @@ public class DeviceActivity extends MyActivity {
                 public void onReceived(double timestamp_utc, Object payload) {
                     popupMenu = null;
                     mMeter.setRangeIndex(c, (Integer) payload);
+                    refreshAllControls();
                 }
             });
-            refreshAllControls();
         } else {
             popupMenu.dismiss();
             popupMenu = null;
@@ -412,9 +396,9 @@ public class DeviceActivity extends MyActivity {
                 public void onReceived(double timestamp_utc, Object payload) {
                     popupMenu = null;
                     mMeter.setSampleRateIndex((Integer) payload);
+                    refreshAllControls();
                 }
             });
-            refreshAllControls();
         } else {
             popupMenu.dismiss();
             popupMenu = null;
@@ -423,7 +407,7 @@ public class DeviceActivity extends MyActivity {
     }
 
     public void onDepthClick(View v) {
-        Log.i(TAG,"onDepthClick");
+        Log.i(TAG, "onDepthClick");
         if(popupMenu==null) {
             popupMenu = new PopupMenu(getApplicationContext(),rate_button);
             popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), mMeter.getBufferDepthList(), depth_button, new NotifyHandler() {
@@ -431,6 +415,7 @@ public class DeviceActivity extends MyActivity {
                 public void onReceived(double timestamp_utc, Object payload) {
                     popupMenu = null;
                     mMeter.setBufferDepthIndex((Integer) payload);
+                    refreshAllControls();
                 }
             });
             refreshAllControls();
@@ -438,10 +423,31 @@ public class DeviceActivity extends MyActivity {
             popupMenu.dismiss();
             popupMenu = null;
         }
-        refreshAllControls();
+    }
+    public void onGraphClick(View v) {
+        Log.i(TAG, "onGraphClick");
+        //transitionToActivity(mMeter,TrendActivity);
+    }
+    public void onLoggingClick(View v) {
+        Log.i(TAG, "onLoggingClick");
+    }
+    public void onCh1MathClick (View v) {
+        Log.i(TAG,"onCh1MathClick");
+    }
+    public void onCh1ZeroClick (View v) {
+        Log.i(TAG,"onCh1ZeroClick");
+    }
+    public void onCh1SoundClick(View v) {
+        Log.i(TAG,"onCh1SoundClick");
+    }
+    public void onCh2MathClick (View v) {
+        Log.i(TAG,"onCh2MathClick");
+    }
+    public void onCh2ZeroClick (View v) {
+        Log.i(TAG, "onCh2ZeroClick");
+    }
+    public void onCh2SoundClick(View v) {
+        Log.i(TAG,"onCh2SoundClick");
     }
 
-    public void onZeroClick(View v) {
-        Log.i(TAG, "onZeroClick");
-    }
 }
