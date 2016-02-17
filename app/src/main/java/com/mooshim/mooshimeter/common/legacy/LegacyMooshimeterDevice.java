@@ -817,37 +817,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return meter_sample.isNotificationEnabled();
     }
 
-    public static String formatReading(double val, LegacyMooshimeterDevice.SignificantDigits digits) {
-        //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
-        // is being applied
-        while(digits.high > 4) {
-            digits.high -= 3;
-            val /= 1000;
-        }
-        while(digits.high <=0) {
-            digits.high += 3;
-            val *= 1000;
-        }
-
-        // TODO: Prefixes for units.  This will fail for wrong values of digits
-        boolean neg = val<0;
-        int left  = digits.high;
-        int right = digits.n_digits - digits.high;
-        String formatstring = String.format("%s%%0%d.%df",neg?"":" ", left+right+(neg?1:0), right); // To live is to suffer
-        String retval;
-        try {
-            retval = String.format(formatstring, val);
-        } catch ( java.util.UnknownFormatConversionException e ) {
-            // Something went wrong with the string formatting, provide a default and log the error
-            Log.e(TAG, "BAD FORMAT STRING");
-            Log.e(TAG, formatstring);
-            retval = "%f";
-        }
-        //Truncate
-        retval = retval.substring(0, Math.min(retval.length(), 8));
-        return retval;
-    }
-
     //////////////////////////////////////
     // Autoranging
     //////////////////////////////////////
@@ -1535,11 +1504,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
-    public int cycleSampleRate() {
-        return 0;
-    }
-
-    @Override
     public int getSampleRateHz() {
         return 0;
     }
@@ -1552,11 +1516,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     @Override
     public List<String> getSampleRateListHz() {
         return null;
-    }
-
-    @Override
-    public int cycleBufferDepth() {
-        return 0;
     }
 
     @Override
@@ -1644,11 +1603,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     @Override
     public int setInputIndex(int c, int mapping) {
-        return 0;
-    }
-
-    @Override
-    public int cycleInput(int c) {
         return 0;
     }
 

@@ -78,6 +78,8 @@ import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.main.legacy.PreferencesActivity;
 
+import java.util.List;
+
 public class DeviceActivity extends MyActivity {
     private static final String TAG = "DeviceActivity";
 
@@ -176,9 +178,7 @@ public class DeviceActivity extends MyActivity {
     @Override
     public void onBackPressed() {
         Log.e(TAG, "Back pressed");
-        //transitionToActivity(mMeter, ScanActivity.class);
-        setResult(RESULT_OK);
-        finish();
+        transitionToActivity(mMeter, ScanActivity.class);
     }
 
     @Override
@@ -220,14 +220,13 @@ public class DeviceActivity extends MyActivity {
             @Override
             public void run() {
                 mMeter.cancelConnectionStateCB(cb_handle[0]);
-                setResult(RESULT_OK);
-                finish();
+                transitionToActivity(mMeter,ScanActivity.class);
             }
         });
         Util.dispatch(new Runnable() {
             @Override
             public void run() {
-                mMeter.playSampleStream(new NotifyHandler() {
+                mMeter.playSampleStream(null, new NotifyHandler() {
                     @Override
                     public void onReceived(double timestamp_utc, Object payload) {
                         valueLabelRefresh(0);
@@ -237,7 +236,7 @@ public class DeviceActivity extends MyActivity {
                             refreshAllControls();
                         }
                     }
-                },null);
+                });
                 Log.i(TAG, "Stream requested");
                 refreshAllControls();
             }
@@ -326,44 +325,43 @@ public class DeviceActivity extends MyActivity {
 
     PopupMenu popupMenu = null;
 
-    private void onInputSetClick(final int c) {
-        // If on normal electrode input, toggle between AC and DC display
-        // If reading CH3, cycle from VauxDC->VauxAC->Resistance->Diode
-        // If reading temp, do nothing
-        if(popupMenu==null) {
-            popupMenu = new PopupMenu(getApplicationContext(),input_set_buttons[c]);
-            popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), mMeter.getInputList(c), input_set_buttons[c], new NotifyHandler() {
-                @Override
-                public void onReceived(double timestamp_utc, Object payload) {
-                    popupMenu = null;
-                    mMeter.setInputIndex(c, (Integer) payload);
-                    refreshAllControls();
-                }
-            });
-        } else {
-            popupMenu.dismiss();
-            popupMenu = null;
+    private void makePopupMenu(List<String> options,View anchor, NotifyHandler on_choice) {
+        if(popupMenu!=null) {
+            return;
         }
+        popupMenu = new PopupMenu(getApplicationContext(),anchor);
+        popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), options, anchor, on_choice, new Runnable() {
+            @Override
+            public void run() {
+                popupMenu = null;
+            }
+        });
+    }
+
+    private void onInputSetClick(final int c) {
+        makePopupMenu(mMeter.getInputList(c), input_set_buttons[c], new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                popupMenu = null;
+                mMeter.setInputIndex(c, (Integer) payload);
+                refreshAllControls();
+            }
+        });
+        refreshAllControls();
     }
 
     private void onRangeClick(final int c) {
         // If on normal electrode input, toggle between AC and DC display
         // If reading CH3, cycle from VauxDC->VauxAC->Resistance->Diode
         // If reading temp, do nothing
-        if(popupMenu==null) {
-            popupMenu = new PopupMenu(getApplicationContext(),range_buttons[c]);
-            popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), mMeter.getRangeList(c), range_buttons[c], new NotifyHandler() {
-                @Override
-                public void onReceived(double timestamp_utc, Object payload) {
-                    popupMenu = null;
-                    mMeter.setRangeIndex(c, (Integer) payload);
-                    refreshAllControls();
-                }
-            });
-        } else {
-            popupMenu.dismiss();
-            popupMenu = null;
-        }
+        makePopupMenu(mMeter.getRangeList(c), range_buttons[c], new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                popupMenu = null;
+                mMeter.setRangeIndex(c, (Integer) payload);
+                refreshAllControls();
+            }
+        });
         refreshAllControls();
     }
 
@@ -389,40 +387,28 @@ public class DeviceActivity extends MyActivity {
 
     public void onRateClick(View v) {
         Log.i(TAG, "onRateClick");
-        if(popupMenu==null) {
-            popupMenu = new PopupMenu(getApplicationContext(),rate_button);
-            popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), mMeter.getSampleRateListHz(), rate_button, new NotifyHandler() {
-                @Override
-                public void onReceived(double timestamp_utc, Object payload) {
-                    popupMenu = null;
-                    mMeter.setSampleRateIndex((Integer) payload);
-                    refreshAllControls();
-                }
-            });
-        } else {
-            popupMenu.dismiss();
-            popupMenu = null;
-        }
+        makePopupMenu(mMeter.getSampleRateListHz(), rate_button, new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                popupMenu = null;
+                mMeter.setSampleRateIndex((Integer) payload);
+                refreshAllControls();
+            }
+        });
         refreshAllControls();
     }
 
     public void onDepthClick(View v) {
         Log.i(TAG, "onDepthClick");
-        if(popupMenu==null) {
-            popupMenu = new PopupMenu(getApplicationContext(),rate_button);
-            popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), mMeter.getBufferDepthList(), depth_button, new NotifyHandler() {
-                @Override
-                public void onReceived(double timestamp_utc, Object payload) {
-                    popupMenu = null;
-                    mMeter.setBufferDepthIndex((Integer) payload);
-                    refreshAllControls();
-                }
-            });
-            refreshAllControls();
-        } else {
-            popupMenu.dismiss();
-            popupMenu = null;
-        }
+        makePopupMenu(mMeter.getBufferDepthList(), depth_button, new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                popupMenu = null;
+                mMeter.setBufferDepthIndex((Integer) payload);
+                refreshAllControls();
+            }
+        });
+        refreshAllControls();
     }
     public void onGraphClick(View v) {
         Log.i(TAG, "onGraphClick");

@@ -3,6 +3,7 @@ package com.mooshim.mooshimeter.common;
 import android.util.Log;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 import java.util.Arrays;
@@ -75,13 +76,13 @@ public class ConfigTree {
     public static class ConfigNode {
         protected int code = -1;
         protected int ntype = NTYPE.NOTSET;
-        protected String name = null;
+        protected String name = "";
         protected List<ConfigNode> children = new ArrayList<ConfigNode>();
         protected ConfigNode parent = null;
         protected ConfigTree tree   = null;
         public List<NotifyHandler> notify_handlers = new ArrayList<NotifyHandler>();
 
-        public Object last_value = null;
+        public Object last_value = (Integer)0;
 
         public ConfigNode(int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
             ntype=ntype_arg;
@@ -164,9 +165,17 @@ public class ConfigTree {
         public String getLongName() {
             return getLongName(":");
         }
+        public String getChoiceString() {
+            // Returns the string necessary to choose this node
+            // Presumes parent node is a chooser
+            if(parent.ntype != NTYPE.CHOOSER && parent.children.size()>1) {
+                Log.e(TAG,"getChoiceString being called on non-choice!");
+            }
+            return parent.getLongName() + " " + getIndex();
+        }
         public ConfigNode getChildByName(String name_arg) {
             for(ConfigNode c:children) {
-                if(c.name.equals(name_arg)) {
+                if(c.getShortName().equals(name_arg)) {
                     return c;
                 }
             }
@@ -362,7 +371,7 @@ public class ConfigTree {
         assignShortCodes();
     }
 
-    abstract class NodeProcessor {
+    static abstract class NodeProcessor {
         abstract public void process(ConfigNode n);
     }
     public void walk(ConfigNode n, NodeProcessor p) {
@@ -445,5 +454,76 @@ public class ConfigTree {
         };
         walk(p);
         return rval;
+    }
+    public byte[] getByteCmdForString(String cmd) {
+        // cmd might contain a payload, in which case split it out
+        String[] tokens = cmd.split(" ", 2);
+        String node_str = tokens[0];
+        String payload_str;
+        if(tokens.length==2) {
+            payload_str = tokens[1];
+        } else {
+            payload_str = null;
+        }
+        node_str = node_str.toUpperCase();
+        ConfigTree.ConfigNode node = getNodeAtLongname(node_str);
+        if(node==null) {
+            Log.e(TAG,"Node not found at "+node_str);
+            return null;
+        }
+        if(node.code==-1) {
+            Log.d(TAG,"This command does not have a value associated.");
+            Log.d(TAG, "Children:");
+            enumerate(node);
+            return null;
+        }
+        ByteBuffer b = MooshimeterDeviceBase.wrap(new byte[19]);
+        int opcode = node.code;
+        if(payload_str!=null) {
+            // Signify a write
+            opcode |= 0x80;
+            b.put((byte) opcode);
+            switch (node.ntype) {
+                case ConfigTree.NTYPE.PLAIN:
+                    Log.e(TAG, "This command takes no payload");
+                    return null;
+                case ConfigTree.NTYPE.CHOOSER:
+                    b.put((byte) Integer.parseInt(payload_str));
+                    break;
+                case ConfigTree.NTYPE.LINK:
+                    Log.e(TAG, "This command takes no payload");
+                    return null;
+                case ConfigTree.NTYPE.COPY:
+                    Log.e(TAG, "This command takes no payload");
+                    return null;
+                case ConfigTree.NTYPE.VAL_U8:
+                case ConfigTree.NTYPE.VAL_S8:
+                    b.put((byte) Integer.parseInt(payload_str));
+                    break;
+                case ConfigTree.NTYPE.VAL_U16:
+                case ConfigTree.NTYPE.VAL_S16:
+                    b.putShort((short) Integer.parseInt(payload_str));
+                    break;
+                case ConfigTree.NTYPE.VAL_U32:
+                case ConfigTree.NTYPE.VAL_S32:
+                    b.putInt((int) Integer.parseInt(payload_str));
+                    break;
+                case ConfigTree.NTYPE.VAL_STR:
+                    b.putShort((short) payload_str.length());
+                    for(char c:payload_str.toCharArray()) {
+                        b.put((byte)c);
+                    }
+                    break;
+                case ConfigTree.NTYPE.VAL_BIN:
+                    Log.d(TAG, "Not implemented yet");
+                    return null;
+                case ConfigTree.NTYPE.VAL_FLT:
+                    b.putFloat(Float.parseFloat(payload_str));
+                    break;
+            }
+        } else {
+            b.put((byte) opcode);
+        }
+        return Arrays.copyOfRange(b.array(), 0, b.position());
     }
 }

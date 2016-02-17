@@ -372,7 +372,7 @@ public class Util {
         return mContext;
     }
 
-    public static PopupMenu generatePopupMenuWithOptions(final Context context, final List<String> options,final View anchor,final NotifyHandler cb) {
+    public static PopupMenu generatePopupMenuWithOptions(final Context context, final List<String> options,final View anchor,final NotifyHandler cb,final Runnable on_dismiss) {
         final PopupMenu rval = new PopupMenu(context,anchor);
         int i = 0;
         for(String s:options) {
@@ -382,12 +382,18 @@ public class Util {
                 public boolean onMenuItemClick(MenuItem menuItem) {
                     int choice = menuItem.getItemId();
                     rval.dismiss();
-                    cb.onReceived(getUTCTime(),choice);
+                    cb.onReceived(getUTCTime(), choice);
                     return false;
                 }
             });
             i++;
         }
+        rval.setOnDismissListener(new PopupMenu.OnDismissListener() {
+            @Override
+            public void onDismiss(PopupMenu popupMenu) {
+                on_dismiss.run();
+            }
+        });
         rval.show();
         return rval;
     }

@@ -544,7 +544,7 @@ public class LegacyDeviceActivity extends MyActivity {
                 } else {
                     val = mMeter.lsbToNativeUnits(lsb_int, c);
                 }
-                label_text = LegacyMooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
+                label_text = LegacyMooshimeterDevice.formatReading((float)val, mMeter.getSigDigits(c));
             }
         }
         runOnUiThread(new Runnable() {

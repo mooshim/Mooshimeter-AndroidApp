@@ -74,6 +74,8 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     public boolean         rate_auto = true;
     public boolean         depth_auto = true;
 
+    public final boolean[] speech_on = new boolean[]{false,false};
+
     public final double[] offsets = new double[]{0,0,0};
 
     protected static void putInt24(ByteBuffer b, int arg) {
@@ -208,14 +210,14 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
 
     public abstract boolean isStreaming();
 
-    public static String formatReading(double val, MooshimeterDeviceBase.SignificantDigits digits) {
+    public static String formatReading(float val, MooshimeterDeviceBase.SignificantDigits digits) {
         //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
         // is being applied
         while(digits.high > 4) {
             digits.high -= 3;
             val /= 1000;
         }
-        while(digits.high <=0) {
+        while(digits.high < 0) {
             digits.high += 3;
             val *= 1000;
         }
@@ -258,25 +260,16 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     // Representation helpers
     //////////////////////////////////////
 
-    /**
-     * Based on the ENOB and the measurement range for the given channel, determine which digits are
-     * significant in the output.
-     * @param channel The channel index (0 or 1)
-     * @return  A SignificantDigits structure, "high" is the number of digits to the left of the decimal point and "digits" is the number of significant digits
-     */
-
     public abstract SignificantDigits getSigDigits(final int channel);
 
     public abstract String getDescriptor(final int c);
 
     public abstract String getUnits(final int c);
 
-    public abstract int cycleSampleRate();
     public abstract int getSampleRateHz();
     public abstract int setSampleRateIndex(int i);
     public abstract List<String> getSampleRateListHz();
 
-    public abstract int cycleBufferDepth();
     public abstract int getBufferDepth();
     public abstract int setBufferDepthIndex(int i);
     public abstract List<String> getBufferDepthList();
@@ -294,6 +287,5 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     public abstract String getInputLabel(final int c);
     public abstract int getInputIndex(int c);
     public abstract int setInputIndex(int c, int mapping);
-    public abstract int cycleInput(int c);
     public abstract List<String> getInputList(int c);
 }
