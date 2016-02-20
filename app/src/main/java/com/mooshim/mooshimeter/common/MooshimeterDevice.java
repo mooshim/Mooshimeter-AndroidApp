@@ -2,11 +2,10 @@ package com.mooshim.mooshimeter.common;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.text.InputType;
+import android.graphics.Bitmap;
 import android.util.Log;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -14,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.DataFormatException;
 
@@ -47,11 +45,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // MEMBERS FOR TRACKING SERIALIZATION AND CONFIG TREE INTERACTIONS
     ////////////////////////////////
 
-    private int send_seq_n = 0;
-    private int recv_seq_n = 0;
     private ConfigTree tree = null;
-    private Map<Integer,ConfigTree.ConfigNode> code_list = null;
-    private List<Byte> recv_buf = new ArrayList<Byte>();
 
     ////////////////////////////////
     // MEMBERS FOR TRACKING AVAILABLE INPUTS AND RANGES
@@ -59,158 +53,25 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     class RangeDescriptor {
         public String name;
-        public CommandSequence cmd = new CommandSequence();
         public float max;
+        public ConfigTree.ConfigNode node;
     }
 
     class InputDescriptor {
         public String name;
-        public CommandSequence cmd = new CommandSequence();
         public List<RangeDescriptor> ranges = new ArrayList<RangeDescriptor>();
         public String units;
+        public ConfigTree.ConfigNode input_node;
+        public ConfigTree.ConfigNode analysis_node;
+        public ConfigTree.ConfigNode shared_node; // ugly
     }
 
     final List<InputDescriptor> input_descriptors[];
     final int input_descriptors_indices[] = new int[]{0,0};
 
     ////////////////////////////////
-    // NOTIFICATION CALLBACKS
-    ////////////////////////////////
-
-    private void interpretAggregate() {
-        int expecting_bytes;
-        while(recv_buf.size()>0) {
-            // FIXME: Can't find a nice way of wrapping a ByteBuffer around a list of bytes.
-            // Create a new array and copy bytes over.
-            byte[] bytes= new byte[recv_buf.size()];
-            ByteBuffer b = MooshimeterDeviceBase.wrap(bytes);
-            for(byte t:recv_buf) {
-                b.put(t);
-            }
-            b.rewind();
-            int opcode = (int)b.get();
-            if(code_list.containsKey(opcode)) {
-                ConfigTree.ConfigNode n = code_list.get(opcode);
-                switch(n.ntype) {
-                    case ConfigTree.NTYPE.PLAIN  :
-                        Log.e(TAG, "Shouldn't receive notification here!");
-                        return;
-                    case ConfigTree.NTYPE.CHOOSER:
-                        n.notify((int)b.get());
-                        break;
-                    case ConfigTree.NTYPE.LINK   :
-                        Log.e(TAG, "Shouldn't receive notification here!");
-                        return;
-                    case ConfigTree.NTYPE.COPY   :
-                        Log.e(TAG, "Shouldn't receive notification here!");
-                        return;
-                    case ConfigTree.NTYPE.VAL_U8 :
-                    case ConfigTree.NTYPE.VAL_S8 :
-                        n.notify((int)b.get());
-                        break;
-                    case ConfigTree.NTYPE.VAL_U16:
-                    case ConfigTree.NTYPE.VAL_S16:
-                        n.notify((int)b.getShort());
-                        break;
-                    case ConfigTree.NTYPE.VAL_U32:
-                    case ConfigTree.NTYPE.VAL_S32:
-                        n.notify((int)b.getInt());
-                        break;
-                    case ConfigTree.NTYPE.VAL_STR:
-                        expecting_bytes = b.getShort();
-                        if(b.remaining()<expecting_bytes) {
-                            // Wait for the aggregator to fill up more
-                            return;
-                        }
-                        //n.notify(new String(b.array()));
-                        break;
-                    case ConfigTree.NTYPE.VAL_BIN:
-                        expecting_bytes = b.getShort();
-                        if(b.remaining()<expecting_bytes) {
-                            // Wait for the aggregator to fill up more
-                            return;
-                        }
-                        n.notify(Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes));
-                        b.position(b.position()+expecting_bytes);
-                        break;
-                    case ConfigTree.NTYPE.VAL_FLT:
-                        n.notify(b.getFloat());
-                        break;
-                }
-            } else {
-                Log.e(TAG,"UNRECOGNIZED SHORTCODE "+opcode);
-                new Exception().printStackTrace();
-                return;
-            }
-            // Advance recv_buf
-            for(int i = 0; i < b.position();i++) {
-                recv_buf.remove(0);
-            }
-        }
-    }
-
-    private NotifyHandler serout_callback = new NotifyHandler() {
-        @Override
-        public void onReceived(double timestamp_utc, Object payload) {
-            byte[] bytes = (byte[])payload;
-            int seq_n = (int)bytes[0];
-            if(seq_n<0){
-                // Because java is stupid
-                seq_n+=0x100;
-            }
-            if(seq_n != (recv_seq_n+1)%0x100) {
-                Log.e(TAG,"OUT OF ORDER PACKET");
-                Log.e(TAG,"EXPECTED: "+((recv_seq_n+1)%0x100));
-                Log.e(TAG,"GOT:      "+(seq_n));
-            } else {
-                Log.d(TAG, "RECV: " + seq_n + " " + bytes.length + " bytes");
-            }
-            recv_seq_n = seq_n;
-            // Append to aggregate buffer
-            for(int i = 1; i < bytes.length; i++) {
-                recv_buf.add(bytes[i]);
-            }
-            interpretAggregate();
-        }
-    };
-
-    ////////////////////////////////
     // Private methods for dealing with config tree
     ////////////////////////////////
-
-    class CommandSequence {
-        public List<byte[]> commands = new ArrayList<byte[]>();
-        public void add(String cmd) {
-            byte[] bc = tree.getByteCmdForString(cmd);
-            if(bc!=null && bc.length>0) {
-                commands.add(bc);
-            }
-        }
-    }
-
-    public void executeSequence(CommandSequence seq) {
-        for(byte[] b:seq.commands) {
-            sendToMeter(b);
-        }
-    }
-
-    private void sendToMeter(byte[] payload) {
-        if (payload.length > 19) {
-            Log.e(TAG, "Payload too long!");
-            new Exception().printStackTrace();
-            return;
-        }
-        byte[] buf = new byte[payload.length + 1];
-        buf[0] = (byte) send_seq_n;
-        send_seq_n++;
-        send_seq_n &= 0xFF;
-        System.arraycopy(payload, 0, buf, 1, payload.length);
-        send(mUUID.METER_SERIN, buf);
-    }
-
-    public void sendCommand(String cmd) {
-        sendToMeter(tree.getByteCmdForString(cmd));
-    }
 
     public static String cleanFloatFmt(float d) {
         if(d == (long) d)
@@ -234,13 +95,12 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     private void addRangeDescriptors(InputDescriptor id, ConfigTree.ConfigNode rangenode) {
         for(ConfigTree.ConfigNode r:rangenode.children) {
             RangeDescriptor rd = new RangeDescriptor();
-            rd.cmd.add(r.getChoiceString());
+            rd.node = r;
             rd.max  = Float.parseFloat(r.getShortName());
             rd.name = toRangeLabel(rd.max)+id.units;
             id.ranges.add(rd);
         }
     }
-
     private static final Map<String, String> units_map = makeUnitsMap();
     private static Map<String, String> makeUnitsMap() {
         Map<String, String> m = new HashMap<String, String>();
@@ -255,119 +115,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return m;
     }
 
-    int loadTree() {
-        final StatLockManager lock = new StatLockManager(new ReentrantLock(true));
-        lock.l();
-        NotifyHandler h = new NotifyHandler() {
-            @Override
-            public void onReceived(double timestamp_utc, Object payload) {
-                lock.l();
-                lock.sig();
-                lock.ul();
-            }
-        };
-        ConfigTree.ConfigNode n = tree.getNodeAtLongname("ADMIN:TREE");
-        n.addNotifyHandler(h);
-        sendCommand("ADMIN:TREE");
-        int rval = 0; // 0=success
-        if (lock.await()) {
-            // FAIL!
-            Log.e(TAG,"Tree load failed");
-            rval=-1;
-        }
-        lock.ul();
-        n.removeNotifyHandler(h);
-
-        // Now we need to process the tree to generate our abbreviations
-        // Wrap inputs so we can access from inner class multiple times
-        final List<InputDescriptor> inputs[] = new List[]{null};
-
-        ConfigTree.NodeProcessor p = new ConfigTree.NodeProcessor() {
-            @Override
-            public void process(ConfigTree.ConfigNode n) {
-                ConfigTree.ConfigNode a = n.getChildByName("ANALYSIS");
-                if(a!=null) {
-                    // This is an input node, generate a new InputDescriptor
-                    // We only generate for AC and DC
-                    ConfigTree.ConfigNode dc = a.getChildByName("MEAN");
-                    ConfigTree.ConfigNode ac = a.getChildByName("RMS");
-                    if(dc != null) {
-                        InputDescriptor id = new InputDescriptor();
-                        id.name = n.getShortName() + (ac!=null?" DC":"");
-                        id.cmd.add(n.getChoiceString());  // Select the input
-                        id.cmd.add(dc.getChoiceString()); // Select the analysis option
-                        if(units_map.containsKey(n.getShortName())) {
-                            id.units = units_map.get(n.getShortName());
-                        } else {
-                            // We don't know what the units should be here...
-                            id.units = "";
-                        }
-                        addRangeDescriptors(id, n.getChildByName("RANGE"));
-                        inputs[0].add(id);
-                    }
-                    if(ac != null) {
-                        InputDescriptor id = new InputDescriptor();
-                        id.name = n.getShortName() + " AC";
-                        id.cmd.add(n.getChoiceString());  // Select the input
-                        id.cmd.add(ac.getChoiceString()); // Select the analysis option
-                        if(units_map.containsKey(n.getShortName())) {
-                            id.units = units_map.get(n.getShortName());
-                        } else {
-                            // We don't know what the units should be here...
-                            id.units = "";
-                        }
-                        addRangeDescriptors(id, n.getChildByName("RANGE"));
-                        inputs[0].add(id);
-                    }
-                }
-                // If this is a link node, follow the link
-                if(n.ntype== ConfigTree.NTYPE.LINK) {
-                    // TODO: God this is ugly.  Please forgive me.
-                    tree.walk(tree.getNodeAtLongname(((ConfigTree.RefNode)n).path),this);
-                }
-            }
-        };
-
-        inputs[0] = input_descriptors[0];
-        tree.walk(tree.getNodeAtLongname("CH1"),p);
-        inputs[0] = input_descriptors[1];
-        tree.walk(tree.getNodeAtLongname("CH2"),p);
-
-        return rval;
-    }
-
     ////////////////////////////////
     // METHODS
     ////////////////////////////////
 
     public MooshimeterDevice(BluetoothDevice device, Context context) {
         super(device, context);
-        ConfigTree.ConfigNode root = new ConfigTree.ConfigNode(ConfigTree.NTYPE.PLAIN,"",Arrays.asList(new ConfigTree.ConfigNode[] {
-                new ConfigTree.StructuralNode(ConfigTree.NTYPE.PLAIN,"ADMIN", Arrays.asList(new ConfigTree.ConfigNode[] {
-                        new ConfigTree.ValueNode(ConfigTree.NTYPE.VAL_U32,"CRC32",null),
-                        new ConfigTree.ValueNode(ConfigTree.NTYPE.VAL_BIN,"TREE",null),
-                        new ConfigTree.ValueNode(ConfigTree.NTYPE.VAL_STR,"DIAGNOSTIC",null),
-                })),
-        }));
-        tree = new ConfigTree(root);
-        tree.assignShortCodes();
-        code_list = tree.getShortCodeList();
-        ConfigTree.ConfigNode tree_bin = tree.getNodeAtLongname("ADMIN:TREE");
-
-        tree_bin.addNotifyHandler(new NotifyHandler() {
-            @Override
-            public void onReceived(double timestamp_utc, Object payload) {
-                try {
-                    tree.unpack((byte[]) payload);
-                    code_list = tree.getShortCodeList();
-                    tree.enumerate();
-                } catch (DataFormatException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        tree = new ConfigTree();
         input_descriptors = new List[2];
         input_descriptors[0] = new ArrayList<InputDescriptor>();
         input_descriptors[1] = new ArrayList<InputDescriptor>();
@@ -377,65 +131,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // Private helpers
     ////////////////////////////////
 
-    private int cycleChoiceAt(String chooser_name) {
-        int choice_i = (Integer)tree.getValueAt(chooser_name);
-        choice_i++;
-        choice_i %= tree.getNodeAtLongname(chooser_name).children.size();
-        sendCommand(chooser_name + " " + choice_i);
-        return choice_i;
-    }
-
     private ConfigTree.ConfigNode getInputNode(int channel) {
         assert channel<2;
-        String channel_str = (channel==0?"CH1":"CH2");
-        ConfigTree.ConfigNode mapnode = tree.getChosenNode(channel_str+":MAPPING");
-        // Follow link
-        while(mapnode.ntype== ConfigTree.NTYPE.LINK) {
-            mapnode = tree.getChosenNode(((ConfigTree.RefNode)mapnode).path);
-        }
-        return mapnode;
+        return input_descriptors[channel].get(input_descriptors_indices[channel]).input_node;
     }
 
     private static String getChString(int channel) {
         return (channel==0?"CH1":"CH2");
-    }
-
-    private int refreshValueAt(ConfigTree.ConfigNode n) {
-        String p = n.getLongName();
-        return refreshValueAt(p);
-    }
-
-    private int refreshValueAt(String p) {
-        int rval=0;
-        final StatLockManager lock = new StatLockManager(new ReentrantLock(true));
-        lock.l();
-        NotifyHandler h = new NotifyHandler() {
-            @Override
-            public void onReceived(double timestamp_utc, Object payload) {
-                lock.l();
-                lock.sig();
-                lock.ul();
-            }
-        };
-        ConfigTree.ConfigNode n = tree.getNodeAtLongname(p);
-        if(n==null) {
-            return -1;
-        }
-        n.addNotifyHandler(h);
-        sendCommand(p);
-        //if (lock.awaitMilli(5000)) {
-        if (lock.await()) {
-            // FAIL!
-            Log.e(TAG,"Failed to refresh value!");
-            rval=-1;
-        }
-        lock.ul();
-        n.removeNotifyHandler(h);
-        return rval;
-    }
-
-    private Object getValueAt(ConfigTree.ConfigNode n) {
-        return getValueAt(n.getLongName());
     }
 
     private Object getValueAt(String p) {
@@ -443,8 +145,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         if(rval==null) {
             // FIXME: hack
             return 0;
-            //refreshValueAt(p);
-            //rval = tree.getValueAt(p);
         }
         return rval;
     }
@@ -467,8 +167,73 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         if(rval!=0) {
             return rval;
         }
-        enableNotify(mUUID.METER_SEROUT, true, serout_callback);
-        rval = loadTree();
+        tree.attach(this,mUUID.METER_SERIN,mUUID.METER_SEROUT);
+
+        tree.refreshAll();
+
+        // Now we need to process the tree to generate our abbreviations
+        // Wrap inputs so we can access from inner class multiple times
+        final List<InputDescriptor> inputs[] = new List[]{null};
+
+        ConfigTree.NodeProcessor p = new ConfigTree.NodeProcessor() {
+            private ConfigTree.ConfigNode shared = null;
+            @Override
+            public void process(ConfigTree.ConfigNode n) {
+                ConfigTree.ConfigNode a = n.getChildByName("ANALYSIS");
+                if(a!=null) {
+                    // This is an input node, generate a new InputDescriptor
+                    // We only generate for AC and DC
+                    ConfigTree.ConfigNode dc = a.getChildByName("MEAN");
+                    ConfigTree.ConfigNode ac = a.getChildByName("RMS");
+                    if(dc != null) {
+                        InputDescriptor id = new InputDescriptor();
+                        id.name = n.getShortName() + (ac!=null?" DC":"");
+                        id.input_node = n;
+                        id.analysis_node = dc;
+                        if(units_map.containsKey(n.getShortName())) {
+                            id.units = units_map.get(n.getShortName());
+                        } else {
+                            // We don't know what the units should be here...
+                            id.units = "";
+                        }
+                        if(shared!=null) {
+                            id.shared_node = shared;
+                        }
+                        addRangeDescriptors(id, n.getChildByName("RANGE"));
+                        inputs[0].add(id);
+                    }
+                    if(ac != null) {
+                        InputDescriptor id = new InputDescriptor();
+                        id.name = n.getShortName() + " AC";
+                        id.input_node = n;
+                        id.analysis_node = ac;
+                        if(units_map.containsKey(n.getShortName())) {
+                            id.units = units_map.get(n.getShortName());
+                        } else {
+                            // We don't know what the units should be here...
+                            id.units = "";
+                        }
+                        if(shared!=null) {
+                            id.shared_node = shared;
+                        }
+                        addRangeDescriptors(id, n.getChildByName("RANGE"));
+                        inputs[0].add(id);
+                    }
+                }
+                // If this is a link node, follow the link
+                if(n.ntype== ConfigTree.NTYPE.LINK) {
+                    // TODO: God this is ugly.  Please forgive me.
+                    shared = n;
+                    tree.walk(tree.getNodeAtLongname(((ConfigTree.RefNode)n).path),this);
+                }
+            }
+        };
+
+        inputs[0] = input_descriptors[0];
+        tree.walk(tree.getNodeAtLongname("CH1"),p);
+        inputs[0] = input_descriptors[1];
+        tree.walk(tree.getNodeAtLongname("CH2"), p);
+
         return rval;
     }
 
@@ -486,7 +251,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public void pauseStream() {
         // Sampling off
-        sendCommand("SAMPLING:TRIGGER 0");
+        tree.command("SAMPLING:TRIGGER 0");
     }
 
     @Override
@@ -496,7 +261,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         tree.getNodeAtLongname("CH1:VALUE").addNotifyHandler(ch1_notify);
         tree.getNodeAtLongname("CH2:VALUE").addNotifyHandler(ch2_notify);
         // Sampling Continuous
-        sendCommand("SAMPLING:TRIGGER 2");
+        tree.command("SAMPLING:TRIGGER 2");
     }
 
     @Override
@@ -511,7 +276,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     private float getMinRangeForChannel(int c) {
         ConfigTree.ConfigNode rnode = getInputNode(c).getChildByName("RANGE");
-        int cnum = (Integer)rnode.last_value;
+        int cnum = (Integer)rnode.getValue();
         cnum = cnum>0?cnum-1:cnum;
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)1.1 * Float.parseFloat(choice.getShortName());
@@ -519,7 +284,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     private float getMaxRangeForChannel(int c) {
         ConfigTree.ConfigNode rnode = getInputNode(c).getChildByName("RANGE");
-        ConfigTree.ConfigNode choice = rnode.children.get((Integer)rnode.last_value);
+        ConfigTree.ConfigNode choice = rnode.children.get((Integer)rnode.getValue());
         return Float.parseFloat(choice.getShortName());
     }
 
@@ -541,7 +306,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return false;
     }
-
     @Override
     public boolean applyAutorange() {
         boolean rval = false;
@@ -553,7 +317,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return rval;
     }
-
     private double getEnob(final int channel) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
@@ -574,7 +337,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         enob += (buffer_depth_log4);
         return enob;
     }
-
     @Override
     public SignificantDigits getSigDigits(int channel) {
         SignificantDigits rval = new SignificantDigits();
@@ -585,12 +347,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         rval.n_digits = (int)Math.log10(Math.pow(2.0, enob));
         return rval;
     }
-
     @Override
     public String getDescriptor(int channel) {
         return input_descriptors[channel].get(input_descriptors_indices[channel]).name;
     }
-
     @Override
     public String getUnits(int channel) {
         // This one we will have to do manually
@@ -600,7 +360,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return "NONE";
     }
-
     @Override
     public String getInputLabel(int channel) {
         // TODO: Clean this up
@@ -620,7 +379,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public int setSampleRateIndex(int i) {
         String cmd = "SAMPLING:RATE " + i;
-        sendCommand(cmd);
+        tree.command(cmd);
         return 0;
     }
 
@@ -636,13 +395,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     public int getBufferDepthIndex() {
-        return (Integer)getValueAt("SAMPLING:DEPTH ");
+        return (Integer)getValueAt("SAMPLING:DEPTH");
     }
 
     @Override
     public int setBufferDepthIndex(int i) {
         String cmd = "SAMPLING:DEPTH " + i;
-        sendCommand(cmd);
+        tree.command(cmd);
         return 0;
     }
 
@@ -660,7 +419,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public void setLoggingOn(boolean on) {
         int i=on?1:0;
-        sendCommand("LOG:ON "+i);
+        tree.command("LOG:ON "+i);
     }
 
     @Override
@@ -691,7 +450,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public int setRangeIndex(int c, int r) {
         InputDescriptor id = input_descriptors[c].get(input_descriptors_indices[c]);
         RangeDescriptor rd =id.ranges.get(r);
-        executeSequence(rd.cmd);
+        rd.node.choose();
         return 0;
     }
 
@@ -720,7 +479,11 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         input_descriptors_indices[c] = mapping;
         InputDescriptor inputDescriptor = input_descriptors[c].get(mapping);
-        executeSequence(inputDescriptor.cmd);
+        inputDescriptor.input_node.choose();
+        if(inputDescriptor.shared_node!=null) {
+            inputDescriptor.shared_node.choose();
+        }
+        inputDescriptor.analysis_node.choose();
         return 0;
     }
 

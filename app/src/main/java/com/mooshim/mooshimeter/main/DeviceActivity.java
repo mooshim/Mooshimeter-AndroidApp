@@ -86,6 +86,9 @@ public class DeviceActivity extends MyActivity {
     private static int PREF_ACT_REQ = 1;
     private static int GRAPH_ACT_REQ = 2;
 
+    // Callback handles
+
+
 	// BLE
     private MooshimeterDeviceBase mMeter = null;
 
@@ -195,7 +198,6 @@ public class DeviceActivity extends MyActivity {
         onMeterInitialized();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setTitle(mMeter.getBLEDevice().getName());
-
 	}
 
     @Override
@@ -229,12 +231,17 @@ public class DeviceActivity extends MyActivity {
                 mMeter.playSampleStream(null, new NotifyHandler() {
                     @Override
                     public void onReceived(double timestamp_utc, Object payload) {
-                        valueLabelRefresh(0);
-                        valueLabelRefresh(1);
-                        if(autorange_cooldown.expired && mMeter.applyAutorange()) {
-                            autorange_cooldown.fire(100);
-                            refreshAllControls();
-                        }
+                        Util.dispatch(new Runnable() {
+                            @Override
+                            public void run() {
+                                valueLabelRefresh(0);
+                                valueLabelRefresh(1);
+                                if(autorange_cooldown.expired && mMeter.applyAutorange()) {
+                                    autorange_cooldown.fire(100);
+                                    refreshAllControls();
+                                }
+                            }
+                        });
                     }
                 });
                 Log.i(TAG, "Stream requested");
@@ -264,32 +271,35 @@ public class DeviceActivity extends MyActivity {
                 rate_button_refresh();
                 depth_button_refresh();
                 logging_button_refresh();
+                graph_button_refresh();
                 for (int c = 0; c < 2; c++) {
                     input_set_button_refresh(c);
                     range_button_refresh(c);
+                    math_button_refresh(c);
+                    zero_button_refresh(c);
+                    sound_button_refresh(c);
                 }
             }
         });
     }
-
     private void disableableButtonRefresh(Button b, String title, boolean en) {
         final GradientDrawable bg = en?ENABLE_GRADIENT:DISABLE_GRADIENT;
         b.setText(title);
         b.setBackground(bg);
     }
-
+    private void graph_button_refresh() {
+        Log.d(TAG, "TBI");
+    }
     private void rate_button_refresh() {
         int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
         disableableButtonRefresh(rate_button, title, !mMeter.rate_auto);
     }
-
     private void depth_button_refresh() {
         int depth = mMeter.getBufferDepth();
         String title = String.format("%dsmpl", depth);
         disableableButtonRefresh(depth_button, title, !mMeter.depth_auto);
     }
-
     private void logging_button_refresh() {
         final boolean b = mMeter.getLoggingOn();
         final GradientDrawable bg = b?AUTO_GRADIENT:MANUAL_GRADIENT;
@@ -297,17 +307,14 @@ public class DeviceActivity extends MyActivity {
         logging_button.setBackground(bg);
         logging_button.setText(title);
     }
-
     private void input_set_button_refresh(final int c) {
         input_set_buttons[c].setText(mMeter.getInputLabel(c));
     }
-
     private void range_button_refresh(final int c) {
         String lval = "";
         lval = mMeter.getRangeLabel(c);
         disableableButtonRefresh(range_buttons[c],lval,!mMeter.range_auto[c]);
     }
-
     private void valueLabelRefresh(final int c) {
         final TextView v = value_labels[c];
         final String label_text = mMeter.getValueLabel(c);
@@ -317,6 +324,15 @@ public class DeviceActivity extends MyActivity {
                 v.setText(label_text);
             }
         });
+    }
+    private void math_button_refresh (final int c) {
+        Log.i(TAG,"mathrefresh");
+    }
+    private void zero_button_refresh (final int c) {
+        Log.i(TAG,"zerorefresh");
+    }
+    private void sound_button_refresh(final int c) {
+        Log.i(TAG,"soundrefresh");
     }
 
     /////////////////////////
@@ -337,7 +353,6 @@ public class DeviceActivity extends MyActivity {
             }
         });
     }
-
     private void onInputSetClick(final int c) {
         makePopupMenu(mMeter.getInputList(c), input_set_buttons[c], new NotifyHandler() {
             @Override
@@ -349,11 +364,7 @@ public class DeviceActivity extends MyActivity {
         });
         refreshAllControls();
     }
-
     private void onRangeClick(final int c) {
-        // If on normal electrode input, toggle between AC and DC display
-        // If reading CH3, cycle from VauxDC->VauxAC->Resistance->Diode
-        // If reading temp, do nothing
         makePopupMenu(mMeter.getRangeList(c), range_buttons[c], new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
@@ -364,27 +375,22 @@ public class DeviceActivity extends MyActivity {
         });
         refreshAllControls();
     }
-
     public void onCh1InputSetClick(View v) {
         Log.i(TAG,"onCh1InputSetClick");
         onInputSetClick(0);
     }
-
     public void onCh1RangeClick(View v) {
         Log.i(TAG,"onCh1RangeClick");
         onRangeClick(0);
     }
-
     public void onCh2InputSetClick(View v) {
         Log.i(TAG,"onCh2InputSetClick");
         onInputSetClick(1);
     }
-
     public void onCh2RangeClick(View v) {
         Log.i(TAG,"onCh2RangeClick");
         onRangeClick(1);
     }
-
     public void onRateClick(View v) {
         Log.i(TAG, "onRateClick");
         makePopupMenu(mMeter.getSampleRateListHz(), rate_button, new NotifyHandler() {
@@ -397,7 +403,6 @@ public class DeviceActivity extends MyActivity {
         });
         refreshAllControls();
     }
-
     public void onDepthClick(View v) {
         Log.i(TAG, "onDepthClick");
         makePopupMenu(mMeter.getBufferDepthList(), depth_button, new NotifyHandler() {
