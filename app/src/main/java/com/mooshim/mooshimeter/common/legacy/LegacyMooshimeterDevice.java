@@ -1006,7 +1006,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      * @param expand    Expand (true) or contract (false) the range.
      * @param wrap      If at a maximum or minimum gain, whether to wrap over to the other side of the range
      */
-    public void bumpRange(int channel, boolean expand, boolean wrap) {
+    public boolean bumpRange(int channel, boolean expand, boolean wrap) {
         byte channel_setting    = meter_settings.chset[channel];
         int tmp;
 
@@ -1085,6 +1085,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             break;
         }
         meter_settings.chset[channel] = channel_setting;
+        return true;
     }
 
     @Override

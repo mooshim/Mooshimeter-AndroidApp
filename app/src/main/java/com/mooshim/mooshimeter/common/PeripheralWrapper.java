@@ -147,7 +147,7 @@ public class PeripheralWrapper {
                         Util.dispatch_cb(new Runnable() {
                             @Override
                             public void run() {
-                                cb.onReceived(timestamp,payload);
+                                cb.onReceived(timestamp, payload);
                             }
                         });
                     }
@@ -173,11 +173,11 @@ public class PeripheralWrapper {
 
     public int addConnectionStateCB(int state,Runnable cb) {
         synchronized (mConnectionStateCB) {
+            connectionStateCBHandle++;
             List<Runnable> l = mConnectionStateCB.get(state);
             l.add(cb);
             mConnectionStateCBByHandle.put(connectionStateCBHandle, cb);
         }
-        connectionStateCBHandle++;
         return connectionStateCBHandle;
     }
 

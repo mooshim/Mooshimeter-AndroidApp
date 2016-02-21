@@ -380,9 +380,14 @@ public class Util {
             rval.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
                 @Override
                 public boolean onMenuItemClick(MenuItem menuItem) {
-                    int choice = menuItem.getItemId();
+                    final int choice = menuItem.getItemId();
                     rval.dismiss();
-                    cb.onReceived(getUTCTime(), choice);
+                    Util.dispatch(new Runnable() {
+                        @Override
+                        public void run() {
+                            cb.onReceived(getUTCTime(), choice);
+                        }
+                    });
                     return false;
                 }
             });

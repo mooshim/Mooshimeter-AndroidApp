@@ -245,13 +245,7 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     // Autoranging
     //////////////////////////////////////
 
-    /**
-     * Changes the measurement settings for a channel to expand or contract the measurement range
-     * @param channel   The channel index (0 or 1)
-     * @param expand    Expand (true) or contract (false) the range.
-     * @param wrap      If at a maximum or minimum gain, whether to wrap over to the other side of the range
-     */
-    public abstract void bumpRange(int channel, boolean expand, boolean wrap);
+    public abstract boolean bumpRange(int channel, boolean expand, boolean wrap);
 
     // Return true if settings changed
     public abstract boolean applyAutorange();

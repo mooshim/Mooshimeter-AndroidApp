@@ -87,7 +87,7 @@ public class DeviceActivity extends MyActivity {
     private static int GRAPH_ACT_REQ = 2;
 
     // Callback handles
-
+    private int disconnect_handle = -1;
 
 	// BLE
     private MooshimeterDeviceBase mMeter = null;
@@ -185,6 +185,12 @@ public class DeviceActivity extends MyActivity {
     }
 
     @Override
+    protected void onStop() {
+        super.onStop();
+        mMeter.cancelConnectionStateCB(disconnect_handle);
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -193,12 +199,46 @@ public class DeviceActivity extends MyActivity {
 	@Override
 	protected void onResume() {
 		super.onResume();
-        Intent intent = getIntent();
-        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
-        onMeterInitialized();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setTitle(mMeter.getBLEDevice().getName());
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.playSampleStream(null, new NotifyHandler() {
+                    @Override
+                    public void onReceived(double timestamp_utc, Object payload) {
+                        Util.dispatch(new Runnable() {
+                            @Override
+                            public void run() {
+                                valueLabelRefresh(0);
+                                valueLabelRefresh(1);
+                                if (autorange_cooldown.expired && mMeter.applyAutorange()) {
+                                    autorange_cooldown.fire(100);
+                                    refreshAllControls();
+                                }
+                            }
+                        });
+                    }
+                });
+                Log.i(TAG, "Stream requested");
+                refreshAllControls();
+            }
+        });
 	}
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Intent intent = getIntent();
+        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+        disconnect_handle = mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+            @Override
+            public void run() {
+                mMeter.cancelConnectionStateCB(disconnect_handle);
+                transitionToActivity(mMeter,ScanActivity.class);
+            }
+        });
+    }
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
@@ -214,40 +254,6 @@ public class DeviceActivity extends MyActivity {
                 setError("Unknown request code");
                 break;
         }
-    }
-
-    private void onMeterInitialized() {
-        final int[] cb_handle = new int[1];
-        cb_handle[0] = mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
-            @Override
-            public void run() {
-                mMeter.cancelConnectionStateCB(cb_handle[0]);
-                transitionToActivity(mMeter,ScanActivity.class);
-            }
-        });
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.playSampleStream(null, new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        Util.dispatch(new Runnable() {
-                            @Override
-                            public void run() {
-                                valueLabelRefresh(0);
-                                valueLabelRefresh(1);
-                                if(autorange_cooldown.expired && mMeter.applyAutorange()) {
-                                    autorange_cooldown.fire(100);
-                                    refreshAllControls();
-                                }
-                            }
-                        });
-                    }
-                });
-                Log.i(TAG, "Stream requested");
-                refreshAllControls();
-            }
-        });
     }
 
 	private void startPreferenceActivity() {
@@ -365,11 +371,17 @@ public class DeviceActivity extends MyActivity {
         refreshAllControls();
     }
     private void onRangeClick(final int c) {
-        makePopupMenu(mMeter.getRangeList(c), range_buttons[c], new NotifyHandler() {
+        List<String> options = mMeter.getRangeList(c);
+        options.add(0,"AUTORANGE");
+        makePopupMenu(options, range_buttons[c], new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 popupMenu = null;
-                mMeter.setRangeIndex(c, (Integer) payload);
+                int choice = (Integer) payload;
+                mMeter.range_auto[c] = choice==0;
+                if(!mMeter.range_auto[c]) {
+                    mMeter.setRangeIndex(c, choice-1);
+                }
                 refreshAllControls();
             }
         });

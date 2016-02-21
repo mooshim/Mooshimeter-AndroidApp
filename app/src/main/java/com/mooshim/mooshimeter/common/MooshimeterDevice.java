@@ -175,7 +175,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // Wrap inputs so we can access from inner class multiple times
         final List<InputDescriptor> inputs[] = new List[]{null};
 
-        ConfigTree.NodeProcessor p = new ConfigTree.NodeProcessor() {
+        class localNodeProcessor extends ConfigTree.NodeProcessor {
             private ConfigTree.ConfigNode shared = null;
             @Override
             public void process(ConfigTree.ConfigNode n) {
@@ -227,12 +227,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                     tree.walk(tree.getNodeAtLongname(((ConfigTree.RefNode)n).path),this);
                 }
             }
-        };
-
+        }
         inputs[0] = input_descriptors[0];
-        tree.walk(tree.getNodeAtLongname("CH1"),p);
+        tree.walk(tree.getNodeAtLongname("CH1"),new localNodeProcessor());
         inputs[0] = input_descriptors[1];
-        tree.walk(tree.getNodeAtLongname("CH2"), p);
+        tree.walk(tree.getNodeAtLongname("CH2"),new localNodeProcessor());
+
+        // Figure out which input we're presently reading based on the tree state
+        //input_descriptors_indices[0] =
 
         return rval;
     }
@@ -270,8 +272,23 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
-    public void bumpRange(int channel, boolean expand, boolean wrap) {
-
+    public boolean bumpRange(int channel, boolean expand, boolean wrap) {
+        ConfigTree.ConfigNode rnode = getInputNode(channel).getChildByName("RANGE");
+        int cnum = (Integer)rnode.getValue();
+        int n_choices = rnode.children.size();
+        if(!wrap) {
+            // If we're not wrapping and we're against a wall
+            if (cnum == 0 && !expand) {
+                return false;
+            }
+            if(cnum == n_choices-1 && expand) {
+                return false;
+            }
+        }
+        cnum += expand?1:-1;
+        cnum %= n_choices;
+        rnode.children.get(cnum).choose();
+        return true;
     }
 
     private float getMinRangeForChannel(int c) {
@@ -279,7 +296,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         int cnum = (Integer)rnode.getValue();
         cnum = cnum>0?cnum-1:cnum;
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
-        return (float)1.1 * Float.parseFloat(choice.getShortName());
+        return (float)0.9 * Float.parseFloat(choice.getShortName());
     }
 
     private float getMaxRangeForChannel(int c) {
@@ -296,13 +313,12 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         float min = getMinRangeForChannel(c);
         String s = getChString(c)+":VALUE";
         float val = (Float)getValueAt(s);
+        val = val<0?-val:val; //abs
         if(val > max) {
-            bumpRange(0,true,false);
-            return true;
+            return bumpRange(c,true,false);
         }
         if(val < min) {
-            bumpRange(0,false,false);
-            return true;
+            return bumpRange(c,false,false);
         }
         return false;
     }
