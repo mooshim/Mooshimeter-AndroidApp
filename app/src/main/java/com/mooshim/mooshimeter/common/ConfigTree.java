@@ -3,6 +3,7 @@ package com.mooshim.mooshimeter.common;
 import android.util.Log;
 
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
@@ -21,8 +22,6 @@ import org.msgpack.MessagePack;
 import org.msgpack.type.IntegerValue;
 import org.msgpack.type.Value;
 
-import javassist.bytecode.ByteArray;
-
 import static org.msgpack.template.Templates.*;
 
 /**
@@ -37,47 +36,21 @@ public class ConfigTree {
     public static class NTYPE {
         public static final byte NOTSET  =-1 ; // May be an informational node, or a choice in a chooser
         public static final byte PLAIN   =0 ; // May be an informational node, or a choice in a chooser
-        public static final byte CHOOSER =1 ; // The children of a CHOOSER can only be selected by one CHOOSER, and a CHOOSER can only select one child
-        public static final byte LINK    =2 ; // A link to somewhere else in the tree
-        public static final byte COPY    =3 ; // In a fully inflated tree, this value will not appear.  It's an instruction to the inflater to copy the value
-        public static final byte VAL_U8  =4 ; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_U16 =5 ; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_U32 =6 ; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_S8  =7 ; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_S16 =8 ; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_S32 =9 ; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_STR =10; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_BIN =11; // These nodes have readable and writable values of the type specified
-        public static final byte VAL_FLT =12; // These nodes have readable and writable values of the type specified
+        public static final byte LINK    =1 ; // A link to somewhere else in the tree
+        public static final byte CHOOSER =2 ; // The children of a CHOOSER can only be selected by one CHOOSER, and a CHOOSER can only select one child
+        public static final byte VAL_U8  =3 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_U16 =4 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_U32 =5 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_S8  =6 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_S16 =7 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_S32 =8 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_STR =9 ; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_BIN =10; // These nodes have readable and writable values of the type specified
+        public static final byte VAL_FLT =11; // These nodes have readable and writable values of the type specified
     }
-    public static Class[] NodesByType = {
-        StructuralNode.class,
-        StructuralNode.class,
-        RefNode       .class,
-        RefNode       .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-        ValueNode     .class,
-    };
 
     static abstract class NodeProcessor {
         abstract public void process(ConfigNode n);
-    }
-
-    public static ConfigNode nodeFactory(int ntype_arg, ConfigTree tree){
-        Class c = NodesByType[ntype_arg];
-        try {
-            return (ConfigNode) c.getConstructor(ConfigTree.class,int.class).newInstance(tree, ntype_arg);
-        } catch(Exception e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     //////////////////////
@@ -93,7 +66,7 @@ public class ConfigTree {
         protected ConfigTree tree   = null;
         public List<NotifyHandler> notify_handlers = new ArrayList<NotifyHandler>();
 
-        private Object last_value = (Integer)0;
+        private Object value = (Integer)0;
         String cache_longname=null;
         StatLockManager lock;
 
@@ -119,14 +92,77 @@ public class ConfigTree {
         }
         public void unpack(byte[] arg) throws IOException {
             MessagePack msgpack = new MessagePack();
-            List<Value> l = msgpack.read(arg,tList(TValue));
+            List<Value> l = msgpack.read(arg, tList(TValue));
             unpackFromFrontOfList(l);
         }
+        private Object msgPackValueToObject(Value v) {
+            if(v==null) {return null;}
+            if(v.isNilValue()){return null;}
+            if(v.isIntegerValue()){return v.asIntegerValue().getInt();}
+            if(v.isBooleanValue()){return v.asBooleanValue().isBooleanValue();}
+            if(v.isFloatValue()){return v.asFloatValue().getFloat();}
+            if(v.isArrayValue()){return v.asArrayValue();}
+            if(v.isRawValue()){return v.asRawValue();}
+            return null;
+        }
         public void unpackFromFrontOfList(List<Value> l) {
-            //Subclass implement
+            int check_ntype = l.remove(0).asIntegerValue().getInt();
+            if(check_ntype != ntype) {
+                Log.e(TAG,"WRONG NODE TYPE");
+                // Exception?
+                new Exception().printStackTrace();
+            }
+            // Forgive me this terrible line.  Value.toString returns a StringBuilder, StringBuilder.toString returns a String
+            name = l.remove(0).asRawValue().getString();
+            Value tmp_Value = l.remove(0);
+            if(tmp_Value!=null && !tmp_Value.isNilValue()) {
+                switch (ntype) {
+                    case NTYPE.PLAIN:
+                        value = null;
+                        break;
+                    case NTYPE.LINK:
+                    case NTYPE.VAL_STR:
+                        value = tmp_Value.asRawValue().getString();
+                        break;
+                    case NTYPE.CHOOSER:
+                    case NTYPE.VAL_U8:
+                    case NTYPE.VAL_S8:
+                        value = tmp_Value.asIntegerValue().getByte();
+                        break;
+                    case NTYPE.VAL_U16:
+                    case NTYPE.VAL_S16:
+                        value = tmp_Value.asIntegerValue().getShort();
+                        break;
+                    case NTYPE.VAL_U32:
+                    case NTYPE.VAL_S32:
+                        value = tmp_Value.asIntegerValue().getInt();
+                        break;
+                    case NTYPE.VAL_BIN:
+                        new Exception().printStackTrace();
+                        break;
+                    case NTYPE.VAL_FLT:
+                        value = tmp_Value.asFloatValue().getFloat();
+                        break;
+                }
+            }
+            Log.d(TAG, this.toString());
+            List<Value> children_packed = new ArrayList<Value>(l.remove(0).asArrayValue());
+            while(children_packed.size()>0) {
+                int c_ntype = children_packed.get(0).asIntegerValue().getInt();
+                ConfigNode child = new ConfigNode(tree, c_ntype);
+                assert child != null;
+                child.unpackFromFrontOfList(children_packed);
+                children.add(child);
+            }
         }
         public void packToEndOfList(List<Object> l) {
-            //Subclass implement
+            l.add(ntype);
+            l.add(name);
+            List<Object> children_packed = new ArrayList<Object>();
+            for(ConfigNode c:children) {
+                c.packToEndOfList(children_packed);
+            }
+            l.add(children_packed);
         }
         public String toString() {
             String s = "";
@@ -139,18 +175,7 @@ public class ConfigTree {
         }
         public byte getIndex() { return (byte)parent.children.indexOf(this); }
         public Object getValue() {
-            return last_value;
-        }
-        private void getPath(List<Integer> rval) {
-            if(parent!=null) {
-                parent.getPath(rval);
-                rval.add((int)getIndex());
-            }
-        }
-        public List<Integer> getPath() {
-            List<Integer> rval = new ArrayList<Integer>();
-            getPath(rval);
-            return rval;
+            return value;
         }
         public String getShortName() { return name; }
         private void getLongName(StringBuffer rval, String sep) {
@@ -181,7 +206,14 @@ public class ConfigTree {
             }
             return parent.getLongName() + " " + getIndex();
         }
-        public ConfigNode getChildByName(String name_arg) {
+        public ConfigNode getChosen() {
+            ConfigNode rval = children.get((Integer) value);
+            while(rval.ntype==NTYPE.LINK) {
+                rval = tree.getNode((String) rval.getValue());
+            }
+            return rval;
+        }
+        public ConfigNode getChild(String name_arg) {
             for(ConfigNode c:children) {
                 if(c.getShortName().equals(name_arg)) {
                     return c;
@@ -189,7 +221,7 @@ public class ConfigTree {
             }
             return null;
         }
-        public boolean needsShortCode() { return false; }
+        public boolean needsShortCode() { return ntype>=NTYPE.CHOOSER; }
         public int getShortCode() { return code; }
 
         //////////////////
@@ -204,9 +236,6 @@ public class ConfigTree {
                 case NTYPE.CHOOSER:
                     return Byte.parseByte(str);
                 case NTYPE.LINK:
-                    Log.e(TAG, "This command takes no payload");
-                    return null;
-                case NTYPE.COPY:
                     Log.e(TAG, "This command takes no payload");
                     return null;
                 case NTYPE.VAL_U8:
@@ -229,7 +258,6 @@ public class ConfigTree {
             Log.e(TAG,"Bad ntype!");
             return null;
         }
-
         private void packToSerial(ByteBuffer b) {
             b.put((byte) code);
         }
@@ -247,9 +275,6 @@ public class ConfigTree {
                 case NTYPE.LINK:
                     Log.e(TAG, "This command takes no payload");
                     return;
-                case NTYPE.COPY:
-                    Log.e(TAG, "This command takes no payload");
-                    break;
                 case NTYPE.VAL_U8:
                 case NTYPE.VAL_S8:
                     b.put((Byte)new_value);
@@ -280,13 +305,11 @@ public class ConfigTree {
                     break;
             }
         }
-
         public void choose() {
             if(parent.ntype==NTYPE.CHOOSER) {
                 parent.sendValue(getIndex(),true);
             }
         }
-
         public Object reqValue() {
             // Forces a refresh of the value at this node
             if(code==-1) {
@@ -298,9 +321,8 @@ public class ConfigTree {
             tree.sendBytes(new byte[]{(byte)code});
             lock.awaitMilli(2000);
             lock.ul();
-            return last_value;
+            return value;
         }
-
         public void sendValue(Object new_value, boolean blocking) {
             byte[] payload = new byte[20];
             ByteBuffer b = ByteBuffer.wrap(payload);
@@ -310,7 +332,7 @@ public class ConfigTree {
                 lock.l();
             } else {
                 // Assume it will get through
-                last_value = new_value;
+                value = new_value;
             }
             tree.sendBytes(payload);
             if(blocking) {
@@ -339,123 +361,13 @@ public class ConfigTree {
         }
         public void notify(final double time_utc, final Object notification) {
             Log.d(TAG, name + ":" + notification);
-            last_value = notification;
+            value = notification;
             for(NotifyHandler handler:notify_handlers) {
                 handler.onReceived(time_utc, notification);
             }
             lock.l();
             lock.sig();
             lock.ul();
-        }
-
-    }
-    public static class StructuralNode extends ConfigNode {
-        public StructuralNode(ConfigTree tree_arg, int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
-            super(tree_arg,ntype_arg,name_arg,children_arg);
-        }
-        public StructuralNode(ConfigTree tree_arg, int ntype_arg) {
-            super(tree_arg,ntype_arg);
-        }
-        @Override
-        public void unpackFromFrontOfList(List<Value> l) {
-            Value tmp_Value = l.remove(0);
-            IntegerValue tmp_Int = tmp_Value.asIntegerValue();
-            int check_ntype = tmp_Int.getInt();
-            if(check_ntype != ntype) {
-                Log.e(TAG,"WRONG NODE TYPE");
-                // Exception?
-            }
-            // Forgive me this terrible line.  Value.toString returns a StringBuilder, StringBuilder.toString returns a String
-            name=l.remove(0).asRawValue().getString();
-            Log.d(TAG,this.toString());
-            List<Value> children_packed = new ArrayList<Value>(l.remove(0).asArrayValue());
-            while(children_packed.size()>0) {
-                int c_ntype = children_packed.get(0).asIntegerValue().getInt();
-                ConfigNode child = ConfigTree.nodeFactory(c_ntype,tree);
-                assert child != null;
-                child.unpackFromFrontOfList(children_packed);
-                children.add(child);
-            }
-        }
-        @Override
-        public void packToEndOfList(List<Object> l) {
-            l.add(ntype);
-            l.add(name);
-            List<Object> children_packed = new ArrayList<Object>();
-            for(ConfigNode c:children) {
-                c.packToEndOfList(children_packed);
-            }
-            l.add(children_packed);
-        }
-        @Override
-        public boolean needsShortCode() {
-            return (ntype==NTYPE.CHOOSER);
-        }
-    }
-    public static class RefNode        extends ConfigNode {
-        public String path = "";
-        public RefNode(ConfigTree tree_arg, int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
-            super(tree_arg,ntype_arg,name_arg,children_arg);
-        }
-        public RefNode(ConfigTree tree_arg, int ntype_arg) {
-            super(tree_arg,ntype_arg);
-        }
-        @Override
-        public String getShortName() {
-            return tree.getNodeAtLongname(path).getShortName();
-        }
-        @Override
-        public void unpackFromFrontOfList(List<Value> l) {
-            int check_ntype = l.remove(0).asIntegerValue().getInt();
-            if(check_ntype != ntype) {
-                Log.e(TAG,"WRONG NODE TYPE");
-                // Exception?
-            }
-            path = l.remove(0).asRawValue().getString();
-        }
-        @Override
-        public void packToEndOfList(List<Object> l) {
-            l.add(ntype);
-            l.add(path);
-        }
-        @Override
-        public String toString() {
-            String s = "";
-            if(ntype==NTYPE.COPY) {
-                s+="COPY: "+path;
-            }
-            if(ntype==NTYPE.LINK) {
-                s +="LINK:"+ path + ":" + tree.getNodeAtLongname(path).getPath();
-            }
-            return s;
-        }
-    }
-    public static class ValueNode      extends ConfigNode{
-        public ValueNode(ConfigTree tree_arg, int ntype_arg,String name_arg, List<ConfigNode> children_arg) {
-            super(tree_arg, ntype_arg,name_arg,children_arg);
-        }
-        public ValueNode(ConfigTree tree_arg, int ntype_arg) {
-            super(tree_arg, ntype_arg);
-        }
-
-        @Override
-        public void unpackFromFrontOfList(List<Value> l) {
-            int check_ntype = l.remove(0).asIntegerValue().getInt();
-            if(check_ntype != ntype) {
-                Log.e(TAG,"WRONG NODE TYPE");
-                // Exception?
-            }
-            name=l.remove(0).asRawValue().getString();
-            Log.d(TAG,this.toString());
-        }
-        @Override
-        public void packToEndOfList(List<Object> l) {
-            l.add(ntype);
-            l.add(name);
-        }
-        @Override
-        public boolean needsShortCode() {
-            return true;
         }
     }
 
@@ -488,58 +400,61 @@ public class ConfigTree {
                 b.put(t);
             }
             b.rewind();
-            int opcode = (int)b.get();
-            if(code_list.containsKey(opcode)) {
-                ConfigTree.ConfigNode n = code_list.get(opcode);
-                switch(n.ntype) {
-                    case ConfigTree.NTYPE.PLAIN  :
-                        Log.e(TAG, "Shouldn't receive notification here!");
-                        return;
-                    case ConfigTree.NTYPE.CHOOSER:
-                        n.notify((int)b.get());
-                        break;
-                    case ConfigTree.NTYPE.LINK   :
-                        Log.e(TAG, "Shouldn't receive notification here!");
-                        return;
-                    case ConfigTree.NTYPE.COPY   :
-                        Log.e(TAG, "Shouldn't receive notification here!");
-                        return;
-                    case ConfigTree.NTYPE.VAL_U8 :
-                    case ConfigTree.NTYPE.VAL_S8 :
-                        n.notify((int)b.get());
-                        break;
-                    case ConfigTree.NTYPE.VAL_U16:
-                    case ConfigTree.NTYPE.VAL_S16:
-                        n.notify((int)b.getShort());
-                        break;
-                    case ConfigTree.NTYPE.VAL_U32:
-                    case ConfigTree.NTYPE.VAL_S32:
-                        n.notify((int)b.getInt());
-                        break;
-                    case ConfigTree.NTYPE.VAL_STR:
-                        expecting_bytes = b.getShort();
-                        if(b.remaining()<expecting_bytes) {
-                            // Wait for the aggregator to fill up more
+            try{
+                int opcode = (int)b.get();
+                if(code_list.containsKey(opcode)) {
+                    ConfigTree.ConfigNode n = code_list.get(opcode);
+                    switch(n.ntype) {
+                        case ConfigTree.NTYPE.PLAIN  :
+                            Log.e(TAG, "Shouldn't receive notification here!");
                             return;
-                        }
-                        n.notify(new String(b.array()));
-                        b.position(b.position() + expecting_bytes);
-                        break;
-                    case ConfigTree.NTYPE.VAL_BIN:
-                        expecting_bytes = b.getShort();
-                        if(b.remaining()<expecting_bytes) {
-                            // Wait for the aggregator to fill up more
+                        case ConfigTree.NTYPE.CHOOSER:
+                            n.notify((int)b.get());
+                            break;
+                        case ConfigTree.NTYPE.LINK   :
+                            Log.e(TAG, "Shouldn't receive notification here!");
                             return;
-                        }
-                        n.notify(Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes));
-                        b.position(b.position()+expecting_bytes);
-                        break;
-                    case ConfigTree.NTYPE.VAL_FLT:
-                        n.notify(b.getFloat());
-                        break;
+                        case ConfigTree.NTYPE.VAL_U8 :
+                        case ConfigTree.NTYPE.VAL_S8 :
+                            n.notify((int)b.get());
+                            break;
+                        case ConfigTree.NTYPE.VAL_U16:
+                        case ConfigTree.NTYPE.VAL_S16:
+                            n.notify((int)b.getShort());
+                            break;
+                        case ConfigTree.NTYPE.VAL_U32:
+                        case ConfigTree.NTYPE.VAL_S32:
+                            n.notify((int)b.getInt());
+                            break;
+                        case ConfigTree.NTYPE.VAL_STR:
+                            expecting_bytes = b.getShort();
+                            if(b.remaining()<expecting_bytes) {
+                                // Wait for the aggregator to fill up more
+                                return;
+                            }
+                            n.notify(new String(Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes)));
+                            b.position(b.position() + expecting_bytes);
+                            break;
+                        case ConfigTree.NTYPE.VAL_BIN:
+                            expecting_bytes = b.getShort();
+                            if(b.remaining()<expecting_bytes) {
+                                // Wait for the aggregator to fill up more
+                                return;
+                            }
+                            n.notify(Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes));
+                            b.position(b.position()+expecting_bytes);
+                            break;
+                        case ConfigTree.NTYPE.VAL_FLT:
+                            n.notify(b.getFloat());
+                            break;
+                    }
+                } else {
+                    Log.e(TAG,"UNRECOGNIZED SHORTCODE "+opcode);
+                    new Exception().printStackTrace();
+                    return;
                 }
-            } else {
-                Log.e(TAG,"UNRECOGNIZED SHORTCODE "+opcode);
+            } catch(BufferUnderflowException e){
+                Log.e(TAG,"Underflow caught");
                 new Exception().printStackTrace();
                 return;
             }
@@ -610,16 +525,16 @@ public class ConfigTree {
     public ConfigTree() {
         // Always assume a tree starts with this configuration
         root = new ConfigNode(this, NTYPE.PLAIN,"",Arrays.asList(new ConfigNode[] {
-                    new StructuralNode(this, NTYPE.PLAIN,"ADMIN", Arrays.asList(new ConfigNode[] {
-                        new ValueNode(this, NTYPE.VAL_U32,"CRC32",null),
-                        new ValueNode(this, NTYPE.VAL_BIN,"TREE",null),
-                        new ValueNode(this, NTYPE.VAL_STR,"DIAGNOSTIC",null),
+                    new ConfigNode(this, NTYPE.PLAIN,"ADMIN", Arrays.asList(new ConfigNode[] {
+                        new ConfigNode(this, NTYPE.VAL_U32,"CRC32",null),
+                        new ConfigNode(this, NTYPE.VAL_BIN,"TREE",null),
+                        new ConfigNode(this, NTYPE.VAL_STR,"DIAGNOSTIC",null),
                 })),
         }));
         assignShortCodes();
         code_list = getShortCodeMap();
 
-        ConfigNode tree_bin = getNodeAtLongname("ADMIN:TREE");
+        ConfigNode tree_bin = getNode("ADMIN:TREE");
         tree_bin.addNotifyHandler(new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
@@ -636,6 +551,7 @@ public class ConfigTree {
             }
         });
     }
+
     private void enumerate(ConfigNode n, String indent) {
         Log.d(TAG, indent + n.toString());
         for(ConfigNode c:n.children) {
@@ -647,6 +563,15 @@ public class ConfigTree {
     }
     public void enumerate() {
         enumerate(root);
+    }
+
+    public int addNotifyHandler(String node_name,NotifyHandler h) {
+        ConfigNode n = getNode(node_name);
+        if(n==null) {
+            return -1;
+        }
+        n.addNotifyHandler(h);
+        return 0;
     }
 
     public byte[] pack() throws IOException {
@@ -673,7 +598,7 @@ public class ConfigTree {
         MessagePack msgpack = new MessagePack();
         List<Value> l = msgpack.read(plain,tList(TValue));
         Log.d(TAG,l.toString());
-        root = nodeFactory(l.get(0).asIntegerValue().getInt(), this);
+        root = new ConfigNode(this, l.get(0).asIntegerValue().getInt());
         root.unpackFromFrontOfList(l);
         assignShortCodes();
     }
@@ -708,11 +633,11 @@ public class ConfigTree {
         };
         walk(p);
     }
-    public ConfigNode getNodeAtLongname(String name) {
+    public ConfigNode getNode(String name) {
         String[] tokens = name.split(":");
         ConfigNode n = root;
         for(String t:tokens) {
-            n = n.getChildByName(t);
+            n = n.getChild(t);
             if(n==null) {
                 // Not found!
                 return null;
@@ -720,32 +645,24 @@ public class ConfigTree {
         }
         return n;
     }
-    public ConfigNode getNodeAtPath(List<Integer> path) {
-        ConfigNode n = root;
-        for(Integer i:path) {
-            n = n.children.get(i);
-        }
-        return n;
-    }
     public Object getValueAt(String name) {
-        ConfigNode n = getNodeAtLongname(name);
+        ConfigNode n = getNode(name);
         if(n==null) {
             return null;
         }
         return n.getValue();
     }
     public ConfigNode getChosenNode(String name) {
-        ConfigNode n = getNodeAtLongname(name);
+        ConfigNode n = getNode(name);
         assert n != null;
-        assert n.ntype == NTYPE.CHOOSER;
-        if(n.last_value==null) {
+        if(n.value ==null) {
             // FIXME: Assume always initialized to zero!
-            n.last_value = 0;
+            n.value = 0;
         }
-        ConfigNode rval = n.children.get((Integer) n.last_value);
+        ConfigNode rval = n.children.get((Integer) n.value);
         // Follow link
         if(rval.ntype==NTYPE.LINK) {
-            return getNodeAtLongname(((RefNode)rval).path);
+            return getNode((String) rval.getValue());
         } else {
             return rval;
         }
@@ -778,7 +695,7 @@ public class ConfigTree {
             payload_str = null;
         }
         node_str = node_str.toUpperCase();
-        ConfigTree.ConfigNode node = getNodeAtLongname(node_str);
+        ConfigTree.ConfigNode node = getNode(node_str);
         if(node==null) {
             Log.e(TAG, "Node not found at " + node_str);
             return;
@@ -796,7 +713,7 @@ public class ConfigTree {
         // Skip the first 3 codes (they are for CRC, tree and diagnostic
         for(int i = 3; i < n_codes; i++) {
             //code_list.get(i).reqValue();
-            sendBytes(new byte[]{(byte)i});
+            sendBytes(new byte[]{(byte) i});
         }
     }
 }

@@ -189,19 +189,6 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     }
 
     /**
-     * Returns the number of ADC samples that constitute a sample buffer
-     * @return number of samples
-     */
-    public abstract int getBufLen();
-
-    /**
-     * Downloads the complete sample buffer from the Mooshimeter.
-     * This interaction spans many connection intervals, the exact length depends on the number of samples in the buffer
-     * @param onReceived Called when the complete buffer has been downloaded
-     */
-    public abstract void getBuffer(final NotifyHandler onReceived);
-
-    /**
      * Stop the meter from sending samples.  Opposite of playSampleStream
      */
     public abstract void pauseStream();
@@ -211,13 +198,15 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     public abstract boolean isStreaming();
 
     public static String formatReading(float val, MooshimeterDeviceBase.SignificantDigits digits) {
-        //TODO: Unify prefix handling.  Right now assume that in the area handling the units the correct prefix
-        // is being applied
-        while(digits.high > 4) {
+        final String prefixes[] = new String[]{"n","?","m","","k","M","G"};
+        int prefix_i = 3;
+        while(digits.high > 3) {
+            prefix_i++;
             digits.high -= 3;
             val /= 1000;
         }
-        while(digits.high < 0) {
+        while(digits.high <= 0) {
+            prefix_i--;
             digits.high += 3;
             val *= 1000;
         }
@@ -237,7 +226,8 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
             retval = "%f";
         }
         //Truncate
-        retval = retval.substring(0, Math.min(retval.length(), 8));
+        retval = retval.substring(0, Math.min(retval.length(), 7));
+        retval += prefixes[prefix_i];
         return retval;
     }
 
@@ -256,9 +246,11 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
 
     public abstract SignificantDigits getSigDigits(final int channel);
 
-    public abstract String getDescriptor(final int c);
-
     public abstract String getUnits(final int c);
+
+    //////////////////////////////////////
+    // Interacting with the Mooshimeter itself
+    //////////////////////////////////////
 
     public abstract int getSampleRateHz();
     public abstract int setSampleRateIndex(int i);
@@ -271,6 +263,7 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     public abstract boolean getLoggingOn();
     public abstract void setLoggingOn(boolean on);
     public abstract int getLoggingStatus();
+    public abstract String getLoggingStatusMessage();
 
     public abstract String       getRangeLabel(int c);
     public abstract List<String> getRangeList(int c);
@@ -282,4 +275,9 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     public abstract int getInputIndex(int c);
     public abstract int setInputIndex(int c, int mapping);
     public abstract List<String> getInputList(int c);
+
+    public abstract float getRealPower();
+    public abstract float getApparentPower();
+    public abstract float getPowerFactor();
+    public abstract float getKTypeThermoTemp();
 }

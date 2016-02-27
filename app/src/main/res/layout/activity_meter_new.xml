@@ -200,6 +200,41 @@ The iOS app screen is in 10 rows, 6 columns.-->
         android:layout_height="0dp"
         android:layout_weight="1">
 
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="N/A"
+            android:id="@+id/power_label"
+            android:textSize="36dp"
+            android:layout_weight="2"
+            android:textAlignment="center"
+            android:typeface="monospace"
+            android:textIsSelectable="false"/>
+
+        <Button
+            style="@style/AppBaseTheme"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:text="W"
+            android:id="@+id/power_button"
+            android:layout_weight="1"
+            android:onClick="onPowerButtonClick"
+            android:textSize="24dp"
+            android:background="@drawable/custom_button_background"/>
+    </LinearLayout>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="20px"
+        android:background="#ff000000"/>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
         <Button
             android:layout_width="0dp"
             android:layout_height="match_parent"

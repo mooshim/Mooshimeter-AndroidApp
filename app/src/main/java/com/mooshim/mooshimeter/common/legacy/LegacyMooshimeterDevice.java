@@ -742,11 +742,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return (1<<(meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2));
     }
 
-    @Override
-    public void getBuffer(NotifyHandler onReceived) {
-
-    }
-
     /**
      * Downloads the complete sample buffer from the Mooshimeter.
      * This interaction spans many connection intervals, the exact length depends on the number of samples in the buffer
@@ -1550,6 +1545,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
+    public String getLoggingStatusMessage() {
+        return null;
+    }
+
+    @Override
     public String getRangeLabel(int c) {
         return null;
     }
@@ -1610,5 +1610,25 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     @Override
     public List<String> getInputList(int c) {
         return null;
+    }
+
+    @Override
+    public float getRealPower() {
+        return 0;
+    }
+
+    @Override
+    public float getApparentPower() {
+        return 0;
+    }
+
+    @Override
+    public float getPowerFactor() {
+        return 0;
+    }
+
+    @Override
+    public float getKTypeThermoTemp() {
+        return 0;
     }
 }

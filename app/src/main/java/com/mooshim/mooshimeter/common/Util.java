@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Looper;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
@@ -35,6 +36,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -43,6 +45,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by JWhong on 9/26/2015.
@@ -54,11 +58,21 @@ public class Util {
     private static Context mContext = null;
     private static Handler mHandler = null;
     private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
+    private static TextToSpeech speaker;
 
     public static void init(Context context) {
         mContext = context;
         loadFile();
         mHandler = new Handler(mContext.getMainLooper());
+        TextToSpeech.OnInitListener speaker_init_listener = new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int i) {
+                if(i != TextToSpeech.ERROR) {
+                    speaker.setLanguage(Locale.US);
+                }
+            }
+        };
+        speaker = new TextToSpeech(context,speaker_init_listener);
     }
 
     // Singleton resources for accessing the bundled firmware image
@@ -401,5 +415,26 @@ public class Util {
         });
         rval.show();
         return rval;
+    }
+    public static void delay(int ms) {
+        final Semaphore s = new Semaphore(0);
+        postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                s.release();
+            }
+        }, ms);
+        try {
+            s.acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return;
+    }
+    public static void speakNumber(float n) {
+        speak(String.format("%f.1", n));
+    }
+    public static void speak(String speech) {
+        speaker.speak(speech, TextToSpeech.QUEUE_FLUSH, null);
     }
 }

@@ -2,19 +2,14 @@ package com.mooshim.mooshimeter.common;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.util.Log;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.zip.DataFormatException;
 
 import static java.util.UUID.fromString;
 
@@ -42,10 +37,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     ////////////////////////////////
-    // MEMBERS FOR TRACKING SERIALIZATION AND CONFIG TREE INTERACTIONS
+    // CONFIG TREE
     ////////////////////////////////
 
-    private ConfigTree tree = null;
+    public ConfigTree tree = null;
 
     ////////////////////////////////
     // MEMBERS FOR TRACKING AVAILABLE INPUTS AND RANGES
@@ -101,19 +96,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             id.ranges.add(rd);
         }
     }
-    private static final Map<String, String> units_map = makeUnitsMap();
-    private static Map<String, String> makeUnitsMap() {
-        Map<String, String> m = new HashMap<String, String>();
-        m.put("CURRENT", "A");
-        m.put("VOLTAGE", "V");
-        m.put("SHORT", "CNT");
-        m.put("TEMP", "C");
-        m.put("AUX_V", "V");
-        m.put("RESISTANCE", "OHM");
-        m.put("DIODE", "V");
-        m = Collections.unmodifiableMap(m);
-        return m;
-    }
 
     ////////////////////////////////
     // METHODS
@@ -126,6 +108,16 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         input_descriptors[0] = new ArrayList<InputDescriptor>();
         input_descriptors[1] = new ArrayList<InputDescriptor>();
     }
+    public void attachCallback(String nodestr,NotifyHandler cb) {
+        ConfigTree.ConfigNode n = tree.getNode(nodestr);
+        if(n==null) {return;}
+        n.addNotifyHandler(cb);
+    }
+    public void removeCallback(String nodestr,NotifyHandler cb) {
+        ConfigTree.ConfigNode n = tree.getNode(nodestr);
+        if(n==null) {return;}
+        n.removeNotifyHandler(cb);
+    }
 
     ////////////////////////////////
     // Private helpers
@@ -133,13 +125,20 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     private ConfigTree.ConfigNode getInputNode(int channel) {
         assert channel<2;
-        return input_descriptors[channel].get(input_descriptors_indices[channel]).input_node;
+        ConfigTree.ConfigNode rval = tree.getNode(getChString(channel) + ":MAPPING");
+        while(true) {
+            if (rval.ntype == ConfigTree.NTYPE.LINK) {
+                rval = tree.getNode((String)rval.getValue());
+            } else if(rval.ntype== ConfigTree.NTYPE.CHOOSER) {
+                rval = rval.getChosen();
+            } else {
+                return rval;
+            }
+        }
     }
-
     private static String getChString(int channel) {
         return (channel==0?"CH1":"CH2");
     }
-
     private Object getValueAt(String p) {
         Object rval = tree.getValueAt(p);
         if(rval==null) {
@@ -148,7 +147,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return rval;
     }
-
     private static List<String> getChildNameList(ConfigTree.ConfigNode n) {
         List<String> inputs = new ArrayList<String>();
         for(ConfigTree.ConfigNode child:n.children) {
@@ -161,93 +159,74 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // MooshimeterBaseDevice methods
     ////////////////////////////////
 
+    private InputDescriptor getSelectedDescriptor(final int channel) {
+        return input_descriptors[channel].get(input_descriptors_indices[channel]);
+    }
+
+    InputDescriptor makeInputDescriptor(int c, String name, boolean analysis_in_name, String analysis, String units, boolean shared) {
+        InputDescriptor i = new InputDescriptor();
+        i.analysis_node = tree.getNode(getChString(c)+":ANALYSIS:"+analysis);
+        i.name          = name;
+        if(analysis_in_name) {
+            if(analysis.equals("MEAN")) {
+                i.name += " DC";
+            } else {
+                i.name += " AC";
+            }
+        }
+        i.units         = units;
+        if(shared) {
+            i.shared_node   = tree.getNode(getChString(c)+":MAPPING:SHARED");
+            i.input_node    = tree.getNode("SHARED:"+name);
+        } else {
+            i.input_node    = tree.getNode(getChString(c)+":MAPPING:"+name);
+        }
+        addRangeDescriptors(i,i.input_node);
+        return i;
+    }
+
     @Override
     public int discover() {
         int rval = super.discover();
         if(rval!=0) {
             return rval;
         }
-        tree.attach(this,mUUID.METER_SERIN,mUUID.METER_SEROUT);
+        tree.attach(this, mUUID.METER_SERIN, mUUID.METER_SEROUT);
 
         tree.refreshAll();
 
-        // Now we need to process the tree to generate our abbreviations
-        // Wrap inputs so we can access from inner class multiple times
-        final List<InputDescriptor> inputs[] = new List[]{null};
+        input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "MEAN","A"  ,false));
+        input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "RMS" ,"A"  ,false));
+        input_descriptors[0].add(makeInputDescriptor(0,"TEMP"      ,false,"MEAN","K"  ,false));
+        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "MEAN","V"  ,true));
+        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "RMS" ,"V"  ,true));
+        input_descriptors[0].add(makeInputDescriptor(0,"RESISTANCE",false,"MEAN","Ohm",true));
+        input_descriptors[0].add(makeInputDescriptor(0,"DIODE"     ,false,"MEAN","V"  ,true));
 
-        class localNodeProcessor extends ConfigTree.NodeProcessor {
-            private ConfigTree.ConfigNode shared = null;
-            @Override
-            public void process(ConfigTree.ConfigNode n) {
-                ConfigTree.ConfigNode a = n.getChildByName("ANALYSIS");
-                if(a!=null) {
-                    // This is an input node, generate a new InputDescriptor
-                    // We only generate for AC and DC
-                    ConfigTree.ConfigNode dc = a.getChildByName("MEAN");
-                    ConfigTree.ConfigNode ac = a.getChildByName("RMS");
-                    if(dc != null) {
-                        InputDescriptor id = new InputDescriptor();
-                        id.name = n.getShortName() + (ac!=null?" DC":"");
-                        id.input_node = n;
-                        id.analysis_node = dc;
-                        if(units_map.containsKey(n.getShortName())) {
-                            id.units = units_map.get(n.getShortName());
-                        } else {
-                            // We don't know what the units should be here...
-                            id.units = "";
-                        }
-                        if(shared!=null) {
-                            id.shared_node = shared;
-                        }
-                        addRangeDescriptors(id, n.getChildByName("RANGE"));
-                        inputs[0].add(id);
-                    }
-                    if(ac != null) {
-                        InputDescriptor id = new InputDescriptor();
-                        id.name = n.getShortName() + " AC";
-                        id.input_node = n;
-                        id.analysis_node = ac;
-                        if(units_map.containsKey(n.getShortName())) {
-                            id.units = units_map.get(n.getShortName());
-                        } else {
-                            // We don't know what the units should be here...
-                            id.units = "";
-                        }
-                        if(shared!=null) {
-                            id.shared_node = shared;
-                        }
-                        addRangeDescriptors(id, n.getChildByName("RANGE"));
-                        inputs[0].add(id);
-                    }
-                }
-                // If this is a link node, follow the link
-                if(n.ntype== ConfigTree.NTYPE.LINK) {
-                    // TODO: God this is ugly.  Please forgive me.
-                    shared = n;
-                    tree.walk(tree.getNodeAtLongname(((ConfigTree.RefNode)n).path),this);
+        input_descriptors[1].add(makeInputDescriptor(1,"VOLTAGE"   ,true, "MEAN","V"  ,false));
+        input_descriptors[1].add(makeInputDescriptor(1,"VOLTAGE"   ,true, "RMS", "V"  ,false));
+        input_descriptors[1].add(makeInputDescriptor(1,"TEMP"      ,false,"MEAN","K"  ,false));
+        input_descriptors[1].add(makeInputDescriptor(1,"AUX_V"     ,true ,"MEAN","V"  ,true));
+        input_descriptors[1].add(makeInputDescriptor(1,"AUX_V"     ,true, "RMS", "V"  ,true));
+        input_descriptors[1].add(makeInputDescriptor(1,"RESISTANCE",false,"MEAN","Ohm",true));
+        input_descriptors[1].add(makeInputDescriptor(1,"DIODE"     ,false,"MEAN","V"  ,true));
+
+        // Figure out which input we're presently reading based on the tree state
+        for(InputDescriptor d:input_descriptors[0]) {
+            if(getInputNode(0) == d.input_node) {
+                if(d.analysis_node == tree.getNode("CH1:ANALYSIS").getChosen()) {
+                    input_descriptors_indices[0] = input_descriptors[0].indexOf(d);
                 }
             }
         }
-        inputs[0] = input_descriptors[0];
-        tree.walk(tree.getNodeAtLongname("CH1"),new localNodeProcessor());
-        inputs[0] = input_descriptors[1];
-        tree.walk(tree.getNodeAtLongname("CH2"),new localNodeProcessor());
-
-        // Figure out which input we're presently reading based on the tree state
-        //input_descriptors_indices[0] =
-
+        for(InputDescriptor d:input_descriptors[1]) {
+            if(getInputNode(1) == d.input_node) {
+                if(d.analysis_node == tree.getNode("CH2:ANALYSIS").getChosen()) {
+                    input_descriptors_indices[1] = input_descriptors[1].indexOf(d);
+                }
+            }
+        }
         return rval;
-    }
-
-    @Override
-    public int getBufLen() {
-        String dstring = tree.getChosenName("SAMPLING:DEPTH");
-        return Integer.parseInt(dstring);
-    }
-
-    @Override
-    public void getBuffer(NotifyHandler onReceived) {
-
     }
 
     @Override
@@ -255,26 +234,23 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // Sampling off
         tree.command("SAMPLING:TRIGGER 0");
     }
-
     @Override
     public void playSampleStream(final NotifyHandler ch1_notify, final NotifyHandler ch2_notify) {
-        tree.getNodeAtLongname("CH1:VALUE").clearNotifyHandlers();
-        tree.getNodeAtLongname("CH2:VALUE").clearNotifyHandlers();
-        tree.getNodeAtLongname("CH1:VALUE").addNotifyHandler(ch1_notify);
-        tree.getNodeAtLongname("CH2:VALUE").addNotifyHandler(ch2_notify);
+        tree.getNode("CH1:VALUE").clearNotifyHandlers();
+        tree.getNode("CH2:VALUE").clearNotifyHandlers();
+        tree.getNode("CH1:VALUE").addNotifyHandler(ch1_notify);
+        tree.getNode("CH2:VALUE").addNotifyHandler(ch2_notify);
         // Sampling Continuous
         tree.command("SAMPLING:TRIGGER 2");
     }
-
     @Override
     public boolean isStreaming() {
         return tree.getChosenName("SAMPLING:TRIGGER").equals("CONTINUOUS");
     }
-
     @Override
     public boolean bumpRange(int channel, boolean expand, boolean wrap) {
-        ConfigTree.ConfigNode rnode = getInputNode(channel).getChildByName("RANGE");
-        int cnum = (Integer)rnode.getValue();
+        ConfigTree.ConfigNode rnode = getInputNode(channel);
+        int cnum = (Integer)tree.getNode(getChString(channel)+":RANGE_I").getValue();
         int n_choices = rnode.children.size();
         if(!wrap) {
             // If we're not wrapping and we're against a wall
@@ -287,24 +263,22 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         cnum += expand?1:-1;
         cnum %= n_choices;
-        rnode.children.get(cnum).choose();
+        tree.command(getChString(channel) + ":RANGE_I " + cnum);
         return true;
     }
-
     private float getMinRangeForChannel(int c) {
-        ConfigTree.ConfigNode rnode = getInputNode(c).getChildByName("RANGE");
-        int cnum = (Integer)rnode.getValue();
+        ConfigTree.ConfigNode rnode = getInputNode(c);
+        int cnum = (Integer)tree.getNode(getChString(c)+":RANGE_I").getValue();
         cnum = cnum>0?cnum-1:cnum;
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)0.9 * Float.parseFloat(choice.getShortName());
     }
-
     private float getMaxRangeForChannel(int c) {
-        ConfigTree.ConfigNode rnode = getInputNode(c).getChildByName("RANGE");
-        ConfigTree.ConfigNode choice = rnode.children.get((Integer)rnode.getValue());
+        ConfigTree.ConfigNode rnode = getInputNode(c);
+        int cnum = (Integer)tree.getNode(getChString(c)+":RANGE_I").getValue();
+        ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return Float.parseFloat(choice.getShortName());
     }
-
     private boolean applyAutorange(int c) {
         if(!range_auto[c]) {
             return false;
@@ -327,9 +301,29 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         boolean rval = false;
         rval |= applyAutorange(0);
         rval |= applyAutorange(1);
+        boolean rms_on = tree.getNode(getChString(0)+":ANALYSIS").getChosen().getShortName().equals("RMS")
+                ||tree.getNode(getChString(1)+":ANALYSIS").getChosen().getShortName().equals("RMS");
         if(rate_auto) {
+            if( rms_on ) {
+                if(!tree.getChosenName("SAMPLING:RATE").equals("4000")) {
+                    tree.command("SAMPLING:RATE 5");
+                }
+            } else {
+                if(!tree.getChosenName("SAMPLING:RATE").equals("125")) {
+                    tree.command("SAMPLING:RATE 0");
+                }
+            }
         }
         if(depth_auto) {
+            if( rms_on ) {
+                if(!tree.getChosenName("SAMPLING:DEPTH").equals("256")) {
+                    tree.command("SAMPLING:DEPTH 3");
+                }
+            } else {
+                if(!tree.getChosenName("SAMPLING:DEPTH").equals("64")) {
+                    tree.command("SAMPLING:DEPTH 1");
+                }
+            }
         }
         return rval;
     }
@@ -364,104 +358,92 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
     @Override
-    public String getDescriptor(int channel) {
-        return input_descriptors[channel].get(input_descriptors_indices[channel]).name;
-    }
-    @Override
     public String getUnits(int channel) {
-        // This one we will have to do manually
-        String name = getInputLabel(channel);
-        if(units_map.containsKey(name)) {
-            return units_map.get(name);
-        }
-        return "NONE";
+        return getSelectedDescriptor(channel).units;
     }
     @Override
     public String getInputLabel(int channel) {
-        // TODO: Clean this up
-        return getDescriptor(channel);
+        return getSelectedDescriptor(channel).name;
     }
-
     public int getSampleRateIndex() {
         return (Integer)getValueAt("SAMPLING:RATE");
     }
-
     @Override
     public int getSampleRateHz() {
         String dstring = tree.getChosenName("SAMPLING:RATE");
         return Integer.parseInt(dstring);
     }
-
     @Override
     public int setSampleRateIndex(int i) {
         String cmd = "SAMPLING:RATE " + i;
         tree.command(cmd);
         return 0;
     }
-
     @Override
     public List<String> getSampleRateListHz() {
-        return getChildNameList(tree.getNodeAtLongname("SAMPLING:RATE"));
+        return getChildNameList(tree.getNode("SAMPLING:RATE"));
     }
-
     @Override
     public int getBufferDepth() {
         String dstring = tree.getChosenName("SAMPLING:DEPTH");
         return Integer.parseInt(dstring);
     }
-
     public int getBufferDepthIndex() {
         return (Integer)getValueAt("SAMPLING:DEPTH");
     }
-
     @Override
     public int setBufferDepthIndex(int i) {
         String cmd = "SAMPLING:DEPTH " + i;
         tree.command(cmd);
         return 0;
     }
-
     @Override
     public List<String> getBufferDepthList() {
-        return getChildNameList(tree.getNodeAtLongname("SAMPLING:DEPTH"));
+        return getChildNameList(tree.getNode("SAMPLING:DEPTH"));
     }
-
     @Override
     public boolean getLoggingOn() {
         int i = (Integer)getValueAt("LOG:ON");
         return i!=0;
     }
-
     @Override
     public void setLoggingOn(boolean on) {
         int i=on?1:0;
         tree.command("LOG:ON "+i);
     }
-
+    @Override
+    public String getLoggingStatusMessage() {
+        final String messages[] = {
+                "OK",
+                "NO_MEDIA",
+                "MOUNT_FAIL",
+                "INSUFFICIENT_SPACE",
+                "WRITE_ERROR",
+                "END_OF_FILE",
+        };
+        return messages[getLoggingStatus()];
+    }
     @Override
     public int getLoggingStatus() {
         return (Integer)getValueAt("LOG:STATUS");
     }
-
     @Override
     public String getRangeLabel(int c) {
-        InputDescriptor id = input_descriptors[c].get(input_descriptors_indices[c]);
-        int range_i = (Integer)getInputNode(c).getChildByName("RANGE").getValue();
+        InputDescriptor id = getSelectedDescriptor(c);
+        int range_i = (Integer)tree.getNode(getChString(c) + ":RANGE_I").getValue();
         // FIXME: This is borking because our internal descriptor structures are out of sync with the configtree updates
         RangeDescriptor rd =id.ranges.get(range_i);
         return rd.name;
     }
-
     @Override
     public List<String> getRangeList(int c) {
-        InputDescriptor id = input_descriptors[c].get(input_descriptors_indices[c]);
+        InputDescriptor id = getSelectedDescriptor(c);
         List<String> rval = new ArrayList<String>();
         for(RangeDescriptor rd:id.ranges) {
             rval.add(rd.name);
         }
         return rval;
     }
-
     @Override
     public int setRangeIndex(int c, int r) {
         InputDescriptor id = input_descriptors[c].get(input_descriptors_indices[c]);
@@ -469,7 +451,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         rd.node.choose();
         return 0;
     }
-
     @Override
     public String getValueLabel(int c) {
         String value_str = getChString(c)+":VALUE";
@@ -481,12 +462,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         SignificantDigits digits = getSigDigits(c);
         return formatReading((Float) d, digits);
     }
-
     @Override
     public int getInputIndex(int c) {
         return input_descriptors_indices[c];
     }
-
     @Override
     public int setInputIndex(int c, int mapping) {
         if(input_descriptors_indices[c] == mapping) {
@@ -502,7 +481,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         inputDescriptor.analysis_node.choose();
         return 0;
     }
-
     @Override
     public List<String> getInputList(int c) {
         List<String> rval = new ArrayList<String>();
@@ -510,5 +488,36 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             rval.add(d.name);
         }
         return rval;
+    }
+
+    @Override
+    public float getRealPower() {
+        if(getSelectedDescriptor(0).units.equals("A") && getSelectedDescriptor(1).units.equals("V")) {
+            return getPowerFactor()*getApparentPower();
+        }
+        return(0/0);
+    }
+
+    @Override
+    public float getApparentPower() {
+        if(getSelectedDescriptor(0).units.equals("A") && getSelectedDescriptor(1).units.equals("V")) {
+            float ch1 = (Float)getValueAt("CH1:VALUE");
+            float ch2 = (Float)getValueAt("CH2:VALUE");
+            return ch1*ch2; // Return watts
+        }
+        return(0/0);
+    }
+
+    @Override
+    public float getPowerFactor() {
+        if(getSelectedDescriptor(0).units.equals("A") && getSelectedDescriptor(1).units.equals("V")) {
+            return (Float)getValueAt("PWR_FACTOR");
+        }
+        return (0/0);
+    }
+
+    @Override
+    public float getKTypeThermoTemp() {
+        return 0;
     }
 }
