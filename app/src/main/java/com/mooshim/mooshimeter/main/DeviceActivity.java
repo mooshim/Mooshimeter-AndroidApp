@@ -60,6 +60,8 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
+import android.text.Html;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -73,20 +75,19 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.ConfigTree;
 import com.mooshim.mooshimeter.common.CooldownTimer;
+import com.mooshim.mooshimeter.common.MooshimeterDelegate;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
-import com.mooshim.mooshimeter.main.legacy.PreferencesActivity;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-public class DeviceActivity extends MyActivity {
+import me.grantland.widget.AutofitHelper;
+
+public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final String TAG = "DeviceActivity";
 
     private static int PREF_ACT_REQ = 1;
@@ -94,7 +95,6 @@ public class DeviceActivity extends MyActivity {
 
     // Callback handles
     private int disconnect_handle = -1;
-    private Map<String,NotifyHandler> handlers = new HashMap<String,NotifyHandler>();
 
 	// BLE
     private MooshimeterDeviceBase mMeter = null;
@@ -116,10 +116,16 @@ public class DeviceActivity extends MyActivity {
     private Button power_button;
 
     // GUI housekeeping
-    private final static GradientDrawable AUTO_GRADIENT    = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFF00FF00,0xFF00CC00});
-    private final static GradientDrawable MANUAL_GRADIENT  = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFF0000,0xFFCC0000});
-    private final static GradientDrawable DISABLE_GRADIENT = new GradientDrawable( GradientDrawable.Orientation.BOTTOM_TOP, new int[] {0xFFBBBBBB,0xFF888888});
-    private final static GradientDrawable ENABLE_GRADIENT  = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, new int[] {0xFFFFFFFF,0xFFCCCCCC});
+
+    private static GradientDrawable __getDrawable(int[] colors) {
+        GradientDrawable rval = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, colors);
+        rval.setStroke(1, 0xFF999999);
+        return rval;
+    }
+    private static GradientDrawable getAutoGradient()   {return __getDrawable(new int[] {0xFF00FF00,0xFF00CC00});}
+    private static GradientDrawable getManualGradient() {return __getDrawable(new int[] {0xFFFF0000,0xFFCC0000});}
+    private static GradientDrawable getDisableGradient(){return __getDrawable(new int[] {0xFFBBBBBB,0xFF888888});}
+    private static GradientDrawable getEnableGradient() {return __getDrawable(new int[] {0xFFFFFFFF,0xFFCCCCCC});}
 
     // Helpers
     private CooldownTimer autorange_cooldown = new CooldownTimer();
@@ -132,41 +138,44 @@ public class DeviceActivity extends MyActivity {
     };
     private PowerOption chosen_power_option = PowerOption.REAL_POWER;
 
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
+    private TextView findAndAutofit(int id) {
+        TextView rval = (TextView)findViewById(id);
+        AutofitHelper a = AutofitHelper.create(rval);
+        a.setMaxLines(1);
+        a.setEnabled(true);
+        return rval;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
 
         // GUI
         setContentView(R.layout.activity_meter_new);
 
-        AUTO_GRADIENT   .setStroke(1, 0xFF999999);
-        MANUAL_GRADIENT .setStroke(1, 0xFF999999);
-        DISABLE_GRADIENT.setStroke(1, 0xFF999999);
-        ENABLE_GRADIENT .setStroke(1, 0xFF999999);
-
         // Bind the GUI elements
-        value_labels[0] = (TextView) findViewById(R.id.ch1_value_label);
-        value_labels[1] = (TextView) findViewById(R.id.ch2_value_label);
-        power_label     = (TextView) findViewById(R.id.power_label);
+        value_labels[0]        =         findAndAutofit(R.id.ch1_value_label);
+        value_labels[1]        =         findAndAutofit(R.id.ch2_value_label);
+        power_label            =         findAndAutofit(R.id.power_label);
 
-        input_set_buttons  [0] = (Button) findViewById(R.id.ch1_input_set_button);
-        range_buttons      [0] = (Button) findViewById(R.id.ch1_range_button);
-        math_buttons       [0] = (Button) findViewById(R.id.ch1_math_button);
-        zero_buttons       [0] = (Button) findViewById(R.id.ch1_zero_button);
-        sound_buttons      [0] = (Button) findViewById(R.id.ch1_sound_button);
+        input_set_buttons  [0] = (Button)findAndAutofit(R.id.ch1_input_set_button);
+        range_buttons      [0] = (Button)findViewById  (R.id.ch1_range_button);
+        math_buttons       [0] = (Button)findAndAutofit(R.id.ch1_math_button);
+        zero_buttons       [0] = (Button)findAndAutofit(R.id.ch1_zero_button);
+        sound_buttons      [0] = (Button)findAndAutofit(R.id.ch1_sound_button);
 
-        input_set_buttons  [1] = (Button) findViewById(R.id.ch2_input_set_button);
-        range_buttons      [1] = (Button) findViewById(R.id.ch2_range_button);
-        math_buttons       [1] = (Button) findViewById(R.id.ch2_math_button);
-        zero_buttons       [0] = (Button) findViewById(R.id.ch2_zero_button);
-        sound_buttons      [0] = (Button) findViewById(R.id.ch2_sound_button);
+        input_set_buttons  [1] = (Button)findAndAutofit(R.id.ch2_input_set_button);
+        range_buttons      [1] = (Button)findViewById(R.id.ch2_range_button);
+        math_buttons       [1] = (Button)findAndAutofit(R.id.ch2_math_button);
+        zero_buttons       [0] = (Button)findAndAutofit(R.id.ch2_zero_button);
+        sound_buttons      [0] = (Button)findAndAutofit(R.id.ch2_sound_button);
 
-        rate_button       = (Button) findViewById(R.id.rate_button);
-        depth_button      = (Button) findViewById(R.id.depth_button);
-        logging_button    = (Button) findViewById(R.id.log_button);
-        graph_button      = (Button) findViewById(R.id.graph_button);
-        power_button      = (Button) findViewById(R.id.power_button);
+        rate_button            = (Button)findViewById  (R.id.rate_button);
+        depth_button           = (Button)findViewById(R.id.depth_button);
+        logging_button         = (Button)findAndAutofit(R.id.log_button);
+        graph_button           = (Button)findAndAutofit(R.id.graph_button);
+        power_button           = (Button)findAndAutofit(R.id.power_button);
 	}
 
 	@Override
@@ -214,25 +223,13 @@ public class DeviceActivity extends MyActivity {
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        clearHandlers();
-    }
-
-    void attachHandlerToTree(String name,NotifyHandler h) {
-        MooshimeterDevice tmp = (MooshimeterDevice) mMeter;
-        if (0 == tmp.tree.addNotifyHandler(name, h)) {
-            handlers.put(name,h);
-        }
-    }
-    void clearHandlers() {
-        MooshimeterDevice tmp = (MooshimeterDevice) mMeter;
-        for(String name: handlers.keySet()) {
-            ConfigTree.ConfigNode n = tmp.tree.getNode(name);
-            if(n==null) {
-                continue;
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.pause();
+                mMeter.removeDelegate();
             }
-            n.removeNotifyHandler(handlers.get(name));
-        }
-        handlers.clear();
+        });
     }
 
 	@Override
@@ -240,72 +237,16 @@ public class DeviceActivity extends MyActivity {
 		super.onResume();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         refreshTitle();
+
+        final MooshimeterDelegate d = this;
+
         Util.dispatch(new Runnable() {
             @Override
             public void run() {
-                mMeter.playSampleStream(null, new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        Util.dispatch(new Runnable() {
-                            @Override
-                            public void run() {
-                                valueLabelRefresh(0);
-                                valueLabelRefresh(1);
-                                if (autorange_cooldown.expired && mMeter.applyAutorange()) {
-                                    autorange_cooldown.fire(100);
-                                    refreshAllControls();
-                                }
-                            }
-                        });
-                    }
-                });
+                mMeter.setDelegate(d);
+                mMeter.stream();
                 Log.i(TAG, "Stream requested");
                 refreshAllControls();
-
-                attachHandlerToTree("LOG:ON", new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                logging_button_refresh();
-                            }
-                        });
-                    }
-                });
-                attachHandlerToTree("LOG:STATUS", new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                logging_button_refresh();
-                            }
-                        });
-                    }
-                });
-                attachHandlerToTree("BAT_V", new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                refreshTitle();
-                            }
-                        });
-                    }
-                });
-                attachHandlerToTree("PWR_FACTOR", new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                power_label_refresh();
-                            }
-                        });
-                    }
-                });
             }
         });
     }
@@ -340,9 +281,9 @@ public class DeviceActivity extends MyActivity {
     }
 
 	private void startPreferenceActivity() {
-		final Intent i = new Intent(this, PreferencesActivity.class);
-        i.putExtra("addr", mMeter.getAddress());
-		startActivityForResult(i, PREF_ACT_REQ);
+		//final Intent i = new Intent(this, PreferencesActivity.class);
+        //i.putExtra("addr", mMeter.getAddress());
+		//startActivityForResult(i, PREF_ACT_REQ);
 	}
 
 	private void setError(final String txt) {
@@ -378,13 +319,26 @@ public class DeviceActivity extends MyActivity {
         });
     }
     private void disableableButtonRefresh(Button b, String title, boolean en) {
-        final GradientDrawable bg = en?ENABLE_GRADIENT:DISABLE_GRADIENT;
+        final GradientDrawable bg = en?getEnableGradient():getDisableGradient();
         b.setText(title);
         b.setBackground(bg);
     }
+    private void autoButtonRefresh(final Button b, final String title, boolean auto) {
+        final GradientDrawable bg = auto?getDisableGradient():getEnableGradient();
+        final String composite = String.format("%s<br/><big><big>%s</big></big>",auto?"AUTO":"MANUAL",title);
+        final CharSequence s = Html.fromHtml(composite);
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                b.setText(s);
+                b.setBackground(bg);
+            }
+        });
+    }
     private void refreshTitle() {
         MooshimeterDevice tmp = (MooshimeterDevice)mMeter;
-        StringBuilder s = new StringBuilder();
+        final StringBuilder s = new StringBuilder();
         s.append(mMeter.getBLEDevice().getName());
         while(s.length()<20) {
             s.append(' ');
@@ -395,13 +349,19 @@ public class DeviceActivity extends MyActivity {
         if(soc_percent<0){soc_percent=0;}
         if(soc_percent>100){soc_percent=100;}
         s.append(String.format("BAT:%d%%", (int) soc_percent));
-        setTitle(s.toString());
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setTitle(s.toString());
+            }
+        });
     }
     private void power_label_refresh() {
         // Refresh both the power label and the power button
-        float val=0;
+        /*final float val=0;
         switch(chosen_power_option) {
             case REAL_POWER:
+
                 val = mMeter.getRealPower();
                 break;
             case APPARENT_POWER:
@@ -413,9 +373,14 @@ public class DeviceActivity extends MyActivity {
             case K_THERMOCOUPLE:
                 val = 0;
                 break;
-        }
-        power_label.setText(String.format("%f",val));
-        power_button.setText(chosen_power_option.toString());
+        }*/
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                power_label.setText(mMeter.getPowerLabel());
+                power_button.setText(chosen_power_option.toString());
+            }
+        });
     }
     private void power_button_refresh() {
         power_label_refresh();
@@ -426,35 +391,42 @@ public class DeviceActivity extends MyActivity {
     private void rate_button_refresh() {
         int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
-        disableableButtonRefresh(rate_button, title, !mMeter.rate_auto);
+        autoButtonRefresh(rate_button, title, mMeter.rate_auto);
     }
     private void depth_button_refresh() {
         int depth = mMeter.getBufferDepth();
         String title = String.format("%dsmpl", depth);
-        disableableButtonRefresh(depth_button, title, !mMeter.depth_auto);
+        autoButtonRefresh(depth_button, title, mMeter.depth_auto);
     }
     private void logging_button_refresh() {
         int s = mMeter.getLoggingStatus();
-        GradientDrawable bg;
-        String title;
-        if(s!=0) {
-            bg = MANUAL_GRADIENT;
-            title = mMeter.getLoggingStatusMessage();
+        final String title;
+        final boolean logging_ok = s==0;
+        if(logging_ok) {
+            title = mMeter.getLoggingOn()?"Logging:ON":"Logging:OFF";
         } else {
-            boolean b = mMeter.getLoggingOn();
-            bg = b?AUTO_GRADIENT:MANUAL_GRADIENT;
-            title = b?"Logging:ON":"Logging:OFF";
+            title = mMeter.getLoggingStatusMessage();
         }
-        logging_button.setBackground(bg);
-        logging_button.setText(title);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                disableableButtonRefresh(logging_button,title,logging_ok);
+            }
+        });
     }
     private void input_set_button_refresh(final int c) {
-        input_set_buttons[c].setText(mMeter.getInputLabel(c));
+        final String s = mMeter.getInputLabel(c);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                input_set_buttons[c].setText(s);
+            }
+        });
     }
     private void range_button_refresh(final int c) {
         String lval = "";
         lval = mMeter.getRangeLabel(c);
-        disableableButtonRefresh(range_buttons[c],lval,!mMeter.range_auto[c]);
+        autoButtonRefresh(range_buttons[c],lval,mMeter.range_auto[c]);
     }
     private void valueLabelRefresh(final int c) {
         final TextView v = value_labels[c];
@@ -503,7 +475,6 @@ public class DeviceActivity extends MyActivity {
                 refreshAllControls();
             }
         });
-        refreshAllControls();
     }
     private void onRangeClick(final int c) {
         List<String> options = mMeter.getRangeList(c);
@@ -520,7 +491,6 @@ public class DeviceActivity extends MyActivity {
                 refreshAllControls();
             }
         });
-        refreshAllControls();
     }
     private void onSoundClick(final int c) {
         Log.i(TAG, "onCh" + c + "SoundClick");
@@ -545,27 +515,37 @@ public class DeviceActivity extends MyActivity {
     }
     public void onRateClick(View v) {
         Log.i(TAG, "onRateClick");
-        makePopupMenu(mMeter.getSampleRateListHz(), rate_button, new NotifyHandler() {
+        List<String> options = mMeter.getSampleRateList();
+        options.add(0, "AUTORANGE");
+        makePopupMenu(options, rate_button, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 popupMenu = null;
-                mMeter.setSampleRateIndex((Integer) payload);
+                int choice = (Integer) payload;
+                mMeter.rate_auto = choice == 0;
+                if (!mMeter.rate_auto) {
+                    mMeter.setSampleRateIndex(choice - 1);
+                }
                 refreshAllControls();
             }
         });
-        refreshAllControls();
     }
     public void onDepthClick(View v) {
         Log.i(TAG, "onDepthClick");
-        makePopupMenu(mMeter.getBufferDepthList(), depth_button, new NotifyHandler() {
+        List<String> options = mMeter.getBufferDepthList();
+        options.add(0, "AUTORANGE");
+        makePopupMenu(options, depth_button, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 popupMenu = null;
-                mMeter.setBufferDepthIndex((Integer) payload);
+                int choice = (Integer) payload;
+                mMeter.depth_auto = choice == 0;
+                if (!mMeter.depth_auto) {
+                    mMeter.setBufferDepthIndex(choice - 1);
+                }
                 refreshAllControls();
             }
         });
-        refreshAllControls();
     }
     public void onGraphClick(View v) {
         Log.i(TAG, "onGraphClick");
@@ -579,7 +559,6 @@ public class DeviceActivity extends MyActivity {
         } else {
             mMeter.setLoggingOn(!mMeter.getLoggingOn());
         }
-        refreshAllControls();
     }
     public void onCh1MathClick (View v) {
         Log.i(TAG, "onCh1MathClick");
@@ -615,5 +594,76 @@ public class DeviceActivity extends MyActivity {
                 });
             }
         });
+    }
+
+    //////////////////////////
+    // MooshimeterDelegate calls
+    //////////////////////////
+
+    @Override
+    public void onInit() {
+
+    }
+
+    @Override
+    public void onDisconnect() {
+
+    }
+
+    @Override
+    public void onBatteryVoltageReceived(float voltage) {
+        refreshTitle();
+    }
+
+    @Override
+    public void onSampleReceived(int channel, float val) {
+        valueLabelRefresh(channel);
+        // Run the autorange only on channel 2
+        if (channel==1 && autorange_cooldown.expired) {
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    if(mMeter.applyAutorange()) {
+                        autorange_cooldown.fire(100);
+                        refreshAllControls();
+                    }
+                }
+            });
+        }
+    }
+
+    @Override
+    public void onBufferReceived(int channel, float dt, float[] val) {
+
+    }
+
+    @Override
+    public void onSampleRateChanged(int i, int sample_rate_hz) {
+        rate_button_refresh();
+    }
+
+    @Override
+    public void onBufferDepthChanged(int i, int buffer_depth) {
+        depth_button_refresh();
+    }
+
+    @Override
+    public void onLoggingStatusChanged(boolean on, int new_state, String message) {
+        logging_button_refresh();
+    }
+
+    @Override
+    public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {
+        range_button_refresh(c);
+    }
+
+    @Override
+    public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {
+        input_set_button_refresh(c);
+    }
+
+    @Override
+    public void onRealPowerCalculated(float val) {
+        power_label_refresh();
     }
 }

@@ -84,6 +84,10 @@ public class PeripheralWrapper {
 
     // Anything that has to do with the BluetoothGatt needs to go through here
     private int protectedCall(final Interruptable r) {
+        if(Util.onCBThread()) {
+            Log.e(TAG,"DON'T DO BLE STUFF FROM THE CB THREAD!");
+            new Exception().printStackTrace();
+        }
         Util.blockUntilRunOnMainThread(new Runnable() {
             @Override
             public void run() {
@@ -162,7 +166,7 @@ public class PeripheralWrapper {
                 synchronized (mConnectionStateCB) {
                     List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
                     for(Runnable cb : cbs) {
-                        Util.dispatch(cb);
+                        Util.dispatch_cb(cb);
                     }
                 }
                 bleStateCondition   .sig();

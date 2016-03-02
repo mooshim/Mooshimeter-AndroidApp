@@ -56,4 +56,5 @@ dependencies {
     compile 'com.android.support:support-v4:19.1.0'
     compile project(':GraphView')
     compile group: 'org.msgpack', name: 'msgpack', version: '0.6.9'
+    compile 'me.grantland:autofittextview:0.2.+'
 }

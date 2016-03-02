@@ -4,11 +4,9 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.util.Log;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
@@ -46,13 +44,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // MEMBERS FOR TRACKING AVAILABLE INPUTS AND RANGES
     ////////////////////////////////
 
-    class RangeDescriptor {
+    public static class RangeDescriptor {
         public String name;
         public float max;
         public ConfigTree.ConfigNode node;
     }
 
-    class InputDescriptor {
+    public static class InputDescriptor {
         public String name;
         public List<RangeDescriptor> ranges = new ArrayList<RangeDescriptor>();
         public String units;
@@ -181,8 +179,37 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         } else {
             i.input_node    = tree.getNode(getChString(c)+":MAPPING:"+name);
         }
-        addRangeDescriptors(i,i.input_node);
+        addRangeDescriptors(i, i.input_node);
         return i;
+    }
+
+    private int determineInputDescriptorIndex(int c) {
+        for(InputDescriptor d:input_descriptors[c]) {
+            if(getInputNode(c) == d.input_node) {
+                if(d.analysis_node == tree.getNode(getChString(c)+":ANALYSIS").getChosen()) {
+                    input_descriptors_indices[c] = input_descriptors[c].indexOf(d);
+                }
+            }
+        }
+        return input_descriptors_indices[c];
+    }
+
+    private float[] interpretSampleBuffer(int c, byte[] payload) {
+        ByteBuffer b = ByteBuffer.wrap(payload);
+        int bytes_per_sample = (Integer)tree.getValueAt(getChString(c)+"BUF_BPS");
+        bytes_per_sample /= 8;
+        float lsb2native = (Integer)tree.getValueAt(getChString(c)+"BUF_LSB2NATIVE");
+        int n_samples = payload.length/bytes_per_sample;
+        float[] rval = new float[n_samples];
+        for(int i = 0; i < n_samples; i++) {
+            int val=0;
+            if(bytes_per_sample==3)      {val = getInt24(b);}
+            else if(bytes_per_sample==2) {val = b.getShort();}
+            else if(bytes_per_sample==1) {val = b.get();}
+            else{new Exception().printStackTrace();}
+            rval[i] = ((float)val)*lsb2native;
+        }
+        return rval;
     }
 
     @Override
@@ -193,12 +220,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         tree.attach(this, mUUID.METER_SERIN, mUUID.METER_SEROUT);
 
+        // At this point the tree is loaded.  Refresh all values in the tree.
         tree.refreshAll();
 
         input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "MEAN","A"  ,false));
         input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "RMS" ,"A"  ,false));
         input_descriptors[0].add(makeInputDescriptor(0,"TEMP"      ,false,"MEAN","K"  ,false));
-        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "MEAN","V"  ,true));
+        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "MEAN", "V"  ,true));
         input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "RMS" ,"V"  ,true));
         input_descriptors[0].add(makeInputDescriptor(0,"RESISTANCE",false,"MEAN","Ohm",true));
         input_descriptors[0].add(makeInputDescriptor(0,"DIODE"     ,false,"MEAN","V"  ,true));
@@ -212,41 +240,138 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         input_descriptors[1].add(makeInputDescriptor(1,"DIODE"     ,false,"MEAN","V"  ,true));
 
         // Figure out which input we're presently reading based on the tree state
-        for(InputDescriptor d:input_descriptors[0]) {
-            if(getInputNode(0) == d.input_node) {
-                if(d.analysis_node == tree.getNode("CH1:ANALYSIS").getChosen()) {
-                    input_descriptors_indices[0] = input_descriptors[0].indexOf(d);
-                }
+        determineInputDescriptorIndex(0);
+        determineInputDescriptorIndex(1);
+
+        // Stitch together updates on nodes of the config tree with calls to the delegate
+
+        attachCallback("CH1:MAPPING", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                determineInputDescriptorIndex(0);
+                delegate.onInputChange(0, input_descriptors_indices[0], getSelectedDescriptor(0));
             }
-        }
-        for(InputDescriptor d:input_descriptors[1]) {
-            if(getInputNode(1) == d.input_node) {
-                if(d.analysis_node == tree.getNode("CH2:ANALYSIS").getChosen()) {
-                    input_descriptors_indices[1] = input_descriptors[1].indexOf(d);
-                }
+        });
+        attachCallback("CH1:ANALYSIS", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                determineInputDescriptorIndex(0);
+                delegate.onInputChange(0, input_descriptors_indices[0], getSelectedDescriptor(0));
             }
-        }
+        });
+        attachCallback("CH2:MAPPING", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                determineInputDescriptorIndex(1);
+                delegate.onInputChange(1, input_descriptors_indices[1], getSelectedDescriptor(1));
+            }
+        });
+        attachCallback("CH2:ANALYSIS", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                determineInputDescriptorIndex(1);
+                delegate.onInputChange(1, input_descriptors_indices[1], getSelectedDescriptor(1));
+            }
+        });
+        attachCallback("CH1:VALUE",new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onSampleReceived(0, (Float) payload);
+            }
+        });
+        attachCallback("CH2:VALUE",new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onSampleReceived(1,(Float)payload);
+            }
+        });
+        attachCallback("CH1:BUF", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                // payload is a byte[] which we must translate in to
+                float[] samplebuf = interpretSampleBuffer(0,(byte[])payload);
+                delegate.onBufferReceived(0, 1 / getSampleRateHz(), samplebuf);
+            }
+        });
+        attachCallback("CH2:BUF", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                // payload is a byte[] which we must translate in to
+                float[] samplebuf = interpretSampleBuffer(1,(byte[])payload);
+                delegate.onBufferReceived(1,1/getSampleRateHz(),samplebuf);
+            }
+        });
+        attachCallback("REAL_PWR", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onRealPowerCalculated((Float) payload);
+            }
+        });
+        attachCallback("CH1:RANGE_I", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                int i = (Integer)payload;
+                delegate.onRangeChange(0, i, getSelectedDescriptor(0).ranges.get(i));
+            }
+        });
+        attachCallback("CH2:RANGE_I", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                int i = (Integer)payload;
+                delegate.onRangeChange(1, i, getSelectedDescriptor(1).ranges.get(i));
+            }
+        });
+        attachCallback("SAMPLING:RATE", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                int i = (Integer)payload;
+                delegate.onSampleRateChanged(i, getSampleRateHz());
+            }
+        });
+        attachCallback("SAMPLING:DEPTH", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                int i = (Integer)payload;
+                delegate.onBufferDepthChanged(i, getBufferDepth());
+            }
+        });
+        attachCallback("LOG:ON", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                int i = (Integer)payload;
+                delegate.onLoggingStatusChanged(i != 0, getLoggingStatus(), getLoggingStatusMessage());
+            }
+        });
+        attachCallback("LOG:STATUS", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onLoggingStatusChanged(getLoggingOn(),getLoggingStatus(),getLoggingStatusMessage());
+            }
+        });
+        attachCallback("BAT_V", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onBatteryVoltageReceived((Float)payload);
+            }
+        });
         return rval;
     }
 
     @Override
-    public void pauseStream() {
-        // Sampling off
+    public void pause() {
         tree.command("SAMPLING:TRIGGER 0");
     }
+
     @Override
-    public void playSampleStream(final NotifyHandler ch1_notify, final NotifyHandler ch2_notify) {
-        tree.getNode("CH1:VALUE").clearNotifyHandlers();
-        tree.getNode("CH2:VALUE").clearNotifyHandlers();
-        tree.getNode("CH1:VALUE").addNotifyHandler(ch1_notify);
-        tree.getNode("CH2:VALUE").addNotifyHandler(ch2_notify);
-        // Sampling Continuous
+    public void oneShot() {
+        tree.command("SAMPLING:TRIGGER 1");
+    }
+
+    @Override
+    public void stream() {
         tree.command("SAMPLING:TRIGGER 2");
     }
-    @Override
-    public boolean isStreaming() {
-        return tree.getChosenName("SAMPLING:TRIGGER").equals("CONTINUOUS");
-    }
+
     @Override
     public boolean bumpRange(int channel, boolean expand, boolean wrap) {
         ConfigTree.ConfigNode rnode = getInputNode(channel);
@@ -380,16 +505,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return 0;
     }
     @Override
-    public List<String> getSampleRateListHz() {
+    public List<String> getSampleRateList() {
         return getChildNameList(tree.getNode("SAMPLING:RATE"));
     }
     @Override
     public int getBufferDepth() {
         String dstring = tree.getChosenName("SAMPLING:DEPTH");
         return Integer.parseInt(dstring);
-    }
-    public int getBufferDepthIndex() {
-        return (Integer)getValueAt("SAMPLING:DEPTH");
     }
     @Override
     public int setBufferDepthIndex(int i) {
@@ -447,11 +569,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public int setRangeIndex(int c, int r) {
         InputDescriptor id = input_descriptors[c].get(input_descriptors_indices[c]);
-        RangeDescriptor rd =id.ranges.get(r);
-        rd.node.choose();
+        tree.command(getChString(c) + ":RANGE_I " + r);
         return 0;
     }
-    @Override
     public String getValueLabel(int c) {
         String value_str = getChString(c)+":VALUE";
         Object d = getValueAt(value_str);
@@ -462,6 +582,17 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         SignificantDigits digits = getSigDigits(c);
         return formatReading((Float) d, digits);
     }
+
+    @Override
+    public String getPowerLabel() {
+        float real_power = (Float)tree.getValueAt("REAL_PWR");
+        SignificantDigits digits_ch1 = getSigDigits(0);
+        SignificantDigits digits_ch2 = getSigDigits(1);
+        // This reading is the product of ch1 and ch2
+        digits_ch1.high += digits_ch2.high;
+        return formatReading(real_power, digits_ch1);
+    }
+
     @Override
     public int getInputIndex(int c) {
         return input_descriptors_indices[c];
@@ -488,36 +619,5 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             rval.add(d.name);
         }
         return rval;
-    }
-
-    @Override
-    public float getRealPower() {
-        if(getSelectedDescriptor(0).units.equals("A") && getSelectedDescriptor(1).units.equals("V")) {
-            return getPowerFactor()*getApparentPower();
-        }
-        return(0/0);
-    }
-
-    @Override
-    public float getApparentPower() {
-        if(getSelectedDescriptor(0).units.equals("A") && getSelectedDescriptor(1).units.equals("V")) {
-            float ch1 = (Float)getValueAt("CH1:VALUE");
-            float ch2 = (Float)getValueAt("CH2:VALUE");
-            return ch1*ch2; // Return watts
-        }
-        return(0/0);
-    }
-
-    @Override
-    public float getPowerFactor() {
-        if(getSelectedDescriptor(0).units.equals("A") && getSelectedDescriptor(1).units.equals("V")) {
-            return (Float)getValueAt("PWR_FACTOR");
-        }
-        return (0/0);
-    }
-
-    @Override
-    public float getKTypeThermoTemp() {
-        return 0;
     }
 }

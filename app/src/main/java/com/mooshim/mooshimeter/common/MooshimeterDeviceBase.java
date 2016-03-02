@@ -25,17 +25,13 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.common.legacy.LegacyMooshimeterDevice;
-
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.List;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
 
-public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
+public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements MooshimeterControlInterface {
     ////////////////////////////////
     // Statics
     ////////////////////////////////
@@ -67,6 +63,32 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
         FAHRENHEIT,
         KELVIN
     }
+
+    private static MooshimeterDelegate dummy_delegate = new MooshimeterDelegate() {
+        @Override
+        public void onInit() {        }
+        @Override
+        public void onDisconnect() {        }
+        @Override
+        public void onBatteryVoltageReceived(float voltage) {}
+        @Override
+        public void onSampleReceived(int channel, float val) {        }
+        @Override
+        public void onBufferReceived(int channel, float dt, float[] val) {        }
+        @Override
+        public void onSampleRateChanged(int i, int sample_rate_hz) {        }
+        @Override
+        public void onBufferDepthChanged(int i, int buffer_depth) {        }
+        @Override
+        public void onLoggingStatusChanged(boolean on, int new_state, String message) {        }
+        @Override
+        public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {        }
+        @Override
+        public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {        }
+        @Override
+        public void onRealPowerCalculated(float val) {        }
+    };
+    public MooshimeterDelegate delegate = dummy_delegate;
 
     // Display control settings
     public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
@@ -106,7 +128,6 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
         return b;
     }
 
-
     // Used so the inner classes have something to grab
     public MooshimeterDeviceBase mInstance;
 
@@ -115,17 +136,17 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
     public boolean          mInitialized = false;
 
     public static MooshimeterDeviceBase makeDeviceForFirmwareVersion(final int fw_version, final BluetoothDevice device, final Context context) {
-        if(fw_version > 1454355414) { // FIXME find actual build time (This is Feb 1 2016)
-            return new MooshimeterDevice(device,context);
-        } else {
-            return new LegacyMooshimeterDevice(device,context);
-        }
+        return new MooshimeterDevice(device,context);
+        //if(fw_version > 1454355414) { // FIXME find actual build time (This is Feb 1 2016)
+        //    return new MooshimeterDevice(device,context);
+        //} else {
+        //    return new LegacyMooshimeterDevice(device,context);
+        //}
     }
 
     public MooshimeterDeviceBase(final BluetoothDevice device, final Context context) {
         // Initialize super
         super(device,context);
-
         mInstance = this;
     }
 
@@ -187,16 +208,6 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
         }
         return mOADMode;
     }
-
-    /**
-     * Stop the meter from sending samples.  Opposite of playSampleStream
-     */
-    public abstract void pauseStream();
-
-    public abstract void playSampleStream(final NotifyHandler ch1_notify, final NotifyHandler ch2_notify);
-
-    public abstract boolean isStreaming();
-
     public static String formatReading(float val, MooshimeterDeviceBase.SignificantDigits digits) {
         final String prefixes[] = new String[]{"n","?","m","","k","M","G"};
         int prefix_i = 3;
@@ -226,58 +237,26 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper {
             retval = "%f";
         }
         //Truncate
-        retval = retval.substring(0, Math.min(retval.length(), 7));
         retval += prefixes[prefix_i];
         return retval;
     }
-
-    //////////////////////////////////////
-    // Autoranging
-    //////////////////////////////////////
-
-    public abstract boolean bumpRange(int channel, boolean expand, boolean wrap);
-
-    // Return true if settings changed
-    public abstract boolean applyAutorange();
 
     //////////////////////////////////////
     // Representation helpers
     //////////////////////////////////////
 
     public abstract SignificantDigits getSigDigits(final int channel);
-
     public abstract String getUnits(final int c);
 
     //////////////////////////////////////
-    // Interacting with the Mooshimeter itself
+    // MooshimeterControlInterface
     //////////////////////////////////////
-
-    public abstract int getSampleRateHz();
-    public abstract int setSampleRateIndex(int i);
-    public abstract List<String> getSampleRateListHz();
-
-    public abstract int getBufferDepth();
-    public abstract int setBufferDepthIndex(int i);
-    public abstract List<String> getBufferDepthList();
-
-    public abstract boolean getLoggingOn();
-    public abstract void setLoggingOn(boolean on);
-    public abstract int getLoggingStatus();
-    public abstract String getLoggingStatusMessage();
-
-    public abstract String       getRangeLabel(int c);
-    public abstract List<String> getRangeList(int c);
-    public abstract int          setRangeIndex(int c,int r);
-
-    public abstract String getValueLabel(int c);
-
-    public abstract String getInputLabel(final int c);
-    public abstract int getInputIndex(int c);
-    public abstract int setInputIndex(int c, int mapping);
-    public abstract List<String> getInputList(int c);
-
-    public abstract float getRealPower();
-    public abstract float getApparentPower();
-    public abstract float getPowerFactor();
-    public abstract float getKTypeThermoTemp();
+    @Override
+    public void setDelegate(MooshimeterDelegate d) {
+        delegate = d;
+    }
+    @Override
+    public void removeDelegate() {
+        delegate = dummy_delegate;
+    }
 }

@@ -47,7 +47,6 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.Util;
-import com.mooshim.mooshimeter.main.legacy.LegacyDeviceActivity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -128,15 +127,6 @@ public class ScanActivity extends MyActivity {
         super.onPause();
         // Find if we have any connected meters, if so make sure they stop streaming
         for(MooshimeterDeviceBase m : mMeterDict.values()) {
-            if(m.isConnected() && m.isStreaming()) {
-                final MooshimeterDeviceBase m_wrap = m;
-                Util.dispatch(new Runnable() {
-                    @Override
-                    public void run() {
-                        m_wrap.pauseStream();
-                    }
-                });
-            }
         }
     }
 
@@ -624,7 +614,7 @@ public class ScanActivity extends MyActivity {
 
     private void startSingleMeterActivity(MooshimeterDeviceBase m) {
         if (m.isInOADMode()) {
-            transitionToActivity(m, FwUpdateActivity.class);
+            //transitionToActivity(m, FwUpdateActivity.class);
         } else {
             // Check the firmware version against our bundled version
         /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
@@ -665,11 +655,12 @@ public class ScanActivity extends MyActivity {
     }
 
     private static Class whichActivity(int build_time) {
-        if(build_time > 1454355414) {
+        return DeviceActivity.class;
+        /*if(build_time > 1454355414) {
             return DeviceActivity.class;
         } else {
             return LegacyDeviceActivity.class;
-        }
+        }*/
     }
 
     private void toggleConnectionState(final MooshimeterDeviceBase m) {

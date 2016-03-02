@@ -6,8 +6,6 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.common.PeripheralWrapper;
-import com.mooshim.mooshimeter.common.legacy.LegacyMooshimeterDevice;
 
 import java.util.HashMap;
 import java.util.Map;

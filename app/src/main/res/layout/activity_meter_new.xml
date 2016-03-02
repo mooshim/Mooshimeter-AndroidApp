@@ -21,18 +21,22 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh1InputSetClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
-
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
         <Button
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:text="RANGE"
+            android:text="AUTO\nRANGE"
             android:id="@+id/ch1_range_button"
             android:layout_weight="1"
             android:onClick="onCh1RangeClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:textSize="16dp"
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"
+            android:gravity="center_horizontal|top"/>
 
     </LinearLayout>
 
@@ -70,7 +74,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh1MathClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
 
         <Button
             style="@style/AppBaseTheme"
@@ -81,7 +87,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh1ZeroClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"/>
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
 
         <Button
             style="@style/AppBaseTheme"
@@ -92,7 +100,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh1SoundClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"/>
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
     </LinearLayout>
 
     <Space
@@ -115,7 +125,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh2InputSetClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
 
         <Button
             android:layout_width="0dp"
@@ -125,8 +137,11 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2RangeClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:textSize="16dp"
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"
+            android:gravity="center_horizontal|top"/>
 
     </LinearLayout>
 
@@ -164,7 +179,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh2MathClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
 
         <Button
             style="@style/AppBaseTheme"
@@ -175,7 +192,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2ZeroClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"/>
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
 
         <Button
             style="@style/AppBaseTheme"
@@ -186,7 +205,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2SoundClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"/>
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
     </LinearLayout>
 
     <Space
@@ -211,7 +232,6 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:textAlignment="center"
             android:typeface="monospace"
             android:textIsSelectable="false"/>
-
         <Button
             style="@style/AppBaseTheme"
             android:layout_width="0dp"
@@ -221,7 +241,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onPowerButtonClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"/>
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
     </LinearLayout>
 
     <Space
@@ -243,8 +265,11 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onRateClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:textSize="16dp"
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"
+            android:gravity="center_horizontal|top"/>
 
         <Button
             android:layout_width="0dp"
@@ -254,8 +279,11 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="2"
             android:onClick="onDepthClick"
             style="@style/AppBaseTheme"
-            android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:textSize="16dp"
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"
+            android:gravity="center_horizontal|top"/>
     </LinearLayout>
     <LinearLayout
         android:orientation="horizontal"
@@ -272,7 +300,9 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onLoggingClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
 
         <Button
             android:layout_width="0dp"
@@ -283,6 +313,8 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onGraphClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background" />
+            android:background="@drawable/custom_button_background"
+            android:layout_gravity="center"
+            android:layout_margin="0px"/>
     </LinearLayout>
 </LinearLayout>

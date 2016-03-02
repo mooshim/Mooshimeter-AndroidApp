@@ -177,7 +177,13 @@ public class ConfigTree {
         public Object getValue() {
             return value;
         }
-        public String getShortName() { return name; }
+        public String getShortName() {
+            // For links, return the name of the node you're linking to.
+            if(ntype==NTYPE.LINK) {
+                return tree.getNode((String)getValue()).getShortName();
+            }
+            return name;
+        }
         private void getLongName(StringBuffer rval, String sep) {
             // This is the recursive call
             if(parent!=null) {
@@ -362,7 +368,7 @@ public class ConfigTree {
         public void notify(final double time_utc, final Object notification) {
             Log.d(TAG, name + ":" + notification);
             value = notification;
-            for(NotifyHandler handler:notify_handlers) {
+            for(final NotifyHandler handler:notify_handlers) {
                 handler.onReceived(time_utc, notification);
             }
             lock.l();
@@ -432,7 +438,7 @@ public class ConfigTree {
                                 // Wait for the aggregator to fill up more
                                 return;
                             }
-                            n.notify(new String(Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes)));
+                            n.notify(new String(Arrays.copyOfRange(b.array(), b.position(), b.position() + expecting_bytes)));
                             b.position(b.position() + expecting_bytes);
                             break;
                         case ConfigTree.NTYPE.VAL_BIN:
@@ -451,6 +457,10 @@ public class ConfigTree {
                 } else {
                     Log.e(TAG,"UNRECOGNIZED SHORTCODE "+opcode);
                     new Exception().printStackTrace();
+                    // This puts us in an awkward position.  Since we don't recognize
+                    // the shortcode, we don't know how far to advance the buffer.
+                    // Just clear it and hope for the best... FIXME
+                    recv_buf.clear();
                     return;
                 }
             } catch(BufferUnderflowException e){
@@ -712,8 +722,8 @@ public class ConfigTree {
         int n_codes = code_list.keySet().size();
         // Skip the first 3 codes (they are for CRC, tree and diagnostic
         for(int i = 3; i < n_codes; i++) {
-            //code_list.get(i).reqValue();
-            sendBytes(new byte[]{(byte) i});
+            code_list.get(i).reqValue();
+            //sendBytes(new byte[]{(byte) i});
         }
     }
 }

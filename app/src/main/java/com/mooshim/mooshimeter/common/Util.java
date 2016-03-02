@@ -117,46 +117,8 @@ public class Util {
         }
     }
 
-    // Worker thread
-    private static final class NamedThreadFactory implements ThreadFactory {
-        private String name;
-        public NamedThreadFactory(String n) {
-            name=n;
-        }
-        public Thread newThread(Runnable r) {
-            return new Thread(r, name);
-        }
-    }
-    // TODO don't repeat yourself
-    private static final BlockingQueue<Runnable> worker_tasks = new LinkedBlockingQueue<Runnable>();
-    private static final ExecutorService worker = new ThreadPoolExecutor(
-            1,  // Number of worker threads to run
-            1,  // Maximum number of worker threads to run
-            1,  // Timeout
-            TimeUnit.SECONDS, // Timeout units
-            worker_tasks, // Queue of runnables
-            new NamedThreadFactory("main_background") // Thread factory to generate named thread for easy debug
-    );
-
-    private static final BlockingQueue<Runnable> cb_worker_tasks = new LinkedBlockingQueue<Runnable>();
-    private static final ExecutorService cb_worker = new ThreadPoolExecutor(
-            1,  // Number of worker threads to run
-            1,  // Maximum number of worker threads to run
-            1,  // Timeout
-            TimeUnit.SECONDS, // Timeout units
-            cb_worker_tasks, // Queue of runnables
-            new NamedThreadFactory("cb_background") // Thread factory to generate named thread for easy debug
-    );
     static boolean inMainThread() {
         return Looper.getMainLooper().getThread() == Thread.currentThread();
-    }
-
-    public static void checkOnMainThread() {
-        if(!inMainThread()) {
-            Log.e(TAG, "We're not in the main thread, but we should be!");
-            Exception e = new Exception();
-            e.printStackTrace();
-        }
     }
 
     public static void checkNotOnMainThread() {
@@ -167,12 +129,18 @@ public class Util {
         }
     }
 
+    private static Dispatcher main_dispatcher = new Dispatcher("bg_thread");
+    private static Dispatcher cb_dispatcher = new Dispatcher("cb_thread");
+
     public static void dispatch(Runnable r) {
-        worker.execute(r);
+        main_dispatcher.dispatch(r);
     }
 
     public static void dispatch_cb(Runnable r) {
-        cb_worker.execute(r);
+        cb_dispatcher.dispatch(r);
+    }
+    public static boolean onCBThread() {
+        return cb_dispatcher.isCallingThread();
     }
 
     public static void postDelayed(Runnable r, int ms) {
