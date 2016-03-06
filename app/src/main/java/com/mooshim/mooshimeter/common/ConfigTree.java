@@ -5,6 +5,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 
 import java.util.Arrays;
@@ -14,15 +15,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
-import java.util.zip.Deflater;
 import java.util.zip.Inflater;
-
-import org.msgpack.MessagePack;
-import org.msgpack.type.IntegerValue;
-import org.msgpack.type.Value;
-
-import static org.msgpack.template.Templates.*;
 
 /**
  * Created by First on 2/4/2016.
@@ -53,6 +48,14 @@ public class ConfigTree {
         abstract public void process(ConfigNode n);
     }
 
+    protected static ByteBuffer wrap(byte[] in) {
+        // Generates a little endian byte buffer wrapping the byte[]
+        ByteBuffer b = ByteBuffer.wrap(in);
+        b.order(ByteOrder.LITTLE_ENDIAN);
+        return b;
+    }
+
+
     //////////////////////
     // CONFIG NODES
     //////////////////////
@@ -81,89 +84,6 @@ public class ConfigTree {
             }
             lock = new StatLockManager(tree.lock);
         }
-        public ConfigNode(ConfigTree tree_arg, int ntype_arg) {
-            this(tree_arg,ntype_arg,null,null);
-        }
-        public byte[] pack() throws IOException {
-            List<Object> l = new ArrayList<Object>();
-            packToEndOfList(l);
-            MessagePack msgpack = new MessagePack();
-            return msgpack.write(l);
-        }
-        public void unpack(byte[] arg) throws IOException {
-            MessagePack msgpack = new MessagePack();
-            List<Value> l = msgpack.read(arg, tList(TValue));
-            unpackFromFrontOfList(l);
-        }
-        private Object msgPackValueToObject(Value v) {
-            if(v==null) {return null;}
-            if(v.isNilValue()){return null;}
-            if(v.isIntegerValue()){return v.asIntegerValue().getInt();}
-            if(v.isBooleanValue()){return v.asBooleanValue().isBooleanValue();}
-            if(v.isFloatValue()){return v.asFloatValue().getFloat();}
-            if(v.isArrayValue()){return v.asArrayValue();}
-            if(v.isRawValue()){return v.asRawValue();}
-            return null;
-        }
-        public void unpackFromFrontOfList(List<Value> l) {
-            int check_ntype = l.remove(0).asIntegerValue().getInt();
-            if(check_ntype != ntype) {
-                Log.e(TAG,"WRONG NODE TYPE");
-                // Exception?
-                new Exception().printStackTrace();
-            }
-            // Forgive me this terrible line.  Value.toString returns a StringBuilder, StringBuilder.toString returns a String
-            name = l.remove(0).asRawValue().getString();
-            Value tmp_Value = l.remove(0);
-            if(tmp_Value!=null && !tmp_Value.isNilValue()) {
-                switch (ntype) {
-                    case NTYPE.PLAIN:
-                        value = null;
-                        break;
-                    case NTYPE.LINK:
-                    case NTYPE.VAL_STR:
-                        value = tmp_Value.asRawValue().getString();
-                        break;
-                    case NTYPE.CHOOSER:
-                    case NTYPE.VAL_U8:
-                    case NTYPE.VAL_S8:
-                        value = tmp_Value.asIntegerValue().getByte();
-                        break;
-                    case NTYPE.VAL_U16:
-                    case NTYPE.VAL_S16:
-                        value = tmp_Value.asIntegerValue().getShort();
-                        break;
-                    case NTYPE.VAL_U32:
-                    case NTYPE.VAL_S32:
-                        value = tmp_Value.asIntegerValue().getInt();
-                        break;
-                    case NTYPE.VAL_BIN:
-                        new Exception().printStackTrace();
-                        break;
-                    case NTYPE.VAL_FLT:
-                        value = tmp_Value.asFloatValue().getFloat();
-                        break;
-                }
-            }
-            Log.d(TAG, this.toString());
-            List<Value> children_packed = new ArrayList<Value>(l.remove(0).asArrayValue());
-            while(children_packed.size()>0) {
-                int c_ntype = children_packed.get(0).asIntegerValue().getInt();
-                ConfigNode child = new ConfigNode(tree, c_ntype);
-                assert child != null;
-                child.unpackFromFrontOfList(children_packed);
-                children.add(child);
-            }
-        }
-        public void packToEndOfList(List<Object> l) {
-            l.add(ntype);
-            l.add(name);
-            List<Object> children_packed = new ArrayList<Object>();
-            for(ConfigNode c:children) {
-                c.packToEndOfList(children_packed);
-            }
-            l.add(children_packed);
-        }
         public String toString() {
             String s = "";
             if(code != -1) {
@@ -177,11 +97,10 @@ public class ConfigTree {
         public Object getValue() {
             return value;
         }
+        public void setValue(Object v) {
+            value = v;
+        }
         public String getShortName() {
-            // For links, return the name of the node you're linking to.
-            if(ntype==NTYPE.LINK) {
-                return tree.getNode((String)getValue()).getShortName();
-            }
             return name;
         }
         private void getLongName(StringBuffer rval, String sep) {
@@ -204,18 +123,10 @@ public class ConfigTree {
             return cache_longname;
         }
         public String getLongName() { return getLongName(":"); }
-        public String getChoiceString() {
-            // Returns the string necessary to choose this node
-            // Presumes parent node is a chooser
-            if(parent.ntype != NTYPE.CHOOSER && parent.children.size()>1) {
-                Log.e(TAG,"getChoiceString being called on non-choice!");
-            }
-            return parent.getLongName() + " " + getIndex();
-        }
         public ConfigNode getChosen() {
             ConfigNode rval = children.get((Integer) value);
             while(rval.ntype==NTYPE.LINK) {
-                rval = tree.getNode((String) rval.getValue());
+                rval = tree.getNode(rval.getShortName());
             }
             return rval;
         }
@@ -331,7 +242,7 @@ public class ConfigTree {
         }
         public void sendValue(Object new_value, boolean blocking) {
             byte[] payload = new byte[20];
-            ByteBuffer b = ByteBuffer.wrap(payload);
+            ByteBuffer b = wrap(payload);
             packToSerial(b,new_value);
             payload = Arrays.copyOf(payload,b.position());
             if(blocking) {
@@ -512,6 +423,7 @@ public class ConfigTree {
 
         // Load the tree from the remote device
         command("ADMIN:TREE");
+        command("ADMIN:CRC32 "+Integer.toString((Integer) getNode("ADMIN:CRC32").getValue()));
     }
 
     private void sendBytes(byte[] payload) {
@@ -553,6 +465,11 @@ public class ConfigTree {
                     unpack((byte[]) payload);
                     code_list = getShortCodeMap();
                     enumerate();
+                    CRC32 crc = new CRC32();
+                    crc.update((byte[]) payload);
+                    final int crcvalue = (int)crc.getValue();
+                    Log.d(TAG, "CALC CRC: " + Integer.toHexString(crcvalue));
+                    getNode("ADMIN:CRC32").value = crcvalue;
                 } catch (DataFormatException e) {
                     e.printStackTrace();
                 } catch (IOException e) {
@@ -583,20 +500,18 @@ public class ConfigTree {
         n.addNotifyHandler(h);
         return 0;
     }
-
-    public byte[] pack() throws IOException {
-        List<Object> l = new ArrayList<Object>();
-        root.packToEndOfList(l);
-        MessagePack msgpack = new MessagePack();
-        byte[] plain = msgpack.write(l);
-        Deflater deflater = new Deflater();
-        deflater.setInput(plain);
-        deflater.finish();
-        byte[] compressed = new byte[plain.length];
-        int compressed_len = deflater.deflate(compressed);
-        deflater.end();
-        compressed = Arrays.copyOf(compressed,compressed_len);
-        return compressed;
+    private ConfigNode unpack(ByteBuffer b) {
+        int ntype = b.get();
+        int nlen  = b.get();
+        byte[] namebytes = new byte[nlen];
+        b.get(namebytes);
+        String name = new String(namebytes);
+        int n_children = b.get();
+        List<ConfigNode> clist = new ArrayList<ConfigNode>();
+        for(int i = 0; i < n_children; i++) {
+            clist.add(unpack(b));
+        }
+        return new ConfigNode(this,ntype,name,clist);
     }
     public void unpack(byte[] compressed) throws DataFormatException, IOException {
         Inflater inflater = new Inflater();
@@ -605,11 +520,9 @@ public class ConfigTree {
         int plain_len = inflater.inflate(plain);
         plain = Arrays.copyOf(plain,plain_len);
         inflater.end();
-        MessagePack msgpack = new MessagePack();
-        List<Value> l = msgpack.read(plain,tList(TValue));
-        Log.d(TAG,l.toString());
-        root = new ConfigNode(this, l.get(0).asIntegerValue().getInt());
-        root.unpackFromFrontOfList(l);
+        ByteBuffer b = wrap(plain);
+        Log.d(TAG,b.toString());
+        root = unpack(b);
         assignShortCodes();
     }
 
@@ -722,8 +635,10 @@ public class ConfigTree {
         int n_codes = code_list.keySet().size();
         // Skip the first 3 codes (they are for CRC, tree and diagnostic
         for(int i = 3; i < n_codes; i++) {
-            code_list.get(i).reqValue();
-            //sendBytes(new byte[]{(byte) i});
+            ConfigNode n = code_list.get(i);
+            if(n.ntype != NTYPE.VAL_BIN) {
+                n.reqValue();
+            }
         }
     }
 }
