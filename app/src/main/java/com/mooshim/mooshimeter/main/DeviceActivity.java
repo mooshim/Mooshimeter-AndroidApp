@@ -60,7 +60,6 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.speech.tts.TextToSpeech;
 import android.text.Html;
 import android.util.Log;
 import android.view.Menu;
@@ -84,6 +83,7 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 import me.grantland.widget.AutofitHelper;
 
@@ -494,7 +494,19 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void onSoundClick(final int c) {
         Log.i(TAG, "onCh" + c + "SoundClick");
-        Util.speak(mMeter.getValueLabel(c));
+        if(mMeter.speech_on[c]) {
+            mMeter.speech_on[c] = false;
+            Util.speakAtInterval(0,null);
+        } else {
+            mMeter.speech_on[c==0?1:0] = false;
+            mMeter.speech_on[c] = true;
+            Util.speakAtInterval(3000, new Callable<String>() {
+                @Override
+                public String call() throws Exception {
+                    return mMeter.getValueLabel(c);
+                }
+            });
+        }
     }
 
     public void onCh1InputSetClick(View v) {

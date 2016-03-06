@@ -37,8 +37,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
@@ -59,6 +62,8 @@ public class Util {
     private static Handler mHandler = null;
     private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
     private static TextToSpeech speaker;
+    private static Timer speech_timer = new Timer();
+    private static TimerTask speech_timertask;
 
     public static void init(Context context) {
         mContext = context;
@@ -399,10 +404,28 @@ public class Util {
         }
         return;
     }
-    public static void speakNumber(float n) {
-        speak(String.format("%f.1", n));
-    }
     public static void speak(String speech) {
         speaker.speak(speech, TextToSpeech.QUEUE_FLUSH, null);
+    }
+    public static void speakAtInterval(final int ms_interval, final Callable<String> speech_cb) {
+        if(null!=speech_timertask) {
+            speech_timertask.cancel();
+            speech_timertask = null;
+            speak("");
+        }
+        if(speech_cb == null) {
+            return;
+        }
+        speech_timertask = new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    speak(speech_cb.call());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        speech_timer.scheduleAtFixedRate(speech_timertask, 500, ms_interval);
     }
 }

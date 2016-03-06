@@ -226,7 +226,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "MEAN","A"  ,false));
         input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "RMS" ,"A"  ,false));
         input_descriptors[0].add(makeInputDescriptor(0,"TEMP"      ,false,"MEAN","K"  ,false));
-        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "MEAN", "V"  ,true));
+        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "MEAN","V"  ,true));
         input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "RMS" ,"V"  ,true));
         input_descriptors[0].add(makeInputDescriptor(0,"RESISTANCE",false,"MEAN","Ohm",true));
         input_descriptors[0].add(makeInputDescriptor(0,"DIODE"     ,false,"MEAN","V"  ,true));
@@ -568,7 +568,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public int setRangeIndex(int c, int r) {
-        InputDescriptor id = input_descriptors[c].get(input_descriptors_indices[c]);
         tree.command(getChString(c) + ":RANGE_I " + r);
         return 0;
     }
@@ -604,6 +603,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             return 0;
         }
         input_descriptors_indices[c] = mapping;
+        // Reset range manually... probably a cleaner way to do this
+        tree.getNode(getChString(c)+":RANGE_I").setValue(0);
         InputDescriptor inputDescriptor = input_descriptors[c].get(mapping);
         inputDescriptor.input_node.choose();
         if(inputDescriptor.shared_node!=null) {
