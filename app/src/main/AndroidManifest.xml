@@ -39,7 +39,11 @@
             android:name=".main.DeviceActivity"
             android:parentActivityName=".main.ScanActivity"
             android:configChanges="orientation|screenSize"
-            android:screenOrientation="fullSensor" />
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".main.GraphingActivity"
+            android:parentActivityName=".main.ScanActivity"
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="landscape" />
     </application>
-
 </manifest>

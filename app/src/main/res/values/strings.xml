@@ -16,11 +16,6 @@
     <string name="bt_not_on">Bluetooth was not turned on</string>
     <string name="app_closing">Exiting</string>
 
-    <string-array name="device_filter">
-        <item>SensorTag</item>
-        <item>SensorTag2</item>
-    </string-array>
-
     <string name="nodevice">No Mooshimeters detected.</string>
     <string name="scan_advice">The Android device is not scanning. Please tap \'Scan\' to scan for Mooshimeters.</string>
     <string name="bt_adapter_disable">Disable Bluetooth adapter</string>
@@ -60,5 +55,12 @@
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="crash_toast_text">Oh no! Something went wrong, a crash report has been submitted.</string>
+
+    <!-- Graphing activity -->
+    <string name="refresh">Refresh</string>
+    <string name="add_stream">Add stream</string>
+    <string name="clear_points">Clear Points</string>
+    <string name="auto_scaling">Automatic scaling</string>
+    <string name="man_scaling">Manual scaling</string>
 
 </resources>

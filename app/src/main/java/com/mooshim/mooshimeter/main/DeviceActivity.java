@@ -216,7 +216,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     @Override
     protected void onStop() {
         super.onStop();
-        mMeter.cancelConnectionStateCB(disconnect_handle);
     }
 
     @Override
@@ -256,13 +255,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         super.onStart();
         Intent intent = getIntent();
         mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
-        disconnect_handle = mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
-            @Override
-            public void run() {
-                mMeter.cancelConnectionStateCB(disconnect_handle);
-                transitionToActivity(mMeter,ScanActivity.class);
-            }
-        });
     }
 
     @Override
@@ -561,7 +553,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     public void onGraphClick(View v) {
         Log.i(TAG, "onGraphClick");
-        //transitionToActivity(mMeter,TrendActivity);
+        transitionToActivity(mMeter, GraphingActivity.class);
     }
     public void onLoggingClick(View v) {
         Log.i(TAG, "onLoggingClick");
@@ -619,7 +611,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onDisconnect() {
-
+        transitionToActivity(mMeter,ScanActivity.class);
     }
 
     @Override

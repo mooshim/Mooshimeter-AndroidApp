@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 19
+    compileSdkVersion 23
     buildToolsVersion "21.1.1"
 
     def versionPropsFile = file('version.properties')
@@ -56,4 +56,6 @@ dependencies {
     compile 'com.android.support:support-v4:19.1.0'
     compile project(':GraphView')
     compile 'me.grantland:autofittextview:0.2.+'
+    compile 'com.github.lecho:hellocharts-library:1.5.8@aar'
+    compile 'com.android.support:appcompat-v7:23.1.1'
 }
