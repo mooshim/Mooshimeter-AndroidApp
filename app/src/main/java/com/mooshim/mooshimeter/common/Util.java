@@ -40,16 +40,8 @@ import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by JWhong on 9/26/2015.
@@ -403,6 +395,9 @@ public class Util {
             e.printStackTrace();
         }
         return;
+    }
+    public static boolean isSpeaking() {
+        return speaker.isSpeaking();
     }
     public static void speak(String speech) {
         speaker.speak(speech, TextToSpeech.QUEUE_FLUSH, null);

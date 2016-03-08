@@ -54,7 +54,6 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.main;
 
-import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -79,6 +78,7 @@ import com.mooshim.mooshimeter.common.MooshimeterDelegate;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
+import com.mooshim.mooshimeter.common.SpeaksOnLargeChange;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
@@ -122,13 +122,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         rval.setStroke(1, 0xFF999999);
         return rval;
     }
-    private static GradientDrawable getAutoGradient()   {return __getDrawable(new int[] {0xFF00FF00,0xFF00CC00});}
-    private static GradientDrawable getManualGradient() {return __getDrawable(new int[] {0xFFFF0000,0xFFCC0000});}
     private static GradientDrawable getDisableGradient(){return __getDrawable(new int[] {0xFFBBBBBB,0xFF888888});}
     private static GradientDrawable getEnableGradient() {return __getDrawable(new int[] {0xFFFFFFFF,0xFFCCCCCC});}
 
     // Helpers
     private CooldownTimer autorange_cooldown = new CooldownTimer();
+    private SpeaksOnLargeChange speaksOnLargeChange = new SpeaksOnLargeChange();
 
     private enum PowerOption{
         REAL_POWER,
@@ -168,8 +167,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         input_set_buttons  [1] = (Button)findAndAutofit(R.id.ch2_input_set_button);
         range_buttons      [1] = (Button)findViewById(R.id.ch2_range_button);
         math_buttons       [1] = (Button)findAndAutofit(R.id.ch2_math_button);
-        zero_buttons       [0] = (Button)findAndAutofit(R.id.ch2_zero_button);
-        sound_buttons      [0] = (Button)findAndAutofit(R.id.ch2_sound_button);
+        zero_buttons       [1] = (Button)findAndAutofit(R.id.ch2_zero_button);
+        sound_buttons      [1] = (Button)findAndAutofit(R.id.ch2_sound_button);
 
         rate_button            = (Button)findViewById  (R.id.rate_button);
         depth_button           = (Button)findViewById(R.id.depth_button);
@@ -222,21 +221,21 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.pause();
-                mMeter.removeDelegate();
-            }
-        });
+        if(!(mMeter.speech_on[0] || mMeter.speech_on[1])) {
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    mMeter.pause();
+                    mMeter.removeDelegate();
+                }
+            });
+        }
     }
 
 	@Override
 	protected void onResume() {
 		super.onResume();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        refreshTitle();
-
         final MooshimeterDelegate d = this;
 
         Util.dispatch(new Runnable() {
@@ -328,14 +327,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             }
         });
     }
-    private void refreshTitle() {
-        MooshimeterDevice tmp = (MooshimeterDevice)mMeter;
+    private void refreshTitle(float bat_v) {
         final StringBuilder s = new StringBuilder();
         s.append(mMeter.getBLEDevice().getName());
         while(s.length()<20) {
             s.append(' ');
         }
-        float bat_v = (Float)tmp.tree.getValueAt("BAT_V");
         // Approximate remaining charge
         double soc_percent = (bat_v - 2.0)*100.0;
         if(soc_percent<0){soc_percent=0;}
@@ -438,6 +435,14 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void sound_button_refresh(final int c) {
         Log.i(TAG,"soundrefresh");
+        final Button b = sound_buttons[c];
+        final String s = "SOUND:"+(mMeter.speech_on[c]?"ON":"OFF");
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                b.setText(s);
+            }
+        });
     }
 
     /////////////////////////
@@ -488,17 +493,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         Log.i(TAG, "onCh" + c + "SoundClick");
         if(mMeter.speech_on[c]) {
             mMeter.speech_on[c] = false;
-            Util.speakAtInterval(0,null);
         } else {
             mMeter.speech_on[c==0?1:0] = false;
             mMeter.speech_on[c] = true;
-            Util.speakAtInterval(3000, new Callable<String>() {
-                @Override
-                public String call() throws Exception {
-                    return mMeter.getValueLabel(c);
-                }
-            });
         }
+        sound_button_refresh(0);
+        sound_button_refresh(1);
     }
 
     public void onCh1InputSetClick(View v) {
@@ -616,11 +616,11 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onBatteryVoltageReceived(float voltage) {
-        refreshTitle();
+        refreshTitle(voltage);
     }
 
     @Override
-    public void onSampleReceived(int channel, float val) {
+    public void onSampleReceived(double timestamp_utc, int channel, float val) {
         valueLabelRefresh(channel);
         // Run the autorange only on channel 2
         if (channel==1 && autorange_cooldown.expired) {
@@ -634,10 +634,13 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 }
             });
         }
+        if(mMeter.speech_on[channel]) {
+            speaksOnLargeChange.decideAndSpeak(val,mMeter.getValueLabel(channel));
+        }
     }
 
     @Override
-    public void onBufferReceived(int channel, float dt, float[] val) {
+    public void onBufferReceived(double timestamp_utc, int channel, float dt, float[] val) {
 
     }
 
@@ -667,7 +670,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
 
     @Override
-    public void onRealPowerCalculated(float val) {
+    public void onRealPowerCalculated(double timestamp_utc, float val) {
         power_label_refresh();
     }
 }

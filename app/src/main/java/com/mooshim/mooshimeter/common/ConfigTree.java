@@ -273,9 +273,6 @@ public class ConfigTree {
         public void clearNotifyHandlers() {
             notify_handlers.clear();
         }
-        public void notify(Object notification) {
-            notify(0,notification);
-        }
         public void notify(final double time_utc, final Object notification) {
             Log.d(TAG, name + ":" + notification);
             value = notification;
@@ -306,7 +303,7 @@ public class ConfigTree {
     // NOTIFICATION CALLBACKS
     ////////////////////////////////
 
-    private void interpretAggregate() {
+    private void interpretAggregate(double timestamp_utc) {
         int expecting_bytes;
         while(recv_buf.size()>0) {
             // FIXME: Can't find a nice way of wrapping a ByteBuffer around a list of bytes.
@@ -326,22 +323,22 @@ public class ConfigTree {
                             Log.e(TAG, "Shouldn't receive notification here!");
                             return;
                         case ConfigTree.NTYPE.CHOOSER:
-                            n.notify((int)b.get());
+                            n.notify(timestamp_utc, (int)b.get());
                             break;
                         case ConfigTree.NTYPE.LINK   :
                             Log.e(TAG, "Shouldn't receive notification here!");
                             return;
                         case ConfigTree.NTYPE.VAL_U8 :
                         case ConfigTree.NTYPE.VAL_S8 :
-                            n.notify((int)b.get());
+                            n.notify(timestamp_utc, (int)b.get());
                             break;
                         case ConfigTree.NTYPE.VAL_U16:
                         case ConfigTree.NTYPE.VAL_S16:
-                            n.notify((int)b.getShort());
+                            n.notify(timestamp_utc, (int)b.getShort());
                             break;
                         case ConfigTree.NTYPE.VAL_U32:
                         case ConfigTree.NTYPE.VAL_S32:
-                            n.notify((int)b.getInt());
+                            n.notify(timestamp_utc, (int)b.getInt());
                             break;
                         case ConfigTree.NTYPE.VAL_STR:
                             expecting_bytes = b.getShort();
@@ -349,7 +346,7 @@ public class ConfigTree {
                                 // Wait for the aggregator to fill up more
                                 return;
                             }
-                            n.notify(new String(Arrays.copyOfRange(b.array(), b.position(), b.position() + expecting_bytes)));
+                            n.notify(timestamp_utc, new String(Arrays.copyOfRange(b.array(), b.position(), b.position() + expecting_bytes)));
                             b.position(b.position() + expecting_bytes);
                             break;
                         case ConfigTree.NTYPE.VAL_BIN:
@@ -358,11 +355,11 @@ public class ConfigTree {
                                 // Wait for the aggregator to fill up more
                                 return;
                             }
-                            n.notify(Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes));
+                            n.notify(timestamp_utc, Arrays.copyOfRange(b.array(),b.position(),b.position()+expecting_bytes));
                             b.position(b.position()+expecting_bytes);
                             break;
                         case ConfigTree.NTYPE.VAL_FLT:
-                            n.notify(b.getFloat());
+                            n.notify(timestamp_utc, b.getFloat());
                             break;
                     }
                 } else {
@@ -407,7 +404,7 @@ public class ConfigTree {
             for(int i = 1; i < bytes.length; i++) {
                 recv_buf.add(bytes[i]);
             }
-            interpretAggregate();
+            interpretAggregate(timestamp_utc);
         }
     };
 

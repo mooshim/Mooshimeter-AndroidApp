@@ -196,9 +196,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     private float[] interpretSampleBuffer(int c, byte[] payload) {
         ByteBuffer b = ByteBuffer.wrap(payload);
-        int bytes_per_sample = (Integer)tree.getValueAt(getChString(c)+"BUF_BPS");
+        int bytes_per_sample = (Integer)tree.getValueAt(getChString(c)+":BUF_BPS");
         bytes_per_sample /= 8;
-        float lsb2native = (Integer)tree.getValueAt(getChString(c)+"BUF_LSB2NATIVE");
+        float lsb2native = (Float)tree.getValueAt(getChString(c)+":BUF_LSB2NATIVE");
         int n_samples = payload.length/bytes_per_sample;
         float[] rval = new float[n_samples];
         for(int i = 0; i < n_samples; i++) {
@@ -276,13 +276,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH1:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(0, (Float) payload);
+                delegate.onSampleReceived(timestamp_utc, 0, (Float) payload);
             }
         });
         attachCallback("CH2:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(1,(Float)payload);
+                delegate.onSampleReceived(timestamp_utc, 1,(Float)payload);
             }
         });
         attachCallback("CH1:BUF", new NotifyHandler() {
@@ -290,7 +290,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             public void onReceived(double timestamp_utc, Object payload) {
                 // payload is a byte[] which we must translate in to
                 float[] samplebuf = interpretSampleBuffer(0,(byte[])payload);
-                delegate.onBufferReceived(0, 1 / getSampleRateHz(), samplebuf);
+                float dt = (float)getSampleRateHz();
+                dt = (float)1.0/dt;
+                delegate.onBufferReceived(timestamp_utc, 0, dt, samplebuf);
             }
         });
         attachCallback("CH2:BUF", new NotifyHandler() {
@@ -298,13 +300,15 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             public void onReceived(double timestamp_utc, Object payload) {
                 // payload is a byte[] which we must translate in to
                 float[] samplebuf = interpretSampleBuffer(1,(byte[])payload);
-                delegate.onBufferReceived(1,1/getSampleRateHz(),samplebuf);
+                float dt = (float)getSampleRateHz();
+                dt = (float)1.0/dt;
+                delegate.onBufferReceived(timestamp_utc, 1, dt,samplebuf);
             }
         });
         attachCallback("REAL_PWR", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onRealPowerCalculated((Float) payload);
+                delegate.onRealPowerCalculated(timestamp_utc, (Float) payload);
             }
         });
         attachCallback("CH1:RANGE_I", new NotifyHandler() {
@@ -523,6 +527,12 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public List<String> getBufferDepthList() {
         return getChildNameList(tree.getNode("SAMPLING:DEPTH"));
     }
+
+    @Override
+    public void setBufferMode(int c, boolean on) {
+        tree.command(getChString(c)+":ANALYSIS "+(on?"2":"0"));
+    }
+
     @Override
     public boolean getLoggingOn() {
         int i = (Integer)getValueAt("LOG:ON");

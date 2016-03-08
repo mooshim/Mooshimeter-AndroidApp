@@ -5,19 +5,24 @@ package com.mooshim.mooshimeter.common;
  */
 public interface MooshimeterDelegate {
     void onInit();
+
     void onDisconnect();
 
     void onBatteryVoltageReceived(final float voltage);
 
-    void onSampleReceived(final int channel, final float val);
-    void onBufferReceived(final int channel, final float dt, final float val[]);
+    void onSampleReceived(final double timestamp_utc, final int channel, final float val);
 
-    void onSampleRateChanged( final int i, final int sample_rate_hz);
+    void onBufferReceived(final double timestamp_utc, final int channel, final float dt, final float val[]);
+
+    void onSampleRateChanged(final int i, final int sample_rate_hz);
+
     void onBufferDepthChanged(final int i, final int buffer_depth);
 
-    void onLoggingStatusChanged(boolean on, int new_state,String message);
+    void onLoggingStatusChanged(boolean on, int new_state, String message);
+
     void onRangeChange(final int c, final int i, final MooshimeterDevice.RangeDescriptor new_range);
+
     void onInputChange(final int c, final int i, final MooshimeterDevice.InputDescriptor descriptor);
 
-    void onRealPowerCalculated(final float val);
+    void onRealPowerCalculated(final double timestamp_utc, final float val);
 }

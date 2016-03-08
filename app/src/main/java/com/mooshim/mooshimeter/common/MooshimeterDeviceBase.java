@@ -72,9 +72,9 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
         @Override
         public void onBatteryVoltageReceived(float voltage) {}
         @Override
-        public void onSampleReceived(int channel, float val) {        }
+        public void onSampleReceived(final double timestamp_utc, int channel, float val) {        }
         @Override
-        public void onBufferReceived(int channel, float dt, float[] val) {        }
+        public void onBufferReceived(final double timestamp_utc, int channel, float dt, float[] val) {        }
         @Override
         public void onSampleRateChanged(int i, int sample_rate_hz) {        }
         @Override
@@ -86,7 +86,7 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
         @Override
         public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {        }
         @Override
-        public void onRealPowerCalculated(float val) {        }
+        public void onRealPowerCalculated(final double timestamp_utc, float val) {        }
     };
     public MooshimeterDelegate delegate = dummy_delegate;
 

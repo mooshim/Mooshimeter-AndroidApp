@@ -41,6 +41,8 @@ interface MooshimeterControlInterface {
     int setBufferDepthIndex(int i);
     List<String> getBufferDepthList();
 
+    void setBufferMode(int c, boolean on);
+
     boolean getLoggingOn();
     void setLoggingOn(boolean on);
     int getLoggingStatus();
