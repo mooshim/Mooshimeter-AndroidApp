@@ -1,5 +1,9 @@
 package com.mooshim.mooshimeter.common;
 
+import java.util.List;
+
+import lecho.lib.hellocharts.model.PointValue;
+
 public interface GraphingActivityInterface {
     /**
      * Redraws the screen
@@ -28,14 +32,15 @@ public interface GraphingActivityInterface {
     void addPoint(int series_n, float x, float y);
 
     /**
+     * Add point to a series
+     * @param series_n series to which point is to be added
+     */
+    void addPoints(final int series_n, final List<PointValue> values);
+
+    /**
      * Clear all points for a series
      */
     void clearPoints(int series_n);
-
-    /**
-     * Set number of axis on the graph
-     */
-    void setNAxes(int n_axes);
 
     /**
      * Set X Axis title
