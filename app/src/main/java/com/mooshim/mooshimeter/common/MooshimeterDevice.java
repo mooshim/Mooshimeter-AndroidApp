@@ -2,7 +2,6 @@ package com.mooshim.mooshimeter.common;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -236,8 +235,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         input_descriptors[1].add(makeInputDescriptor(1,"TEMP"      ,false,"MEAN","K"  ,false));
         input_descriptors[1].add(makeInputDescriptor(1,"AUX_V"     ,true ,"MEAN","V"  ,true));
         input_descriptors[1].add(makeInputDescriptor(1,"AUX_V"     ,true, "RMS", "V"  ,true));
-        input_descriptors[1].add(makeInputDescriptor(1,"RESISTANCE",false,"MEAN","Ohm",true));
-        input_descriptors[1].add(makeInputDescriptor(1,"DIODE"     ,false,"MEAN","V"  ,true));
+        input_descriptors[1].add(makeInputDescriptor(1, "RESISTANCE", false, "MEAN", "Ohm", true));
+        input_descriptors[1].add(makeInputDescriptor(1, "DIODE", false, "MEAN", "V", true));
 
         // Figure out which input we're presently reading based on the tree state
         determineInputDescriptorIndex(0);
@@ -276,13 +275,25 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH1:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(timestamp_utc, 0, (Float) payload);
+                delegate.onSampleReceived(timestamp_utc, 0, (Float)payload);
+            }
+        });
+        attachCallback("CH1:OFFSET",new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onOffsetChange(0, (Float) payload);
             }
         });
         attachCallback("CH2:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(timestamp_utc, 1,(Float)payload);
+                delegate.onSampleReceived(timestamp_utc, 1, (Float)payload);
+            }
+        });
+        attachCallback("CH2:OFFSET",new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                delegate.onOffsetChange(1, (Float) payload);
             }
         });
         attachCallback("CH1:BUF", new NotifyHandler() {
@@ -302,7 +313,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 float[] samplebuf = interpretSampleBuffer(1,(byte[])payload);
                 float dt = (float)getSampleRateHz();
                 dt = (float)1.0/dt;
-                delegate.onBufferReceived(timestamp_utc, 1, dt,samplebuf);
+                delegate.onBufferReceived(timestamp_utc, 1, dt, samplebuf);
             }
         });
         attachCallback("REAL_PWR", new NotifyHandler() {
@@ -349,13 +360,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("LOG:STATUS", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onLoggingStatusChanged(getLoggingOn(),getLoggingStatus(),getLoggingStatusMessage());
+                delegate.onLoggingStatusChanged(getLoggingOn(), getLoggingStatus(), getLoggingStatusMessage());
             }
         });
         attachCallback("BAT_V", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onBatteryVoltageReceived((Float)payload);
+                delegate.onBatteryVoltageReceived((Float) payload);
             }
         });
         return rval;
@@ -377,9 +388,19 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
+    public float getOffset(int c) {
+        return (Float)tree.getValueAt(getChString(c)+":OFFSET");
+    }
+
+    @Override
+    public void setOffset(int c, float offset) {
+        tree.command(getChString(c)+":OFFSET "+Float.toString(offset));
+    }
+
+    @Override
     public boolean bumpRange(int channel, boolean expand, boolean wrap) {
         ConfigTree.ConfigNode rnode = getInputNode(channel);
-        int cnum = (Integer)tree.getNode(getChString(channel)+":RANGE_I").getValue();
+        int cnum = (Integer)tree.getValueAt(getChString(channel)+":RANGE_I");
         int n_choices = rnode.children.size();
         if(!wrap) {
             // If we're not wrapping and we're against a wall
@@ -397,14 +418,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     private float getMinRangeForChannel(int c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
-        int cnum = (Integer)tree.getNode(getChString(c)+":RANGE_I").getValue();
+        int cnum = (Integer)tree.getValueAt(getChString(c)+":RANGE_I");
         cnum = cnum>0?cnum-1:cnum;
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)0.9 * Float.parseFloat(choice.getShortName());
     }
     private float getMaxRangeForChannel(int c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
-        int cnum = (Integer)tree.getNode(getChString(c)+":RANGE_I").getValue();
+        int cnum = (Integer)tree.getValueAt(getChString(c)+":RANGE_I");
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return Float.parseFloat(choice.getShortName());
     }
@@ -555,6 +576,18 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         };
         return messages[getLoggingStatus()];
     }
+
+    @Override
+    public float getValue(int c) {
+        return (Float)tree.getValueAt(getChString(c)+":VALUE");
+    }
+
+    @Override
+    public String formatValueLabel(int c, float value) {
+        SignificantDigits digits = getSigDigits(c);
+        return formatReading(value, digits);
+    }
+
     @Override
     public int getLoggingStatus() {
         return (Integer)getValueAt("LOG:STATUS");
@@ -562,7 +595,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public String getRangeLabel(int c) {
         InputDescriptor id = getSelectedDescriptor(c);
-        int range_i = (Integer)tree.getNode(getChString(c) + ":RANGE_I").getValue();
+        int range_i = (Integer)tree.getValueAt(getChString(c) + ":RANGE_I");
         // FIXME: This is borking because our internal descriptor structures are out of sync with the configtree updates
         RangeDescriptor rd =id.ranges.get(range_i);
         return rd.name;
@@ -580,16 +613,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public int setRangeIndex(int c, int r) {
         tree.command(getChString(c) + ":RANGE_I " + r);
         return 0;
-    }
-    public String getValueLabel(int c) {
-        String value_str = getChString(c)+":VALUE";
-        Object d = getValueAt(value_str);
-        if(d==null) {
-            Log.e(TAG,"WHAT");
-            return "FAIL";
-        }
-        SignificantDigits digits = getSigDigits(c);
-        return formatReading((Float) d, digits);
     }
 
     @Override

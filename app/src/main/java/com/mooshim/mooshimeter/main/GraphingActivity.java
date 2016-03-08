@@ -418,4 +418,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     public void onRealPowerCalculated(double timestamp_utc, float val) {
 
     }
+
+    @Override
+    public void onOffsetChange(int c, float offset) {
+
+    }
 }

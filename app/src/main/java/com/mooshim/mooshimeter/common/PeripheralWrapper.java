@@ -55,7 +55,6 @@ public class PeripheralWrapper {
     private Map<UUID,NotifyHandler> mNotifyCB;
     private final HashMap<Integer, List<Runnable>> mConnectionStateCB;
     private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
-    private List<Runnable> mRSSICallbacks;
 
     private int connectionStateCBHandle = 0;
 
@@ -111,15 +110,15 @@ public class PeripheralWrapper {
         mDevice = device;
         mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
 
-        mCharacteristics   = new HashMap<UUID, BluetoothGattCharacteristic>();
-        mServices          = new HashMap<UUID, BluetoothGattService>();
-        mNotifyCB          = new HashMap<UUID, NotifyHandler>();
-        mConnectionStateCB = new HashMap<Integer, List<Runnable>>();
+        mCharacteristics   = new HashMap<>();
+        mServices          = new HashMap<>();
+        mNotifyCB          = new HashMap<>();
+        mConnectionStateCB = new HashMap<>();
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTED,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTING,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTED,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTING,new ArrayList<Runnable>());
-        mConnectionStateCBByHandle = new HashMap<Integer, Runnable>();
+        mConnectionStateCBByHandle = new HashMap<>();
 
         bleStateCondition    = new StatLockManager(conditionLock);
         bleDiscoverCondition = new StatLockManager(conditionLock);

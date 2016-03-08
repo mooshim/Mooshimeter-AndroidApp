@@ -16,10 +16,6 @@ interface MooshimeterControlInterface {
 
     boolean isInOADMode();
 
-    void pause();
-    void oneShot();
-    void stream();
-
     //////////////////////////////////////
     // Autoranging
     //////////////////////////////////////
@@ -32,6 +28,13 @@ interface MooshimeterControlInterface {
     //////////////////////////////////////
     // Interacting with the Mooshimeter itself
     //////////////////////////////////////
+
+    void pause();
+    void oneShot();
+    void stream();
+
+    float getOffset(int c);
+    void setOffset(int c, float offset);
 
     int getSampleRateHz();
     int setSampleRateIndex(int i);
@@ -48,7 +51,8 @@ interface MooshimeterControlInterface {
     int getLoggingStatus();
     String getLoggingStatusMessage();
 
-    String getValueLabel(int c);
+    float getValue(int c);
+    String formatValueLabel(int c, float value);
     String getPowerLabel();
 
     String       getRangeLabel(int c);

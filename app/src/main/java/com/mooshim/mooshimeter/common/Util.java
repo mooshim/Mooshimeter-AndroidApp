@@ -394,7 +394,6 @@ public class Util {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return;
     }
     public static boolean isSpeaking() {
         return speaker.isSpeaking();

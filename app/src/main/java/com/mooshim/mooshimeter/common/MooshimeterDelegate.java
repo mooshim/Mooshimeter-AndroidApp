@@ -25,4 +25,6 @@ public interface MooshimeterDelegate {
     void onInputChange(final int c, final int i, final MooshimeterDevice.InputDescriptor descriptor);
 
     void onRealPowerCalculated(final double timestamp_utc, final float val);
+
+    void onOffsetChange(final int c, final float offset);
 }

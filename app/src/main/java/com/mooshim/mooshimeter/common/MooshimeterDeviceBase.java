@@ -87,6 +87,8 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
         public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {        }
         @Override
         public void onRealPowerCalculated(final double timestamp_utc, float val) {        }
+        @Override
+        public void onOffsetChange(int c, float offset) { }
     };
     public MooshimeterDelegate delegate = dummy_delegate;
 
@@ -97,8 +99,6 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
     public boolean         depth_auto = true;
 
     public final boolean[] speech_on = new boolean[]{false,false};
-
-    public final double[] offsets = new double[]{0,0,0};
 
     protected static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b

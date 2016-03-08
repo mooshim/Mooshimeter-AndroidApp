@@ -36,7 +36,7 @@ public class SpeaksOnLargeChange {
     }
     public boolean decideAndSpeak(final float new_value, final String value_label) {
         if( timer.expired
-            || (!Util.isSpeaking() && abs(last_value - new_value)>abs(0.20*new_value))) {
+            || (abs(last_value - new_value)>abs(0.20*new_value))) {
             // If the value has changed 20%, or just every 5 second
             last_value = new_value;
             Util.speak(formatValueLabelForSpeaking(value_label));
