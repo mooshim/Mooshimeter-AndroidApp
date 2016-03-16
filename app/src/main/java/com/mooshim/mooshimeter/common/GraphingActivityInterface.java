@@ -17,13 +17,6 @@ public interface GraphingActivityInterface {
     void setNPointOnScreen(int maxPoints);
 
     /**
-     * Add new series to the graph
-     * @param title title of the series
-     * @return index of the created series
-     */
-    int addStream(String title);
-
-    /**
      * Add point to a series
      * @param series_n series to which point is to be added
      * @param x x value
@@ -31,16 +24,7 @@ public interface GraphingActivityInterface {
      */
     void addPoint(int series_n, float x, float y);
 
-    /**
-     * Add point to a series
-     * @param series_n series to which point is to be added
-     */
-    void addPoints(final int series_n, final List<PointValue> values);
-
-    /**
-     * Clear all points for a series
-     */
-    void clearPoints(int series_n);
+    void addPoints(final int series_n, final List<PointValue> new_values);
 
     /**
      * Set X Axis title

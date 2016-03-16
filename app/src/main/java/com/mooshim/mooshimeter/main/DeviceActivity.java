@@ -132,7 +132,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         REAL_POWER,
         APPARENT_POWER,
         POWER_FACTOR,
-        K_THERMOCOUPLE,
     };
     private PowerOption chosen_power_option = PowerOption.REAL_POWER;
 
@@ -303,6 +302,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                     range_button_refresh(c);
                     math_button_refresh(c);
                     sound_button_refresh(c);
+                    zero_button_refresh(c,mMeter.getOffset(c));
                 }
             }
         });
@@ -343,34 +343,34 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             }
         });
     }
-    private void power_label_refresh() {
+    private void power_label_refresh(float val) {
         // Refresh both the power label and the power button
-        /*final float val=0;
+        final float display_val;
         switch(chosen_power_option) {
             case REAL_POWER:
-
-                val = mMeter.getRealPower();
+                display_val = val;
                 break;
             case APPARENT_POWER:
-                val = mMeter.getApparentPower();
+                display_val = mMeter.getValue(0)*mMeter.getValue(1);
                 break;
             case POWER_FACTOR:
-                val = mMeter.getPowerFactor();
+                // Power factor = real power/apparent power
+                display_val = val/mMeter.getValue(0)*mMeter.getValue(1);
                 break;
-            case K_THERMOCOUPLE:
-                val = 0;
+            default:
+                display_val = 0;
                 break;
-        }*/
+        }
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                power_label.setText(mMeter.getPowerLabel());
+                power_label.setText(Float.toString(display_val));
                 power_button.setText(chosen_power_option.toString());
             }
         });
     }
     private void power_button_refresh() {
-        power_label_refresh();
+        power_label_refresh(mMeter.getPower());
     }
     private void graph_button_refresh() {
         Log.d(TAG, "TBI");
@@ -649,7 +649,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 @Override
                 public void run() {
                     if(mMeter.applyAutorange()) {
-                        autorange_cooldown.fire(100);
+                        autorange_cooldown.fire(200);
                         refreshAllControls();
                     }
                 }
@@ -692,7 +692,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onRealPowerCalculated(double timestamp_utc, float val) {
-        power_label_refresh();
+        power_label_refresh(val);
     }
 
     @Override

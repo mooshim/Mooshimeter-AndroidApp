@@ -287,15 +287,26 @@ public class Util {
     }
 
     public static void blockUntilRunOnMainThread(final Runnable r) {
-        if(inMainThread()) {
+        final Exception context = new Exception();
+        if (inMainThread()) {
             r.run();
         } else {
             final Semaphore sem = new Semaphore(0);
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    r.run();
-                    sem.release();
+                    try {
+                        r.run();
+                    } catch(Exception e) {
+                        Log.e(TAG, "Exception in callback dispatched from:");
+                        context.printStackTrace();
+                        Log.e(TAG, "Exception details:" + e.getMessage());
+                        e.printStackTrace();
+                        // forward the exception
+                        throw e;
+                    } finally {
+                        sem.release();
+                    }
                 }
             });
             try {
