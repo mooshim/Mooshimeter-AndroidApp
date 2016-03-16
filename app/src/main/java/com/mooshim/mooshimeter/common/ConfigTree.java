@@ -274,7 +274,7 @@ public class ConfigTree {
             notify_handlers.clear();
         }
         public void notify(final double time_utc, final Object notification) {
-            Log.d(TAG, name + ":" + notification);
+            Log.d(TAG, getLongName() + ":" + notification);
             value = notification;
             for(final NotifyHandler handler:notify_handlers) {
                 handler.onReceived(time_utc, notification);
@@ -605,6 +605,7 @@ public class ConfigTree {
     }
 
     public void command(String cmd) {
+        Log.d(TAG,"CMD: "+cmd);
         // cmd might contain a payload, in which case split it out
         String[] tokens = cmd.split(" ", 2);
         String node_str = tokens[0];

@@ -435,9 +435,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         float max = getMaxRangeForChannel(c);
         float min = getMinRangeForChannel(c);
-        String s = getChString(c)+":VALUE";
-        float val = (Float)getValueAt(s);
-        val = val<0?-val:val; //abs
+        float val = getValue(c) + getOffset(c);
+        val = Math.abs(val);
         if(val > max) {
             return bumpRange(c,true,false);
         }
@@ -585,6 +584,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public String formatValueLabel(int c, float value) {
         SignificantDigits digits = getSigDigits(c);
+        if(Math.abs(value) > 1.1*getMaxRangeForChannel(c)) {
+            return "OUT OF RANGE";
+        }
         return formatReading(value, digits);
     }
 
@@ -616,13 +618,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
-    public String getPowerLabel() {
-        float real_power = (Float)tree.getValueAt("REAL_PWR");
-        SignificantDigits digits_ch1 = getSigDigits(0);
-        SignificantDigits digits_ch2 = getSigDigits(1);
-        // This reading is the product of ch1 and ch2
-        digits_ch1.high += digits_ch2.high;
-        return formatReading(real_power, digits_ch1);
+    public float getPower() {
+        return (Float)tree.getValueAt("REAL_PWR");
     }
 
     @Override

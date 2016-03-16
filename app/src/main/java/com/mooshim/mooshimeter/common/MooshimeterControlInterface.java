@@ -53,7 +53,8 @@ interface MooshimeterControlInterface {
 
     float getValue(int c);
     String formatValueLabel(int c, float value);
-    String getPowerLabel();
+
+    float getPower();
 
     String       getRangeLabel(int c);
     int          setRangeIndex(int c,int r);
