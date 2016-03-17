@@ -11,12 +11,6 @@ public interface GraphingActivityInterface {
     void refresh();
 
     /**
-     * Set maximum number of points visible on the screen
-     * @param maxPoints number of points
-     */
-    void setNPointOnScreen(int maxPoints);
-
-    /**
      * Add point to a series
      * @param series_n series to which point is to be added
      * @param x x value

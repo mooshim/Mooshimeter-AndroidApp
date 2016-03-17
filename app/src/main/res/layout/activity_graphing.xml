@@ -17,15 +17,41 @@
         android:layout_marginBottom="4dp"
         android:layout_gravity="bottom">
         <Button
-            android:id="@+id/scaling"
+            android:id="@+id/scaling0"
             android:layout_width="wrap_content"
             android:layout_height="34dp"
             android:textColor="@android:color/white"
             android:background="#B3000000"
             android:padding="4dp"
-            android:text="Manual Scaling"
+            android:text="MAN 1"
             android:layout_marginEnd="16dp"/>
-
+        <Button
+            android:id="@+id/scaling1"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:textColor="@android:color/white"
+            android:background="#B3000000"
+            android:padding="4dp"
+            android:text="MAN 2"
+            android:layout_marginEnd="16dp"/>
+        <Button
+            android:id="@+id/n_samples"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:textColor="@android:color/white"
+            android:background="#B3000000"
+            android:padding="4dp"
+            android:text="SAMPLE"
+            android:layout_marginEnd="16dp"/>
+        <Button
+            android:id="@+id/play_button"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:textColor="@android:color/white"
+            android:background="#B3000000"
+            android:padding="4dp"
+            android:text="PAUSE"
+            android:layout_marginEnd="16dp"/>
         <ImageButton
             android:id="@+id/lock_right"
             android:layout_width="wrap_content"

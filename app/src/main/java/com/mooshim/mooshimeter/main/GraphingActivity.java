@@ -1,5 +1,7 @@
 package com.mooshim.mooshimeter.main;
 
+import android.app.ActionBar;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -15,6 +17,7 @@ import com.mooshim.mooshimeter.common.GraphingActivityInterface;
 import com.mooshim.mooshimeter.common.MooshimeterDelegate;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
@@ -35,25 +38,40 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
     private static int[] mColorList = {
             0xFFFF0000, // R
-            0xFF00FF00, // G
             0xFF0000FF, // B
+            0xFF00FF00, // G
             0xFF008888, // G+B
             0xFF880088, // R+B
             0xFF888800, // R+G
     };
 
+    private enum ChDispModes {
+        OFF,
+        LOCKED,
+        MANUAL,
+        AUTO,
+    }
+
+    Button[] chModeButtons = new Button[]{null,null};
+    Button sampleButton;
+    int[] sampleOptions = {50,100,200,400,800};
+    Button playButton;
+
     LineChartView mChart;
     final int maxNumberOfPoints = 10000;
-    int maxNumberOfPointsOnScreen = 256;
+    int maxNumberOfPointsOnScreen = 32;
     Axis xAxis, yAxisLeft, yAxisRight;
-    boolean manualAxisScaling = false;
-    boolean lockedRight = true;
+    ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
+    boolean scrollLockOn = true;
+    boolean xyModeOn = false;
+    boolean playing = true;
+
     //Create lists for storing actual value of points that are visible on the screen for both axises
     VisibleVsBackupHelper leftAxisValues;
     VisibleVsBackupHelper rightAxisValues;
-    VisibleVsBackupHelper[] helpers;
+    VisibleVsBackupHelper[] axisValueHelpers;
     LinearTransform rightToLeftHelper = new LinearTransform();
-    final static LinearTransform unityHelper = new LinearTransform();
+    Viewport[] viewportStash = new Viewport[]{new Viewport(),new Viewport()};
 
     private MooshimeterDeviceBase mMeter;
     private double time_start;
@@ -81,13 +99,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     private static class PointListHelper {
         // visible_list is bound to a line in mChart
         private final List<PointValue> list;
-        public Viewport vp;
+        public Viewport bounding_vp;
         private PointListHelper() {
             this(new ArrayList<PointValue>());
         }
         private PointListHelper(List<PointValue> bound_list) {
             this.list = bound_list;
-            vp = new Viewport();
+            bounding_vp = new Viewport();
             recalcMinMax();
         }
         public void __add(PointValue p) {
@@ -105,24 +123,24 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         private void minMaxProcessPoint(PointValue p) {
             float x = p.getX();
             float y = p.getY();
-            if(x>vp.right) {
-                vp.right = x;
+            if(x> bounding_vp.right) {
+                bounding_vp.right = x;
             }
-            if(x<vp.left) {
-                vp.left = x;
+            if(x< bounding_vp.left) {
+                bounding_vp.left = x;
             }
-            if(y>vp.top) {
-                vp.top = y;
+            if(y> bounding_vp.top) {
+                bounding_vp.top = y;
             }
-            if(y<vp.bottom) {
-                vp.bottom = y;
+            if(y< bounding_vp.bottom) {
+                bounding_vp.bottom = y;
             }
         }
         private void recalcMinMax() {
-            vp.left  =  Float.MAX_VALUE;
-            vp.right = -Float.MAX_VALUE;
-            vp.bottom=  Float.MAX_VALUE;
-            vp.top   = -Float.MAX_VALUE;
+            bounding_vp.left  =  Float.MAX_VALUE;
+            bounding_vp.right = -Float.MAX_VALUE;
+            bounding_vp.bottom=  Float.MAX_VALUE;
+            bounding_vp.top   = -Float.MAX_VALUE;
             for(PointValue p:list) {
                 minMaxProcessPoint(p);
             }
@@ -131,12 +149,12 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             final PointValue p = list.remove(0);
             float x = p.getX();
             float y = p.getY();
-            if( x >= vp.right || x <= vp.left || y >= vp.top || y >= vp.bottom) {
+            if( x >= bounding_vp.right || x <= bounding_vp.left || y >= bounding_vp.top || y >= bounding_vp.bottom) {
                 recalcMinMax();
             }
         }
         public Viewport getViewport() {
-            return new Viewport(vp);
+            return new Viewport(bounding_vp);
         }
         public int size() {
             return list.size();
@@ -162,9 +180,12 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         public void addPoint(PointValue p) {
             backing.add(p);
             visible.add(p);
-            int visible_max = lockedRight?maxNumberOfPointsOnScreen:maxNumberOfPoints;
+            int visible_max = scrollLockOn ?maxNumberOfPointsOnScreen:maxNumberOfPoints;
             while(visible.size()>visible_max) {
                 visible.pop();
+            }
+            while(backing.size()>maxNumberOfPoints) {
+                backing.pop();
             }
         }
         public void addPoints(List<PointValue> l) {
@@ -208,6 +229,62 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         return true;
     }
 
+    private void refreshModeButton(int i) {
+        final Button b = chModeButtons[i];
+        final String s;
+        switch(dispModes[i]) {
+            case OFF:
+                s = "OFF "+Integer.toString(i+1);
+                break;
+            case LOCKED:
+                s = "LOCK "+Integer.toString(i+1);
+                break;
+            case MANUAL:
+                s = "MAN "+Integer.toString(i+1);
+                break;
+            case AUTO:
+                s = "AUTO "+Integer.toString(i+1);
+                break;
+            default:
+                s="WHAT";
+                break;
+        }
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                b.setText(s);
+            }
+        });
+    }
+    private void processScalingButtonClick(int i) {
+        int other = (i+1)%2;
+        switch(dispModes[i]) {
+            case OFF:
+                dispModes[i] = ChDispModes.AUTO;
+                break;
+            case LOCKED:
+                dispModes[i] = ChDispModes.MANUAL;
+                if(dispModes[other]== ChDispModes.MANUAL) {
+                    dispModes[other] = ChDispModes.LOCKED;
+                }
+                break;
+            case MANUAL:
+                dispModes[i] = ChDispModes.OFF;
+                if(dispModes[other]== ChDispModes.LOCKED) {
+                    dispModes[other] = ChDispModes.MANUAL;
+                }
+                break;
+            case AUTO:
+                dispModes[i] = ChDispModes.MANUAL;
+                if(dispModes[other]== ChDispModes.MANUAL) {
+                    dispModes[other] = ChDispModes.LOCKED;
+                }
+                break;
+        }
+        refreshModeButton(0);
+        refreshModeButton(1);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -216,52 +293,97 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         mChart.setViewportCalculationEnabled(false);
         mChart.setMaxZoom((float) 1000.0);
 
+        Intent intent = getIntent();
+        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+
         (findViewById(R.id.lock_right)).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                lockedRight = !lockedRight;
-                if(!lockedRight) {
-                    helpers[0].expandVisibleToAll();
-                    helpers[1].expandVisibleToAll();
+                scrollLockOn = !scrollLockOn;
+                if (!scrollLockOn) {
+                    axisValueHelpers[0].expandVisibleToAll();
+                    axisValueHelpers[1].expandVisibleToAll();
                 }
             }
         });
 
-        final Button scalingButton = (Button) findViewById(R.id.scaling);
-        scalingButton.setOnClickListener(new View.OnClickListener() {
+        chModeButtons[0] = (Button) findViewById(R.id.scaling0);
+        chModeButtons[0].setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                manualAxisScaling = !manualAxisScaling;
-                if (manualAxisScaling)
-                    scalingButton.setText("Auto Scaling");
-                else
-                    scalingButton.setText("Manual Scaling");
+                processScalingButtonClick(0);
             }
         });
+        chModeButtons[1] = (Button) findViewById(R.id.scaling1);
+        chModeButtons[1].setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                processScalingButtonClick(1);
+            }
+        });
+        refreshModeButton(0);
+        refreshModeButton(1);
+
+        sampleButton = (Button) findViewById(R.id.n_samples);
+        final List<String> option_strings = new ArrayList<>();
+        final Context context = this;
+        for(int i:sampleOptions) {
+            option_strings.add(Integer.toString(i));
+        }
+        sampleButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Util.generatePopupMenuWithOptions(context, option_strings, sampleButton, new NotifyHandler() {
+                    @Override
+                    public void onReceived(double timestamp_utc, Object payload) {
+                        maxNumberOfPointsOnScreen = sampleOptions[(Integer) payload];
+                    }
+                }, null);
+            }
+        });
+
+        playButton = (Button) findViewById(R.id.play_button);
+        playButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                playing = !playing;
+                if(playing) {
+                    mMeter.stream();
+                } else {
+                    mMeter.pause();
+                }
+            }
+        });
+
+
         mChart.setInteractive(true);
-        mChart.setZoomType(ZoomType.HORIZONTAL_AND_VERTICAL);
+        mChart.setZoomType(ZoomType.VERTICAL);
         mChart.setContainerScrollEnabled(true, ContainerScrollType.HORIZONTAL);
 
         LineChartData lineChartData = new LineChartData(new ArrayList<Line>());
-        xAxis = new Axis().setName("Axis X").setHasLines(true);
+        xAxis = new Axis().setName("Time [s]").setHasLines(true);
         lineChartData.setAxisXBottom(xAxis);
-        yAxisLeft = new Axis().setName("Left Y").setHasLines(true);
-        yAxisRight = new Axis().setName("Right Y").setHasLines(true).setFormatter(new ValueFormatter());
+
+        yAxisLeft = new Axis().setName(mMeter.getInputLabel(0)).setHasLines(true);
+        yAxisLeft.setLineColor(mColorList[0]);
+        yAxisLeft.setTextColor(mColorList[0]);
+        yAxisLeft.setHasTiltedLabels(true);
+        yAxisRight = new Axis().setName(mMeter.getInputLabel(1)).setHasLines(true);
+        yAxisRight.setLineColor(mColorList[1]);
+        yAxisRight.setTextColor(mColorList[1]);
+        yAxisRight.setHasTiltedLabels(true);
+        yAxisRight.setFormatter(new ValueFormatter());
+
         lineChartData.setAxisYLeft(yAxisLeft);
         lineChartData.setAxisYRight(yAxisRight);
         mChart.setLineChartData(lineChartData);
 
-        Intent intent = getIntent();
-        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
-
         addStream("CH1");
         addStream("CH2");
-
-        ArrayList<Line> lines = new ArrayList<>(lineChartData.getLines());
-
+        
         leftAxisValues  = new VisibleVsBackupHelper();
         rightAxisValues = new VisibleVsBackupHelper();
-        helpers = new VisibleVsBackupHelper[]{leftAxisValues,rightAxisValues};
+        axisValueHelpers = new VisibleVsBackupHelper[]{leftAxisValues,rightAxisValues};
     }
 
     @Override
@@ -281,6 +403,12 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     protected void onResume() {
         super.onResume();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        View decorView = getWindow().getDecorView();
+        int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
+        decorView.setSystemUiVisibility(uiOptions);
+        ActionBar actionBar = getActionBar();
+        actionBar.hide();
 
         final MooshimeterDelegate d = this;
         time_start = Util.getNanoTime();
@@ -323,22 +451,26 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             @Override
             public void run() {
                 List<Line> lines = mChart.getLineChartData().getLines();
-                lines.get(0).setValues(leftAxisValues.getVisible());
-                // For the right axis, we must transform
-                List<PointValue> rline = lines.get(1).getValues();
-                rline.clear();
-                for(PointValue p:rightAxisValues.getVisible()) {
-                    rline.add(new PointValue(p.getX(),rightToLeftHelper.apply(p.getY())));
+                // Feed in empty dataset if we don't want to display
+                if(dispModes[0]==ChDispModes.OFF) {
+                    lines.get(0).setValues(new ArrayList<PointValue>());
+                } else {
+                    lines.get(0).setValues(leftAxisValues.getVisible());
+                }
+                if(dispModes[1]==ChDispModes.OFF) {
+                    lines.get(1).setValues(new ArrayList<PointValue>());
+                } else {
+                    // For the right axis, we must transform
+                    List<PointValue> rline = lines.get(1).getValues();
+                    rline.clear();
+                    for (PointValue p : rightAxisValues.getVisible()) {
+                        rline.add(new PointValue(p.getX(), rightToLeftHelper.apply(p.getY())));
+                    }
                 }
                 //Force chart to draw current data again
                 mChart.setLineChartData(mChart.getLineChartData());
             }
         });
-    }
-
-    @Override
-    public void setNPointOnScreen(int maxPoints) {
-        maxNumberOfPointsOnScreen = maxPoints;
     }
 
     public int addStream(final String title) {
@@ -362,10 +494,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         addPoints(series_n, l);
     }
 
-    void calculateScale() {
-        rightToLeftHelper.calcFromViewports(rightAxisValues.getViewport(), leftAxisValues.getViewport());
-    }
-
     @Override
     public void addPoints(final int series_n, final List<PointValue> new_values) {
         try {
@@ -373,9 +501,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    helpers[series_n].addPoints(new_values);
-                    calculateScale();
-                    setViewport();
+                    axisValueHelpers[series_n].addPoints(new_values);
+                    calcViewport();
                     refresh();
                 }
             });
@@ -399,37 +526,84 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         }
     }
 
-    private void setViewport() {
-        Viewport lv = leftAxisValues.getViewport();
-        Viewport rv = rightAxisValues.getViewport();
+    private Viewport calcMaxViewport() {
+        // If a channel's auto mode is locked, don't let it drive the maximum viewport at all.
+        if(dispModes[0]== ChDispModes.LOCKED) {
+            return axisValueHelpers[1].getViewport();
+        }
+        if(dispModes[1]== ChDispModes.LOCKED) {
+            return axisValueHelpers[0].getViewport();
+        }
+        Viewport lv = axisValueHelpers[0].getViewport();
+        Viewport rv = axisValueHelpers[1].getViewport();
         // rv is in its own units
         // Because of HelloChart's annoying system, we need to transform to put it in terms of the left scale
         rv.top = rightToLeftHelper.apply(rv.top);
         rv.bottom = rightToLeftHelper.apply(rv.bottom);
-        // Determine max of the two viewports
+        // Determine max of the two viewports (based on data)
         Viewport maxView = new Viewport();
+
         maxView.top    = Math.max(lv.top, rv.top);
         maxView.bottom = Math.min(lv.bottom, rv.bottom);
         maxView.right  = Math.max(lv.right, rv.right);
         maxView.left   = Math.min(lv.left, rv.left);
+        return maxView;
+    }
+
+    private void calcViewport() {
+
+        Viewport lv;
+        Viewport rv;
+        switch(dispModes[0]) {
+            case AUTO:
+                lv = axisValueHelpers[0].getViewport();
+                break;
+            case LOCKED:
+                lv = viewportStash[0];
+                break;
+            case MANUAL:
+            case OFF:
+            default:
+                lv = mChart.getCurrentViewport();
+                break;
+
+        }
+        switch(dispModes[1]) {
+            case AUTO:
+                rv = axisValueHelpers[1].getViewport();
+                break;
+            case LOCKED:
+                rv = viewportStash[1];
+                break;
+            case MANUAL:
+            case OFF:
+            default:
+                rv = mChart.getCurrentViewport();
+                rv.top = rightToLeftHelper.invert(rv.top);
+                rv.bottom = rightToLeftHelper.invert(rv.bottom);
+                break;
+        }
+        rightToLeftHelper.calcFromViewports(rv, lv);
+
+        viewportStash[0] = new Viewport(lv);
+        viewportStash[1] = new Viewport(rv);
+
+        // rv is in its own units
+        // Because of HelloChart's annoying system, we need to transform to put it in terms of the left scale
+        rv.top = rightToLeftHelper.apply(rv.top);
+        rv.bottom = rightToLeftHelper.apply(rv.bottom);
+
+        Viewport maxView = calcMaxViewport();
         mChart.setMaximumViewport(maxView);
 
-        boolean touched = false;
         Viewport currentView = mChart.getCurrentViewport();
-
-        if(!manualAxisScaling) {
-            currentView.top = maxView.top;
-            currentView.bottom = maxView.bottom;
-            touched = true;
-        }
-        if(lockedRight) {
+        currentView.top    = lv.top;
+        currentView.bottom = lv.bottom;
+        if(scrollLockOn) {
             currentView.left = maxView.left;
             currentView.right = maxView.right;
-            touched = true;
         }
-        if(touched) {
-            mChart.setCurrentViewport(currentView);
-        }
+        mChart.setCurrentViewport(currentView);
 
         // Since we're adjusting the data actually being displayed on screen, we should not need to mess
         // with the current viewport

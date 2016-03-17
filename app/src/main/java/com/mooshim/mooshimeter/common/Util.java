@@ -383,12 +383,14 @@ public class Util {
             });
             i++;
         }
-        rval.setOnDismissListener(new PopupMenu.OnDismissListener() {
-            @Override
-            public void onDismiss(PopupMenu popupMenu) {
-                on_dismiss.run();
-            }
-        });
+        if(on_dismiss!=null) {
+            rval.setOnDismissListener(new PopupMenu.OnDismissListener() {
+                @Override
+                public void onDismiss(PopupMenu popupMenu) {
+                    on_dismiss.run();
+                }
+            });
+        }
         rval.show();
         return rval;
     }
