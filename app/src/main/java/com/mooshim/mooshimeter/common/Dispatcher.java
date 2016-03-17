@@ -52,9 +52,9 @@ public class Dispatcher {
                 try {
                     r.run();
                 } catch (Exception e) {
-                    Log.e(TAG, "Exception in callback dispatched from:");
+                    Log.e(TAG, "Exception in callback dispatched from: ");
                     context.printStackTrace();
-                    Log.e(TAG, "Exception details:" + e.getMessage());
+                    Log.e(TAG, "Exception details: " + e.getMessage());
                     e.printStackTrace();
                     // forward the exception
                     throw e;

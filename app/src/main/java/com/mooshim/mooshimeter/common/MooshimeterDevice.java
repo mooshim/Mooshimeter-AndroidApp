@@ -222,6 +222,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // At this point the tree is loaded.  Refresh all values in the tree.
         tree.refreshAll();
 
+        input_descriptors[0].clear();
+        input_descriptors[1].clear();
+
         input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "MEAN","A"  ,false));
         input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "RMS" ,"A"  ,false));
         input_descriptors[0].add(makeInputDescriptor(0,"TEMP"      ,false,"MEAN","K"  ,false));
