@@ -31,7 +31,7 @@ import java.util.UUID;
 
 import static java.util.UUID.fromString;
 
-public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements MooshimeterControlInterface {
+public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements MooshimeterControlInterface {
     ////////////////////////////////
     // Statics
     ////////////////////////////////
@@ -40,23 +40,7 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
         public int n_digits;
     }
 
-    public static final class mPreferenceKeys {
-        public static final String
-                AUTOCONNECT = "AUTOCONNECT";
-    }
-
     private static final String TAG="MooshimeterDevice";
-    /*
-    mUUID stores the UUID values of all the Mooshimeter fields.
-    Note that the OAD fields are only accessible when connected to the Mooshimeter in OAD mode
-    and the METER_ fields are only accessible when connected in meter mode.
-     */
-
-    public static final class mServiceUUIDs {
-        public final static UUID
-        METER_SERVICE      = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
-        OAD_SERVICE_UUID   = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4");
-    }
 
     public enum TEMP_UNITS {
         CELSIUS,
@@ -128,35 +112,10 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
         return b;
     }
 
-    // Used so the inner classes have something to grab
-    public MooshimeterDeviceBase mInstance;
-
-    public int              mBuildTime;
-    public boolean          mOADMode;
-    public boolean          mInitialized = false;
-
-    public static MooshimeterDeviceBase makeDeviceForFirmwareVersion(final int fw_version, final BluetoothDevice device, final Context context) {
-        return new MooshimeterDevice(device,context);
-        //if(fw_version > 1454355414) { // FIXME find actual build time (This is Feb 1 2016)
-        //    return new MooshimeterDevice(device,context);
-        //} else {
-        //    return new LegacyMooshimeterDevice(device,context);
-        //}
-    }
-
-    public MooshimeterDeviceBase(final BluetoothDevice device, final Context context) {
+    public MooshimeterDeviceBase(PeripheralWrapper wrap) {
         // Initialize super
-        super(device,context);
+        super(wrap);
         mInstance = this;
-    }
-
-    public int discover() {
-        int rval = super.discover();
-        if(rval != 0) {
-            return rval;
-        }
-        mInitialized = true;
-        return rval;
     }
 
     public int disconnect() {
@@ -165,49 +124,9 @@ public abstract class MooshimeterDeviceBase extends PeripheralWrapper implements
     }
 
     ////////////////////////////////
-    // Persistent settings
-    ////////////////////////////////
-
-    private String getSharedPreferenceString() {
-        return "mooshimeter-preference-"+getAddress();
-    }
-
-    private SharedPreferences getSharedPreferences() {
-        return mContext.getSharedPreferences(getSharedPreferenceString(),Context.MODE_PRIVATE);
-    }
-
-    public boolean hasPreference(String key) {
-        return getSharedPreferences().contains(key);
-    }
-
-    public boolean getPreference(String key) {
-        return getSharedPreferences().getBoolean(key, false);
-    }
-
-    public void setPreference(String key, boolean val) {
-        SharedPreferences sp = getSharedPreferences();
-        SharedPreferences.Editor e = sp.edit();
-        e.putBoolean(key,val);
-        e.commit();
-    }
-
-    ////////////////////////////////
     // Convenience functions
     ////////////////////////////////
 
-    public boolean isInOADMode() {
-        // If we've already connected and discovered characteristics,
-        // we can just see what's in the service dictionary.
-        // If we haven't connected, revert to whatever the scan
-        // hinted at.
-        if(mServices.containsKey(mServiceUUIDs.METER_SERVICE)){
-            mOADMode = false;
-        }
-        if(mServices.containsKey(mServiceUUIDs.OAD_SERVICE_UUID)) {
-            mOADMode = true;
-        }
-        return mOADMode;
-    }
     public static String formatReading(float val, MooshimeterDeviceBase.SignificantDigits digits) {
         final String prefixes[] = new String[]{"n","?","m","","k","M","G"};
         int prefix_i = 3;

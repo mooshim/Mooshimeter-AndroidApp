@@ -98,8 +98,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // METHODS
     ////////////////////////////////
 
-    public MooshimeterDevice(BluetoothDevice device, Context context) {
-        super(device, context);
+    public MooshimeterDevice(PeripheralWrapper wrap) {
+        super(wrap);
         tree = new ConfigTree();
         input_descriptors = new List[2];
         input_descriptors[0] = new ArrayList<InputDescriptor>();
@@ -152,15 +152,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return inputs;
     }
 
-    ////////////////////////////////
-    // MooshimeterBaseDevice methods
-    ////////////////////////////////
-
     private InputDescriptor getSelectedDescriptor(final int channel) {
         return input_descriptors[channel].get(input_descriptors_indices[channel]);
     }
-
-    InputDescriptor makeInputDescriptor(int c, String name, boolean analysis_in_name, String analysis, String units, boolean shared) {
+    private InputDescriptor makeInputDescriptor(int c, String name, boolean analysis_in_name, String analysis, String units, boolean shared) {
         InputDescriptor i = new InputDescriptor();
         i.analysis_node = tree.getNode(getChString(c)+":ANALYSIS:"+analysis);
         i.name          = name;
@@ -181,7 +176,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         addRangeDescriptors(i, i.input_node);
         return i;
     }
-
     private int determineInputDescriptorIndex(int c) {
         for(InputDescriptor d:input_descriptors[c]) {
             if(getInputNode(c) == d.input_node) {
@@ -192,7 +186,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return input_descriptors_indices[c];
     }
-
     private float[] interpretSampleBuffer(int c, byte[] payload) {
         ByteBuffer b = ByteBuffer.wrap(payload);
         int bytes_per_sample = (Integer)tree.getValueAt(getChString(c)+":BUF_BPS");
@@ -211,13 +204,17 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
 
+    ////////////////////////////////
+    // BLEDeviceBase methods
+    ////////////////////////////////
+
     @Override
-    public int discover() {
-        int rval = super.discover();
-        if(rval!=0) {
-            return rval;
+    public int initialize() {
+        int rval=0;
+        if(mPwrap.getChar(mUUID.METER_SERIN)==null||mPwrap.getChar(mUUID.METER_SEROUT)==null) {
+            return -1;
         }
-        tree.attach(this, mUUID.METER_SERIN, mUUID.METER_SEROUT);
+        tree.attach(mPwrap, mUUID.METER_SERIN, mUUID.METER_SEROUT);
 
         // At this point the tree is loaded.  Refresh all values in the tree.
         tree.refreshAll();
@@ -375,31 +372,30 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
 
+    ////////////////////////////////
+    // MooshimeterControlInterface methods
+    ////////////////////////////////
+
     @Override
     public void pause() {
         tree.command("SAMPLING:TRIGGER 0");
     }
-
     @Override
     public void oneShot() {
         tree.command("SAMPLING:TRIGGER 1");
     }
-
     @Override
     public void stream() {
         tree.command("SAMPLING:TRIGGER 2");
     }
-
     @Override
     public float getOffset(int c) {
         return (Float)tree.getValueAt(getChString(c)+":OFFSET");
     }
-
     @Override
     public void setOffset(int c, float offset) {
         tree.command(getChString(c)+":OFFSET "+Float.toString(offset));
     }
-
     @Override
     public boolean bumpRange(int channel, boolean expand, boolean wrap) {
         ConfigTree.ConfigNode rnode = getInputNode(channel);
@@ -550,7 +546,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public List<String> getBufferDepthList() {
         return getChildNameList(tree.getNode("SAMPLING:DEPTH"));
     }
-
     int[] preBufferModeStash = new int[]{0,0};
     @Override
     public void setBufferMode(int c, boolean on) {
@@ -563,7 +558,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         tree.command(cmd);
     }
-
     @Override
     public boolean getLoggingOn() {
         int i = (Integer)getValueAt("LOG:ON");
@@ -586,12 +580,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         };
         return messages[getLoggingStatus()];
     }
-
     @Override
     public float getValue(int c) {
         return (Float)tree.getValueAt(getChString(c)+":VALUE");
     }
-
     @Override
     public String formatValueLabel(int c, float value) {
         SignificantDigits digits = getSigDigits(c);
@@ -600,7 +592,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return formatReading(value, digits);
     }
-
     @Override
     public int getLoggingStatus() {
         return (Integer)getValueAt("LOG:STATUS");
@@ -627,12 +618,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         tree.command(getChString(c) + ":RANGE_I " + r);
         return 0;
     }
-
     @Override
     public float getPower() {
         return (Float)tree.getValueAt("REAL_PWR");
     }
-
     @Override
     public int getInputIndex(int c) {
         return input_descriptors_indices[c];

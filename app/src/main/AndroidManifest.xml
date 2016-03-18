@@ -45,5 +45,9 @@
             android:parentActivityName=".main.ScanActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="landscape" />
+        <activity
+            android:name=".main.OADActivity"
+            android:parentActivityName=".main.ScanActivity"
+            android:screenOrientation="portrait" />
     </application>
 </manifest>

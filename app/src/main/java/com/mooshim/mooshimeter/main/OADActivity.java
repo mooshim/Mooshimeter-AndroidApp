@@ -72,13 +72,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
-import com.mooshim.mooshimeter.common.PeripheralWrapper;
+import com.mooshim.mooshimeter.common.LegacyMooshimeterDevice;
+import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.concurrent.Semaphore;
 
-public class FwUpdateActivity extends MyActivity {
+public class OADActivity extends MyActivity {
     // Activity
     private static final int FILE_BUFFER_SIZE = 0x40000;
     private static final int HAL_FLASH_WORD_SIZE = 4;
@@ -92,7 +93,7 @@ public class FwUpdateActivity extends MyActivity {
     private Button mBtnStart;
     private CheckBox mLegacyMode;
     // BLE
-    private MooshimeterDevice mMeter;
+    private LegacyMooshimeterDevice mMeter;
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
@@ -102,8 +103,9 @@ public class FwUpdateActivity extends MyActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Sorry about the casting games
         Intent intent = getIntent();
-        mMeter = ScanActivity.getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = (LegacyMooshimeterDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
 
         // GUI init
         setContentView(R.layout.activity_fwupdate);
@@ -232,9 +234,9 @@ public class FwUpdateActivity extends MyActivity {
         final Handler delayed_poster = new Handler();
 
         // Send image notification
-        mMeter.oad_block.enableNotify(true, new PeripheralWrapper.NotifyCallback() {
+        mMeter.oad_block.enableNotify(true, new NotifyHandler() {
             @Override
-            public void notify(double timestamp_utc, byte[] payload) {
+            public void onReceived(double timestamp_utc, Object payload) {
                 mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG, "Meter requested block " + rb);
@@ -273,9 +275,9 @@ public class FwUpdateActivity extends MyActivity {
                 }
             }
         });
-        mMeter.oad_identity.enableNotify(true, new PeripheralWrapper.NotifyCallback() {
+        mMeter.oad_identity.enableNotify(true, new NotifyHandler() {
             @Override
-            public void notify(double timestamp_utc, byte[] payload) {
+            public void onReceived(double timestamp_utc, Object payload) {
                 Log.d(TAG, "OAD Image identify notification!");
             }
         });
@@ -286,7 +288,7 @@ public class FwUpdateActivity extends MyActivity {
         mProgInfo.reset();
         final Handler delay_handler = new Handler();
         final int[] cb_handle = new int[1];
-        cb_handle[0] = mMeter.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+        cb_handle[0] = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
             public void run() {
                 runOnUiThread(new Runnable() {
@@ -299,7 +301,7 @@ public class FwUpdateActivity extends MyActivity {
                 delay_handler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        mMeter.cancelConnectionStateCB(cb_handle[0]);
+                        mMeter.mPwrap.cancelConnectionStateCB(cb_handle[0]);
                         transitionToActivity(mMeter, ScanActivity.class);
                     }
                 }, 3000);

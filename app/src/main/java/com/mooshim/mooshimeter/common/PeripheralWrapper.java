@@ -48,7 +48,7 @@ public class PeripheralWrapper {
 
     protected Context mContext;
     private BluetoothGatt mBluetoothGatt;
-    private BluetoothDevice mDevice;
+    protected BluetoothDevice mDevice;
     private BluetoothGattCallback mGattCallbacks;
     protected Map<UUID,BluetoothGattService> mServices;
     protected Map<UUID,BluetoothGattCharacteristic> mCharacteristics;

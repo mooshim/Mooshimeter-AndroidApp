@@ -299,7 +299,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         mChart.setMaxZoom((float) 1000.0);
 
         Intent intent = getIntent();
-        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
 
         scrollLockButton = (ImageButton)findViewById(R.id.lock_right);
         modeButtons[0] = (Button) findViewById(R.id.mode0);
@@ -379,6 +379,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             @Override
             public void run() {
                 mMeter.setDelegate(d);
+                if(bufferModeOn) {
+                    toggleBufferMode();
+                }
                 if(playing) {
                     mMeter.stream();
                     Log.i(TAG, "Stream requested");
@@ -390,13 +393,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.setBufferMode(0, false);
-                mMeter.setBufferMode(1,false);
-            }
-        });
     }
 
     @Override

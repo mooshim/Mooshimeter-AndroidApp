@@ -48,7 +48,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.common.BLEDeviceBase;
+import com.mooshim.mooshimeter.common.LegacyMooshimeterDevice;
+import com.mooshim.mooshimeter.common.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
@@ -129,7 +131,7 @@ public class ScanActivity extends MyActivity {
     public void onPause() {
         super.onPause();
         // Find if we have any connected meters, if so make sure they stop streaming
-        for(MooshimeterDeviceBase m : mMeterDict.values()) {
+        for(BLEDeviceBase m : mMeterDict.values()) {
         }
     }
 
@@ -137,7 +139,7 @@ public class ScanActivity extends MyActivity {
     public void onStart() {
         super.onStart();
         // Find if we have any connected meters, if so make sure they resume streaming
-        for(MooshimeterDeviceBase m : mMeterDict.values()) {
+        for(BLEDeviceBase m : mMeterDict.values()) {
             if(m.isConnected()) {
                 addDeviceToTileList(m);
             }
@@ -276,10 +278,10 @@ public class ScanActivity extends MyActivity {
         });
     }
 
-    private View findTileForMeter(final MooshimeterDeviceBase m) {
+    private View findTileForMeter(final BLEDeviceBase m) {
         for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
             View v = mDeviceScrollView.getChildAt(i);
-            MooshimeterDeviceBase test = (MooshimeterDeviceBase) v.getTag();
+            BLEDeviceBase test = (BLEDeviceBase) v.getTag();
             if(test==m) {
                 return v;
             }
@@ -288,7 +290,7 @@ public class ScanActivity extends MyActivity {
         return null;
     }
 
-    private void addDeviceToTileList(final MooshimeterDeviceBase d) {
+    private void addDeviceToTileList(final BLEDeviceBase d) {
         mEmptyMsg.setVisibility(View.GONE);
 
         if(findTileForMeter(d) != null) {
@@ -331,13 +333,13 @@ public class ScanActivity extends MyActivity {
     }
 
     private void refreshMeterTile(final ViewGroup wrapper) {
-        final MooshimeterDeviceBase d = (MooshimeterDeviceBase) wrapper.getTag();
+        final BLEDeviceBase d = (BLEDeviceBase) wrapper.getTag();
         if(wrapper.getChildCount()==0) {
             Log.e(TAG,"Received empty wrapper");
             return;
         }
         // Update the title bar
-        int rssi = d.mRssi;
+        int rssi = d.getRSSI();
         String name;
         SpannableStringBuilder build = new SpannableStringBuilder();
         if(d.mOADMode) {
@@ -470,10 +472,10 @@ public class ScanActivity extends MyActivity {
                                 uuid_reversed_bytes[   j] ^= uuid_reversed_bytes[15-j];
                             }
                             UUID received_uuid = Util.uuidFromBytes(uuid_reversed_bytes);
-                            if(received_uuid.equals(MooshimeterDeviceBase.mServiceUUIDs.METER_SERVICE)) {
+                            if(received_uuid.equals(BLEDeviceBase.mServiceUUIDs.METER_SERVICE)) {
                                 Log.d(null, "Mooshimeter found");
                                 is_meter = true;
-                            } else if(received_uuid.equals(MooshimeterDeviceBase.mServiceUUIDs.OAD_SERVICE_UUID)) {
+                            } else if(received_uuid.equals(BLEDeviceBase.mServiceUUIDs.OAD_SERVICE_UUID)) {
                                 Log.d(null, "Mooshimeter found in OAD mode");
                                 is_meter = true;
                                 oad_mode = true;
@@ -502,11 +504,12 @@ public class ScanActivity extends MyActivity {
             }
 
             if(is_meter) {
-                MooshimeterDeviceBase m = mMeterDict.get(device.getAddress());
+                BLEDeviceBase m = mMeterDict.get(device.getAddress());
                 if(m==null) {
-                    m = MooshimeterDeviceBase.makeDeviceForFirmwareVersion(build_time,device,getApplicationContext());
+                    PeripheralWrapper p = new PeripheralWrapper(device, getApplicationContext());
+                    m = new BLEDeviceBase(p);
                     mMeterDict.put(m.getAddress(), m);
-                    final MooshimeterDeviceBase wrapped = m;
+                    final BLEDeviceBase wrapped = m;
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -514,26 +517,26 @@ public class ScanActivity extends MyActivity {
                         }
                     });
                 }
-                m.mRssi = rssi;
+                m.setRSSI(rssi);
                 m.mOADMode = oad_mode;
                 m.mBuildTime = build_time;
                 FilteredCallback(m);
             }
         }
 
-        abstract void FilteredCallback(final MooshimeterDeviceBase m);
+        abstract void FilteredCallback(final BLEDeviceBase m);
     }
 
     private class MainScanCallback extends FilteredScanCallback {
-        void FilteredCallback(final MooshimeterDeviceBase m) {
+        void FilteredCallback(final BLEDeviceBase m) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     refreshMeterTile((ViewGroup) findTileForMeter(m));
                 }
             });
-            if(   m.hasPreference(MooshimeterDeviceBase.mPreferenceKeys.AUTOCONNECT)
-               && m.getPreference(MooshimeterDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
+            if(   m.hasPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)
+               && m.getPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
                 // We've found a meter with the autoconnect feature enabled
                 // Connect to it!
                 setStatus("Autoconnecting...");
@@ -567,13 +570,13 @@ public class ScanActivity extends MyActivity {
         mBtnScan.setEnabled(false);
         updateScanningButton(false);
         // Prune disconnected meters
-        List<MooshimeterDeviceBase> remove = new ArrayList<MooshimeterDeviceBase>();
-        for(MooshimeterDeviceBase m : mMeterDict.values()) {
+        List<BLEDeviceBase> remove = new ArrayList<BLEDeviceBase>();
+        for(BLEDeviceBase m : mMeterDict.values()) {
             if( m.isDisconnected() ) {
                 remove.add(m);
             }
         }
-        for(MooshimeterDeviceBase m : remove) {
+        for(BLEDeviceBase m : remove) {
             for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
                 ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
                 if(vg.getTag() == m) {
@@ -621,13 +624,9 @@ public class ScanActivity extends MyActivity {
         startScan();
     }
 
-    private boolean offerFirmwareUpgrade() {
-        return Util.offerYesNoDialog(this,"Firmware upgrade available","Would you like to upgrade firmware now?");
-    }
-
-    private void startSingleMeterActivity(MooshimeterDeviceBase m) {
+    private void startSingleMeterActivity(BLEDeviceBase m) {
         if (m.isInOADMode()) {
-            //transitionToActivity(m, FwUpdateActivity.class);
+            transitionToActivity(m, OADActivity.class);
         } else {
             // Check the firmware version against our bundled version
         /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
@@ -676,7 +675,7 @@ public class ScanActivity extends MyActivity {
         }*/
     }
 
-    private void toggleConnectionState(final MooshimeterDeviceBase m) {
+    private void toggleConnectionState(BLEDeviceBase m) {
         ViewGroup vg = (ViewGroup) findTileForMeter(m);
         if(vg==null) {
             Log.e(TAG, "trying to toggle connection state on a tile that hasn't been instantiated");
@@ -693,7 +692,7 @@ public class ScanActivity extends MyActivity {
         });
         if(    m.isConnected()
             || m.isConnecting() ) {
-            m.setPreference(MooshimeterDeviceBase.mPreferenceKeys.AUTOCONNECT,false);
+            m.setPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT,false);
             m.disconnect();
         } else {
             do {
@@ -710,30 +709,40 @@ public class ScanActivity extends MyActivity {
                 setStatus("Discovering Services...");
                 rval = m.discover();
                 if (BluetoothGatt.GATT_SUCCESS != rval) {
+                    // We may have failed because
                     setStatus(String.format("Discovery failed.  Status: %d", rval));
                     m.disconnect();
                     break;
                 }
+                // At this point we are connected and have discovered characteristics for the BLE
+                // device.  We need to figure out exactly what kind it is and start the right
+                // activity for it.
+                m = m.chooseSubclass();
+                // Replace the copy in the singleton dict
+                mMeterDict.put(m.getAddress(),m);
+
+                rval = m.initialize();
                 setStatus("Connected!");
                 // If we've never connected to this meter before, make it a default for reconnection
-                if (!m.hasPreference(MooshimeterDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
-                    m.setPreference(MooshimeterDeviceBase.mPreferenceKeys.AUTOCONNECT, true);
+                if (!m.hasPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
+                    m.setPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT, true);
                 }
                 startSingleMeterActivity(m);
             }while(false);
         }
+        final BLEDeviceBase finalM = m;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 bv.setEnabled(true);
                 bv.setAlpha((float) 1.0);
-                int bgid = m.isConnected() ? R.drawable.connected : R.drawable.disconnected;
+                int bgid = finalM.isConnected() ? R.drawable.connected : R.drawable.disconnected;
                 bv.setBackground(getResources().getDrawable(bgid));
             }
         });
     }
 
-    private void valueLabelRefresh(final int c, final MooshimeterDeviceBase mMeter, final TextView v,final TextView v_unit) {
+    private void valueLabelRefresh(final int c, final BLEDeviceBase mMeter, final TextView v,final TextView v_unit) {
         // FIXME
         /*
         final boolean ac = mMeter.disp_ac[c];

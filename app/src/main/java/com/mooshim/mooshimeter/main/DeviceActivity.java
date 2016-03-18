@@ -251,7 +251,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     protected void onStart() {
         super.onStart();
         Intent intent = getIntent();
-        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
     }
 
     @Override
