@@ -355,7 +355,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 break;
             case POWER_FACTOR:
                 // Power factor = real power/apparent power
-                display_val = val/mMeter.getValue(0)*mMeter.getValue(1);
+                display_val = val/(mMeter.getValue(0)*mMeter.getValue(1));
                 break;
             default:
                 display_val = 0;
@@ -364,7 +364,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                power_label.setText(Float.toString(display_val));
+                power_label.setText(String.format("%.03f", display_val));
                 power_button.setText(chosen_power_option.toString());
             }
         });
