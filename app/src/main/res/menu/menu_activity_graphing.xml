@@ -6,6 +6,10 @@
         android:title="Toggle Buffer Mode"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/action_xy_mode_toggle"
+        android:title="Toggle XY Mode"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/action_back"
         android:title="Back"
         app:showAsAction="ifRoom" />

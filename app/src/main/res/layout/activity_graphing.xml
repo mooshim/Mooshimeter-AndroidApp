@@ -17,47 +17,52 @@
         android:layout_marginBottom="4dp"
         android:layout_gravity="bottom">
         <Button
-            android:id="@+id/scaling0"
+            android:id="@+id/mode0"
+            android:onClick="onClickMode0Button"
             android:layout_width="wrap_content"
             android:layout_height="34dp"
             android:textColor="@android:color/white"
-            android:background="#B3000000"
+            android:background="#80000000"
             android:padding="4dp"
             android:text="MAN 1"
             android:layout_marginEnd="16dp"/>
         <Button
-            android:id="@+id/scaling1"
+            android:id="@+id/mode1"
+            android:onClick="onClickMode1Button"
             android:layout_width="wrap_content"
             android:layout_height="34dp"
             android:textColor="@android:color/white"
-            android:background="#B3000000"
+            android:background="#80000000"
             android:padding="4dp"
             android:text="MAN 2"
             android:layout_marginEnd="16dp"/>
         <Button
             android:id="@+id/n_samples"
+            android:onClick="onClickSampleButton"
             android:layout_width="wrap_content"
             android:layout_height="34dp"
             android:textColor="@android:color/white"
-            android:background="#B3000000"
+            android:background="#80000000"
             android:padding="4dp"
             android:text="SAMPLE"
             android:layout_marginEnd="16dp"/>
         <Button
             android:id="@+id/play_button"
+            android:onClick="onClickPlayButton"
             android:layout_width="wrap_content"
             android:layout_height="34dp"
             android:textColor="@android:color/white"
-            android:background="#B3000000"
+            android:background="#80000000"
             android:padding="4dp"
             android:text="PAUSE"
             android:layout_marginEnd="16dp"/>
         <ImageButton
             android:id="@+id/lock_right"
+            android:onClick="onClickScrollLockButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_navigate_next"
-            android:background="#B3000000"
+            android:background="#80000000"
             android:padding="8dp"
             android:layout_marginEnd="16dp"/>
 
