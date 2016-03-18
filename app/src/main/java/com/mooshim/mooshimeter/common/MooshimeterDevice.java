@@ -551,9 +551,17 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return getChildNameList(tree.getNode("SAMPLING:DEPTH"));
     }
 
+    int[] preBufferModeStash = new int[]{0,0};
     @Override
     public void setBufferMode(int c, boolean on) {
-        tree.command(getChString(c)+":ANALYSIS "+(on?"2":"0"));
+        String cmd = getChString(c)+":ANALYSIS";
+        if(on) {
+            preBufferModeStash[c] = (Integer)tree.getValueAt(cmd);
+            cmd += " 2";
+        } else {
+            cmd += " " + Integer.toString(preBufferModeStash[c]);
+        }
+        tree.command(cmd);
     }
 
     @Override
