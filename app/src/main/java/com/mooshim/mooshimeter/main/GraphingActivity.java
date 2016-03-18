@@ -11,6 +11,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageButton;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.GraphingActivityInterface;
@@ -34,6 +35,11 @@ import lecho.lib.hellocharts.model.Viewport;
 import lecho.lib.hellocharts.view.LineChartView;
 
 public class GraphingActivity extends MyActivity implements GraphingActivityInterface, MooshimeterDelegate {
+
+    ///////////////////////
+    // STATICS
+    ///////////////////////
+
     private static final String TAG = GraphingActivity.class.getSimpleName();
 
     private static int[] mColorList = {
@@ -52,19 +58,38 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         AUTO,
     }
 
-    Button[] chModeButtons = new Button[]{null,null};
+    static int[] sampleOptions = {50,100,200,400,800};
+
+    ///////////////////////
+    // WIDGETS
+    ///////////////////////
+
+    Button[] modeButtons = new Button[]{null,null};
     Button sampleButton;
-    int[] sampleOptions = {50,100,200,400,800};
     Button playButton;
+    ImageButton scrollLockButton;
 
     LineChartView mChart;
+    Axis xAxis, yAxisLeft, yAxisRight;
+
+    ///////////////////////
+    // BEHAVIOR CONTROL
+    ///////////////////////
+
     final int maxNumberOfPoints = 10000;
     int maxNumberOfPointsOnScreen = 32;
-    Axis xAxis, yAxisLeft, yAxisRight;
     ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
     boolean scrollLockOn = true;
     boolean xyModeOn = false;
+    boolean bufferModeOn = false;
     boolean playing = true;
+
+    private MooshimeterDeviceBase mMeter;
+    private double time_start;
+
+    ///////////////////////
+    // HELPER VARS
+    ///////////////////////
 
     //Create lists for storing actual value of points that are visible on the screen for both axises
     VisibleVsBackupHelper leftAxisValues;
@@ -73,8 +98,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     LinearTransform rightToLeftHelper = new LinearTransform();
     Viewport[] viewportStash = new Viewport[]{new Viewport(),new Viewport()};
 
-    private MooshimeterDeviceBase mMeter;
-    private double time_start;
+    ///////////////////////
+    // HELPER CLASSES
+    ///////////////////////
 
     private static class LinearTransform {
         public float scale  = 1;
@@ -145,11 +171,17 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 minMaxProcessPoint(p);
             }
         }
-        void pop() {
-            final PointValue p = list.remove(0);
-            float x = p.getX();
-            float y = p.getY();
-            if( x >= bounding_vp.right || x <= bounding_vp.left || y >= bounding_vp.top || y >= bounding_vp.bottom) {
+        void pop(int n_pop) {
+            boolean recalc_flag = false;
+            for(int i = 0; i < n_pop; i++) {
+                final PointValue p = list.remove(0);
+                float x = p.getX();
+                float y = p.getY();
+                if( x >= bounding_vp.right || x <= bounding_vp.left || y >= bounding_vp.top || y <= bounding_vp.bottom) {
+                    recalc_flag = true;
+                }
+            }
+            if(recalc_flag) {
                 recalcMinMax();
             }
         }
@@ -181,11 +213,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             backing.add(p);
             visible.add(p);
             int visible_max = scrollLockOn ?maxNumberOfPointsOnScreen:maxNumberOfPoints;
-            while(visible.size()>visible_max) {
-                visible.pop();
+            if(visible.size()>visible_max) {
+                visible.pop(visible.size()-visible_max);
             }
-            while(backing.size()>maxNumberOfPoints) {
-                backing.pop();
+            if(backing.size()>maxNumberOfPoints) {
+                backing.pop(backing.size()-maxNumberOfPoints);
             }
         }
         public void addPoints(List<PointValue> l) {
@@ -203,7 +235,12 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         public List<PointValue> getVisible() {
             return visible.getList();
         }
+        public void clear() {visible.clear();backing.clear();}
     }
+
+    ///////////////////////
+    // ACTIVITY OVERRIDES
+    ///////////////////////
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -212,13 +249,37 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         return super.onCreateOptionsMenu(menu);
     }
 
+    private void toggleXYMode() {
+        xyModeOn = !xyModeOn;
+        if(xyModeOn) {
+            setXAxisTitle(mMeter.getInputLabel(0));
+            setYAxisTitle(0, mMeter.getInputLabel(1));
+            setYAxisTitle(1, "NA");
+        } else {
+            setXAxisTitle("Time [s]");
+            setYAxisTitle(0, mMeter.getInputLabel(0));
+            setYAxisTitle(1, mMeter.getInputLabel(1));
+        }
+    }
+
+    private void toggleBufferMode() {
+        bufferModeOn = !bufferModeOn;
+        leftAxisValues.clear();
+        rightAxisValues.clear();
+        mMeter.setBufferMode(0,bufferModeOn);
+        mMeter.setBufferMode(1,bufferModeOn);
+        refreshSampleButton();
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle presses on the action bar items
         switch (item.getItemId()) {
             case R.id.action_buffer_mode_toggle:
-                mMeter.setBufferMode(0,true);
-                mMeter.setBufferMode(1,true);
+                toggleBufferMode();
+                break;
+            case R.id.action_xy_mode_toggle:
+                toggleXYMode();
                 break;
             case R.id.action_back:
                 onDisconnect();
@@ -229,8 +290,127 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         return true;
     }
 
-    private void refreshModeButton(int i) {
-        final Button b = chModeButtons[i];
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_graphing);
+        mChart = (LineChartView) findViewById(R.id.lineChart);
+        mChart.setViewportCalculationEnabled(false);
+        mChart.setMaxZoom((float) 1000.0);
+
+        Intent intent = getIntent();
+        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+
+        scrollLockButton = (ImageButton)findViewById(R.id.lock_right);
+        modeButtons[0] = (Button) findViewById(R.id.mode0);
+        modeButtons[1] = (Button) findViewById(R.id.mode1);
+        sampleButton = (Button) findViewById(R.id.n_samples);
+        playButton = (Button) findViewById(R.id.play_button);
+
+        refreshModeButton(0);
+        refreshModeButton(1);
+        refreshPlayButton();
+        refreshScrollLockButton();
+        refreshSampleButton();
+
+        mChart.setInteractive(true);
+        mChart.setZoomType(ZoomType.VERTICAL);
+        mChart.setContainerScrollEnabled(true, ContainerScrollType.HORIZONTAL);
+
+        LineChartData lineChartData = new LineChartData(new ArrayList<Line>());
+        xAxis = new Axis().setName("Time [s]").setHasLines(true);
+        xAxis.setTextColor(0xFF000000);
+        xAxis.setHasTiltedLabels(true);
+        lineChartData.setAxisXBottom(xAxis);
+
+        yAxisLeft = new Axis().setName(mMeter.getInputLabel(0)).setHasLines(true);
+        yAxisLeft.setLineColor(mColorList[0]);
+        yAxisLeft.setTextColor(mColorList[0]);
+        yAxisLeft.setHasTiltedLabels(true);
+        yAxisRight = new Axis().setName(mMeter.getInputLabel(1)).setHasLines(true);
+        yAxisRight.setLineColor(mColorList[1]);
+        yAxisRight.setTextColor(mColorList[1]);
+        yAxisRight.setHasTiltedLabels(true);
+        yAxisRight.setFormatter(new ValueFormatter());
+
+        lineChartData.setAxisYLeft(yAxisLeft);
+        lineChartData.setAxisYRight(yAxisRight);
+        mChart.setLineChartData(lineChartData);
+
+        addStream("CH1");
+        addStream("CH2");
+
+        leftAxisValues  = new VisibleVsBackupHelper();
+        rightAxisValues = new VisibleVsBackupHelper();
+        axisValueHelpers = new VisibleVsBackupHelper[]{leftAxisValues,rightAxisValues};
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                if(bufferModeOn) {
+                    toggleBufferMode();
+                }
+                mMeter.pause();
+                mMeter.removeDelegate();
+            }
+        });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        View decorView = getWindow().getDecorView();
+        int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
+        decorView.setSystemUiVisibility(uiOptions);
+        ActionBar actionBar = getActionBar();
+        actionBar.hide();
+
+        final MooshimeterDelegate d = this;
+        time_start = Util.getNanoTime();
+
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.setDelegate(d);
+                if(playing) {
+                    mMeter.stream();
+                    Log.i(TAG, "Stream requested");
+                }
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.setBufferMode(0, false);
+                mMeter.setBufferMode(1,false);
+            }
+        });
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        transitionToActivity(mMeter, DeviceActivity.class);
+    }
+
+    /////////////////////////
+    // Widget Handlers+Refreshers
+    /////////////////////////
+
+    public void refreshModeButton(int i) {
+        final Button b = modeButtons[i];
         final String s;
         switch(dispModes[i]) {
             case OFF:
@@ -256,7 +436,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             }
         });
     }
-    private void processScalingButtonClick(int i) {
+    public void onClickModeButton(int i) {
         int other = (i+1)%2;
         switch(dispModes[i]) {
             case OFF:
@@ -284,47 +464,48 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         refreshModeButton(0);
         refreshModeButton(1);
     }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_graphing);
-        mChart = (LineChartView) findViewById(R.id.lineChart);
-        mChart.setViewportCalculationEnabled(false);
-        mChart.setMaxZoom((float) 1000.0);
-
-        Intent intent = getIntent();
-        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
-
-        (findViewById(R.id.lock_right)).setOnClickListener(new View.OnClickListener() {
+    public void onClickMode0Button(View v) { onClickModeButton(0); }
+    public void onClickMode1Button(View v) { onClickModeButton(1); }
+    public void refreshPlayButton() {
+        final String s;
+        if(playing) {
+            s="PAUSE";
+        } else {
+            s="PLAY";
+        }
+        runOnUiThread(new Runnable() {
             @Override
-            public void onClick(View v) {
-                scrollLockOn = !scrollLockOn;
-                if (!scrollLockOn) {
-                    axisValueHelpers[0].expandVisibleToAll();
-                    axisValueHelpers[1].expandVisibleToAll();
-                }
+            public void run() {
+                playButton.setText(s);
             }
         });
-
-        chModeButtons[0] = (Button) findViewById(R.id.scaling0);
-        chModeButtons[0].setOnClickListener(new View.OnClickListener() {
+    }
+    public void onClickPlayButton(View v) {
+        playing = !playing;
+        if(playing) {
+            mMeter.stream();
+            if(!scrollLockOn && !bufferModeOn) {
+                onClickScrollLockButton(null);
+            }
+        } else {
+            mMeter.pause();
+            if(scrollLockOn && !bufferModeOn) {
+                onClickScrollLockButton(null);
+            }
+        }
+        refreshPlayButton();
+    }
+    public void refreshSampleButton() {
+        final String s;
+        s = Integer.toString(maxNumberOfPointsOnScreen)+"pt";
+        runOnUiThread(new Runnable() {
             @Override
-            public void onClick(View v) {
-                processScalingButtonClick(0);
+            public void run() {
+                sampleButton.setText(s);
             }
         });
-        chModeButtons[1] = (Button) findViewById(R.id.scaling1);
-        chModeButtons[1].setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                processScalingButtonClick(1);
-            }
-        });
-        refreshModeButton(0);
-        refreshModeButton(1);
-
-        sampleButton = (Button) findViewById(R.id.n_samples);
+    }
+    public void onClickSampleButton(View v) {
         final List<String> option_strings = new ArrayList<>();
         final Context context = this;
         for(int i:sampleOptions) {
@@ -337,108 +518,37 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                     @Override
                     public void onReceived(double timestamp_utc, Object payload) {
                         maxNumberOfPointsOnScreen = sampleOptions[(Integer) payload];
+                        calcViewport();
+                        refresh();
+                        refreshSampleButton();
                     }
-                }, null);
+                }, new Runnable() {
+                    @Override
+                    public void run() {
+                        refreshSampleButton();
+                    }
+                });
             }
         });
-
-        playButton = (Button) findViewById(R.id.play_button);
-        playButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                playing = !playing;
-                if(playing) {
-                    mMeter.stream();
-                } else {
-                    mMeter.pause();
-                }
-            }
-        });
-
-
-        mChart.setInteractive(true);
-        mChart.setZoomType(ZoomType.VERTICAL);
-        mChart.setContainerScrollEnabled(true, ContainerScrollType.HORIZONTAL);
-
-        LineChartData lineChartData = new LineChartData(new ArrayList<Line>());
-        xAxis = new Axis().setName("Time [s]").setHasLines(true);
-        lineChartData.setAxisXBottom(xAxis);
-
-        yAxisLeft = new Axis().setName(mMeter.getInputLabel(0)).setHasLines(true);
-        yAxisLeft.setLineColor(mColorList[0]);
-        yAxisLeft.setTextColor(mColorList[0]);
-        yAxisLeft.setHasTiltedLabels(true);
-        yAxisRight = new Axis().setName(mMeter.getInputLabel(1)).setHasLines(true);
-        yAxisRight.setLineColor(mColorList[1]);
-        yAxisRight.setTextColor(mColorList[1]);
-        yAxisRight.setHasTiltedLabels(true);
-        yAxisRight.setFormatter(new ValueFormatter());
-
-        lineChartData.setAxisYLeft(yAxisLeft);
-        lineChartData.setAxisYRight(yAxisRight);
-        mChart.setLineChartData(lineChartData);
-
-        addStream("CH1");
-        addStream("CH2");
-        
-        leftAxisValues  = new VisibleVsBackupHelper();
-        rightAxisValues = new VisibleVsBackupHelper();
-        axisValueHelpers = new VisibleVsBackupHelper[]{leftAxisValues,rightAxisValues};
     }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        Util.dispatch(new Runnable() {
+    public void refreshScrollLockButton() {
+        final int alpha = scrollLockOn?50:25;
+        runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mMeter.pause();
-                mMeter.removeDelegate();
+                scrollLockButton.setImageAlpha(alpha);
             }
         });
     }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        View decorView = getWindow().getDecorView();
-        int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
-        decorView.setSystemUiVisibility(uiOptions);
-        ActionBar actionBar = getActionBar();
-        actionBar.hide();
-
-        final MooshimeterDelegate d = this;
-        time_start = Util.getNanoTime();
-
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.setDelegate(d);
-                mMeter.stream();
-                Log.i(TAG, "Stream requested");
-            }
-        });
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                mMeter.setBufferMode(0, false);
-                mMeter.setBufferMode(1,false);
-            }
-        });
-    }
-
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        transitionToActivity(mMeter, DeviceActivity.class);
+    public void onClickScrollLockButton(View v) {
+        scrollLockOn = !scrollLockOn;
+        if (!scrollLockOn) {
+            axisValueHelpers[0].expandVisibleToAll();
+            axisValueHelpers[1].expandVisibleToAll();
+            calcViewport();
+            refresh();
+        }
+        refreshScrollLockButton();
     }
 
     /////////////////////////
@@ -451,22 +561,35 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             @Override
             public void run() {
                 List<Line> lines = mChart.getLineChartData().getLines();
-                // Feed in empty dataset if we don't want to display
-                if(dispModes[0]==ChDispModes.OFF) {
-                    lines.get(0).setValues(new ArrayList<PointValue>());
-                } else {
-                    lines.get(0).setValues(leftAxisValues.getVisible());
-                }
-                if(dispModes[1]==ChDispModes.OFF) {
+                if(xyModeOn) {
+                    List<PointValue> l0 = leftAxisValues.getVisible();
+                    List<PointValue> l1 = rightAxisValues.getVisible();
+                    List<PointValue> xy = new ArrayList<PointValue>(l0.size());
+                    for(int i=0; i<Math.min(l0.size(), l1.size()); i++) {
+                        xy.add(new PointValue(l0.get(i).getY(),l1.get(i).getY()));
+                    }
+                    lines.get(0).setValues(xy);
+                    // Right axis should show no values
                     lines.get(1).setValues(new ArrayList<PointValue>());
                 } else {
-                    // For the right axis, we must transform
-                    List<PointValue> rline = lines.get(1).getValues();
-                    rline.clear();
-                    for (PointValue p : rightAxisValues.getVisible()) {
-                        rline.add(new PointValue(p.getX(), rightToLeftHelper.apply(p.getY())));
+                    // Feed in empty dataset if we don't want to display
+                    if(dispModes[0]==ChDispModes.OFF) {
+                        lines.get(0).setValues(new ArrayList<PointValue>());
+                    } else {
+                        lines.get(0).setValues(leftAxisValues.getVisible());
+                    }
+                    if(dispModes[1]==ChDispModes.OFF) {
+                        lines.get(1).setValues(new ArrayList<PointValue>());
+                    } else {
+                        // For the right axis, we must transform
+                        List<PointValue> rline = lines.get(1).getValues();
+                        rline.clear();
+                        for (PointValue p : rightAxisValues.getVisible()) {
+                            rline.add(new PointValue(p.getX(), rightToLeftHelper.apply(p.getY())));
+                        }
                     }
                 }
+
                 //Force chart to draw current data again
                 mChart.setLineChartData(mChart.getLineChartData());
             }
@@ -502,8 +625,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 @Override
                 public void run() {
                     axisValueHelpers[series_n].addPoints(new_values);
-                    calcViewport();
-                    refresh();
                 }
             });
         } catch (IndexOutOfBoundsException e) {
@@ -551,9 +672,18 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     }
 
     private void calcViewport() {
-
         Viewport lv;
         Viewport rv;
+        if(xyModeOn) {
+            // xy mode is easier
+            lv = axisValueHelpers[0].getViewport();
+            rv = axisValueHelpers[1].getViewport();
+            rv.left  = lv.bottom;
+            rv.right = lv.top;
+            mChart.setCurrentViewport(rv);
+            mChart.setMaximumViewport(rv);
+            return;
+        }
         switch(dispModes[0]) {
             case AUTO:
                 lv = axisValueHelpers[0].getViewport();
@@ -632,56 +762,66 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
     @Override
     public void onSampleReceived(double timestamp_utc, int channel, float val) {
+        if(bufferModeOn || !playing) {
+            Log.d(TAG,"Received a trailing sample");
+            return;
+        }
         float dt = (float) (timestamp_utc - time_start);
         addPoint(channel, dt, val);
+        if(scrollLockOn) {
+            calcViewport();
+            refresh();
+        }
     }
 
+    double buf0_t = 0;
     @Override
     public void onBufferReceived(double timestamp_utc, int channel, float dt, float[] val) {
-        double t = (timestamp_utc - dt*val.length)-time_start;
+        if(!bufferModeOn || !playing) {
+            Log.d(TAG,"Received a trailing buffer");
+            return;
+        }
+        // There is some awkwardness here because the timestamps correspond
+        // to when the buffers were received, not when they were taken.
+        // We know for a fact the sampling was simultaneous, so we'll ignore channel1's
+        // timestamp and just use ch0.
+        if(channel == 0) {
+            buf0_t = (timestamp_utc - dt*val.length)-time_start;
+        }
+        double t = buf0_t;
         List<PointValue> l = new ArrayList<>(val.length);
         for(float v:val) {
             l.add(new PointValue((float)t,v));
-            t+= dt;
+            t += dt;
         }
         addPoints(channel, l);
+        if(channel==1) {
+            // This is the second buffer
+            maxNumberOfPointsOnScreen = val.length;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    refreshSampleButton();
+                    calcViewport();
+                    refresh();
+                }
+            });
+        }
     }
-
     @Override
-    public void onSampleRateChanged(int i, int sample_rate_hz) {
-
-    }
-
+    public void onSampleRateChanged(int i, int sample_rate_hz) {}
     @Override
-    public void onBufferDepthChanged(int i, int buffer_depth) {
-
-    }
-
+    public void onBufferDepthChanged(int i, int buffer_depth) {}
     @Override
-    public void onLoggingStatusChanged(boolean on, int new_state, String message) {
-
-    }
-
+    public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
     @Override
-    public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {
-
-    }
-
+    public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {}
     @Override
-    public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {
-
-    }
-
+    public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {}
     @Override
-    public void onRealPowerCalculated(double timestamp_utc, float val) {
-
-    }
-
+    public void onRealPowerCalculated(double timestamp_utc, float val) {}
     @Override
-    public void onOffsetChange(int c, float offset) {
-
-    }
-
+    public void onOffsetChange(int c, float offset) {}
     private class ValueFormatter extends SimpleAxisValueFormatter {
         @Override
         public int formatValueForAutoGeneratedAxis(char[] formattedValue, float value, int autoDecimalDigits) {
