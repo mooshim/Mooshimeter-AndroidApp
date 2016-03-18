@@ -31,6 +31,9 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -336,7 +339,7 @@ public class ScanActivity extends MyActivity {
         // Update the title bar
         int rssi = d.mRssi;
         String name;
-        String build;
+        SpannableStringBuilder build = new SpannableStringBuilder();
         if(d.mOADMode) {
             name = "Bootloader";
         } else {
@@ -347,13 +350,23 @@ public class ScanActivity extends MyActivity {
         }
 
         if(d.mBuildTime == 0) {
-            build = "Invalid firmware";
+            build.append("Invalid firmware");
         } else {
-            build = "Build: "+d.mBuildTime;
+            build.append("Build: ");
+            int color = 0xFF000000;
+            if(d.mBuildTime<1454355414) {
+                color = 0xFFFF0000;
+            }
+            SpannableString bt= new SpannableString(Integer.toString(d.mBuildTime));
+            bt.setSpan(new ForegroundColorSpan(color), 0, bt.length(), 0);
+            build.append(bt);
         }
 
-        String descr = name + "\n" + build + "\nRssi: " + rssi + " dBm";
-        ((TextView) wrapper.findViewById(R.id.descr)).setText(descr);
+        SpannableStringBuilder descr = new SpannableStringBuilder();
+        descr.append(name+"\n");
+        descr.append(build);
+        descr.append("\nRssi: " + rssi + " dBm");
+        ((TextView) wrapper.findViewById(R.id.descr)).setText(descr, TextView.BufferType.SPANNABLE);
 
         final Button bv = (Button)wrapper.findViewById(R.id.btnConnect);
 
