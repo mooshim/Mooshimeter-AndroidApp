@@ -811,9 +811,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     @Override
     public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
     @Override
-    public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {}
+    public void onRangeChange(int c, int i, MooshimeterDeviceBase.RangeDescriptor new_range) {}
     @Override
-    public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {}
+    public void onInputChange(int c, int i, MooshimeterDeviceBase.InputDescriptor descriptor) {}
     @Override
     public void onRealPowerCalculated(double timestamp_utc, float val) {}
     @Override

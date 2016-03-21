@@ -20,7 +20,7 @@ interface MooshimeterControlInterface {
     // Autoranging
     //////////////////////////////////////
 
-    boolean bumpRange(int channel, boolean expand, boolean wrap);
+    boolean bumpRange(int channel, boolean expand);
 
     // Return true if settings changed
     boolean applyAutorange();

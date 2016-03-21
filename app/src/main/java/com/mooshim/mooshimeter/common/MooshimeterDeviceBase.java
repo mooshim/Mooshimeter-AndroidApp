@@ -27,6 +27,8 @@ import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
@@ -38,6 +40,17 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     public static final class SignificantDigits {
         public int high;
         public int n_digits;
+    }
+
+    public static class RangeDescriptor {
+        public String name;
+        public float max;
+    }
+
+    public static class InputDescriptor {
+        public String name;
+        public List<RangeDescriptor> ranges = new ArrayList<>();
+        public String units;
     }
 
     private static final String TAG="MooshimeterDevice";
@@ -64,11 +77,11 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         @Override
         public void onBufferDepthChanged(int i, int buffer_depth) {        }
         @Override
-        public void onLoggingStatusChanged(boolean on, int new_state, String message) {        }
+        public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
         @Override
-        public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {        }
+        public void onRangeChange(int c, int i, RangeDescriptor new_range) {        }
         @Override
-        public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {        }
+        public void onInputChange(int c, int i, InputDescriptor descriptor) {        }
         @Override
         public void onRealPowerCalculated(final double timestamp_utc, float val) {        }
         @Override
@@ -91,7 +104,7 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         tmp.putInt(arg);
         tmp.flip();
         tmp.get(tb);
-        b.put( tb );
+        b.put(tb);
     }
     protected static int  getInt24(ByteBuffer b) {
         // Pulls out a 3 byte int, expands it to 4 bytes

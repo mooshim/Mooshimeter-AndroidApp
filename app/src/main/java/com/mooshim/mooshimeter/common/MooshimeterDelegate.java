@@ -20,9 +20,9 @@ public interface MooshimeterDelegate {
 
     void onLoggingStatusChanged(boolean on, int new_state, String message);
 
-    void onRangeChange(final int c, final int i, final MooshimeterDevice.RangeDescriptor new_range);
+    void onRangeChange(final int c, final int i, final MooshimeterDeviceBase.RangeDescriptor new_range);
 
-    void onInputChange(final int c, final int i, final MooshimeterDevice.InputDescriptor descriptor);
+    void onInputChange(final int c, final int i, final MooshimeterDeviceBase.InputDescriptor descriptor);
 
     void onRealPowerCalculated(final double timestamp_utc, final float val);
 
