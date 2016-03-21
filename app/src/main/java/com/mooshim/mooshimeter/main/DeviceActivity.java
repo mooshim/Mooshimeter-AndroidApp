@@ -641,11 +641,11 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         valueLabelRefresh(channel,val);
         // Run the autorange only on channel 2
         if (channel==1 && autorange_cooldown.expired) {
+            autorange_cooldown.fire(200);
             Util.dispatch(new Runnable() {
                 @Override
                 public void run() {
                     if(mMeter.applyAutorange()) {
-                        autorange_cooldown.fire(200);
                         refreshAllControls();
                     }
                 }
