@@ -709,12 +709,12 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         // Add channel 2 ranges and inputs
         h=addInputDescriptor(1,"VOLTAGE DC",INPUT_MODE.NATIVE,false,"V");
         h.addRange("1.2",(float)1.2,1,                          PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO0);
-        h.addRange("60" ,       60 ,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
-        h.addRange("600",       600,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
+        h.addRange("60" ,       60 ,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
+        h.addRange("600",       600,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
         h=addInputDescriptor(1,"VOLTAGE AC",INPUT_MODE.NATIVE,true,"V");
         h.addRange("1.2",(float)1.2,1,                          PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO0);
-        h.addRange("60" ,       60 ,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
-        h.addRange("600",       600,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
+        h.addRange("60" ,       60 ,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
+        h.addRange("600",       600,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
         addSharedInputs(1);
 
 
