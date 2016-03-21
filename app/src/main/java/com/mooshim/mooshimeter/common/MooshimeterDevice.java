@@ -1,8 +1,5 @@
 package com.mooshim.mooshimeter.common;
 
-import android.bluetooth.BluetoothDevice;
-import android.content.Context;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,16 +40,11 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // MEMBERS FOR TRACKING AVAILABLE INPUTS AND RANGES
     ////////////////////////////////
 
-    public static class RangeDescriptor {
-        public String name;
-        public float max;
+    public static class RangeDescriptor extends MooshimeterDeviceBase.RangeDescriptor {
         public ConfigTree.ConfigNode node;
     }
 
-    public static class InputDescriptor {
-        public String name;
-        public List<RangeDescriptor> ranges = new ArrayList<RangeDescriptor>();
-        public String units;
+    public static class InputDescriptor extends MooshimeterDeviceBase.InputDescriptor{
         public ConfigTree.ConfigNode input_node;
         public ConfigTree.ConfigNode analysis_node;
         public ConfigTree.ConfigNode shared_node; // ugly
@@ -102,8 +94,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         super(wrap);
         tree = new ConfigTree();
         input_descriptors = new List[2];
-        input_descriptors[0] = new ArrayList<InputDescriptor>();
-        input_descriptors[1] = new ArrayList<InputDescriptor>();
+        input_descriptors[0] = new ArrayList<>();
+        input_descriptors[1] = new ArrayList<>();
     }
     public void attachCallback(String nodestr,NotifyHandler cb) {
         ConfigTree.ConfigNode n = tree.getNode(nodestr);
@@ -326,14 +318,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 int i = (Integer)payload;
-                delegate.onRangeChange(0, i, getSelectedDescriptor(0).ranges.get(i));
+                delegate.onRangeChange(0, i, (RangeDescriptor)getSelectedDescriptor(0).ranges.get(i));
             }
         });
         attachCallback("CH2:RANGE_I", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 int i = (Integer)payload;
-                delegate.onRangeChange(1, i, getSelectedDescriptor(1).ranges.get(i));
+                delegate.onRangeChange(1, i, (RangeDescriptor)getSelectedDescriptor(1).ranges.get(i));
             }
         });
         attachCallback("SAMPLING:RATE", new NotifyHandler() {
@@ -397,18 +389,16 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         tree.command(getChString(c)+":OFFSET "+Float.toString(offset));
     }
     @Override
-    public boolean bumpRange(int channel, boolean expand, boolean wrap) {
+    public boolean bumpRange(int channel, boolean expand) {
         ConfigTree.ConfigNode rnode = getInputNode(channel);
         int cnum = (Integer)tree.getValueAt(getChString(channel)+":RANGE_I");
         int n_choices = rnode.children.size();
-        if(!wrap) {
-            // If we're not wrapping and we're against a wall
-            if (cnum == 0 && !expand) {
-                return false;
-            }
-            if(cnum == n_choices-1 && expand) {
-                return false;
-            }
+        // If we're not wrapping and we're against a wall
+        if (cnum == 0 && !expand) {
+            return false;
+        }
+        if(cnum == n_choices-1 && expand) {
+            return false;
         }
         cnum += expand?1:-1;
         cnum %= n_choices;
@@ -437,10 +427,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         float val = getValue(c) + getOffset(c);
         val = Math.abs(val);
         if(val > max) {
-            return bumpRange(c,true,false);
+            return bumpRange(c,true);
         }
         if(val < min) {
-            return bumpRange(c,false,false);
+            return bumpRange(c,false);
         }
         return false;
     }
@@ -601,14 +591,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         InputDescriptor id = getSelectedDescriptor(c);
         int range_i = (Integer)tree.getValueAt(getChString(c) + ":RANGE_I");
         // FIXME: This is borking because our internal descriptor structures are out of sync with the configtree updates
-        RangeDescriptor rd =id.ranges.get(range_i);
+        RangeDescriptor rd =(RangeDescriptor)id.ranges.get(range_i);
         return rd.name;
     }
     @Override
     public List<String> getRangeList(int c) {
         InputDescriptor id = getSelectedDescriptor(c);
         List<String> rval = new ArrayList<String>();
-        for(RangeDescriptor rd:id.ranges) {
+        for(MooshimeterDeviceBase.RangeDescriptor rd:id.ranges) {
             rval.add(rd.name);
         }
         return rval;

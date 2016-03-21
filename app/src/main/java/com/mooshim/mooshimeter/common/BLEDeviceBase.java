@@ -79,7 +79,7 @@ public class BLEDeviceBase {
         }
         BLEDeviceBase rval;
         if(isInOADMode()) {
-            rval = new LegacyMooshimeterDevice(mPwrap);
+            rval = new OADDevice(mPwrap);
         } else if(mBuildTime < 1454355414) {
             rval = new LegacyMooshimeterDevice(mPwrap);
         } else {

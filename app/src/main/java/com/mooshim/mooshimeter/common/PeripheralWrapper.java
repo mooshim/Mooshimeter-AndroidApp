@@ -322,6 +322,10 @@ public class PeripheralWrapper {
             return null;
         }
         final BluetoothGattCharacteristic c = getChar(uuid);
+        if(c==null) {
+            Log.e(TAG,"Couldn't find char for " + uuid.toString());
+            return null;
+        }
         protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {

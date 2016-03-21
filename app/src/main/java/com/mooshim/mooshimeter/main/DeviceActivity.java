@@ -372,9 +372,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private void power_button_refresh() {
         power_label_refresh(mMeter.getPower());
     }
-    private void graph_button_refresh() {
-        Log.d(TAG, "TBI");
-    }
+    private void graph_button_refresh() {}
     private void rate_button_refresh() {
         int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
@@ -626,9 +624,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     //////////////////////////
 
     @Override
-    public void onInit() {
-
-    }
+    public void onInit() {    }
 
     @Override
     public void onDisconnect() {
@@ -681,12 +677,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
 
     @Override
-    public void onRangeChange(int c, int i, MooshimeterDevice.RangeDescriptor new_range) {
+    public void onRangeChange(int c, int i, MooshimeterDeviceBase.RangeDescriptor new_range) {
         range_button_refresh(c);
     }
 
     @Override
-    public void onInputChange(int c, int i, MooshimeterDevice.InputDescriptor descriptor) {
+    public void onInputChange(int c, int i, MooshimeterDeviceBase.InputDescriptor descriptor) {
         input_set_button_refresh(c);
     }
 

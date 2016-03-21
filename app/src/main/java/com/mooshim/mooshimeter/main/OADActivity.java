@@ -72,9 +72,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.LegacyMooshimeterDevice;
-import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
+import com.mooshim.mooshimeter.common.OADDevice;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.concurrent.Semaphore;
@@ -93,7 +92,7 @@ public class OADActivity extends MyActivity {
     private Button mBtnStart;
     private CheckBox mLegacyMode;
     // BLE
-    private LegacyMooshimeterDevice mMeter;
+    private OADDevice mMeter;
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
@@ -105,7 +104,7 @@ public class OADActivity extends MyActivity {
 
         // Sorry about the casting games
         Intent intent = getIntent();
-        mMeter = (LegacyMooshimeterDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = (OADDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
 
         // GUI init
         setContentView(R.layout.activity_fwupdate);
