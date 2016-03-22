@@ -3,7 +3,10 @@
 
     <!--
         Base application theme, dependent on API level. This theme is replaced
-        by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
+        by AppBaseTheme from res/values-vXX/styles.xml on newer devices.
+
+
+
     -->
     <style name="AppBaseTheme" parent="android:Theme.Light">
         <!--
@@ -46,6 +49,14 @@
     <style name="nameStyle">
         <item name="android:textColor">#000</item>
         <item name="android:textSize">18dp</item>
+    </style>
+    <style name="prefTitleStyle">
+        <item name="android:textColor">#000</item>
+        <item name="android:textSize">24dp</item>
+    </style>
+    <style name="prefDescrStyle">
+        <item name="android:textColor">#444</item>
+        <item name="android:textSize">16dp</item>
     </style>
 
     <style name="nameStyle.inactive">
