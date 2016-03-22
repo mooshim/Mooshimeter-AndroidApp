@@ -306,6 +306,7 @@ public class ScanActivity extends MyActivity {
         wrapper.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(final View view) {
+                stopScan();
                 Util.dispatch(new Runnable() {
                     @Override
                     public void run() {
@@ -387,41 +388,6 @@ public class ScanActivity extends MyActivity {
                 });
             }
         });
-        if(d.mInitialized && !d.isInOADMode()) {
-            // We are representing a connected meter
-            if(wrapper.getChildCount() != 2) {
-                // We need to create a new value pane
-                wrapper.addView(mInflater.inflate(R.layout.element_mm_readingsbar, mDeviceScrollView, false));
-            }
-            /*
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    d.playSampleStream(new MooshimeterDeviceBase.PayloadCallback() {
-                        @Override
-                        public void onReceived(Object payload) {
-                            View v = findTileForMeter(d);
-                            if(v==null) {
-                                Log.e(TAG,"Couldn't find tile for meter!");
-                                return;
-                            }
-                            TextView ch1 = (TextView)v.findViewById(R.id.ch1_value_label);
-                            TextView ch2 = (TextView)v.findViewById(R.id.ch2_value_label);
-                            TextView ch1_unit = (TextView)v.findViewById(R.id.ch1_unit_label);
-                            TextView ch2_unit = (TextView)v.findViewById(R.id.ch2_unit_label);
-                            valueLabelRefresh(0,d, ch1, ch1_unit);
-                            valueLabelRefresh(1,d, ch2, ch2_unit);
-                        }
-                    });
-                }
-            });*/
-        } else {
-            //We are representing a disconnected meter or a meter in OAD mode
-            if(wrapper.getChildCount() == 2) {
-                // We need to eliminate a pane
-                wrapper.removeViewAt(1);
-            }
-        }
     }
 
     private void refreshAllMeterTiles() {
@@ -645,7 +611,7 @@ public class ScanActivity extends MyActivity {
         } else {
             startDeviceActivity(m);
         }*/
-            if (m.mBuildTime < Util.getBundledFirmwareVersion()) {
+            if (!m.getPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE) && m.mBuildTime < Util.getBundledFirmwareVersion()) {
                 String[] choices = {"See Instructions", "Continue without updating"};
                 int choice = Util.offerChoiceDialog(this, "Firmware update available", "A newer firmware version is available for this Mooshimeter, upgrading is recommended.", choices);
                 switch (choice) {
@@ -657,6 +623,7 @@ public class ScanActivity extends MyActivity {
                         break;
                     case 1:
                         // Continue without viewing
+                        m.setPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE,true);
                         transitionToActivity(m, whichActivity(m.mBuildTime));
                         break;
                 }
@@ -723,10 +690,6 @@ public class ScanActivity extends MyActivity {
 
                 rval = m.initialize();
                 setStatus("Connected!");
-                // If we've never connected to this meter before, make it a default for reconnection
-                if (!m.hasPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
-                    m.setPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT, true);
-                }
                 startSingleMeterActivity(m);
             }while(false);
         }
@@ -740,59 +703,6 @@ public class ScanActivity extends MyActivity {
                 bv.setBackground(getResources().getDrawable(bgid));
             }
         });
-    }
-
-    private void valueLabelRefresh(final int c, final BLEDeviceBase mMeter, final TextView v,final TextView v_unit) {
-        // FIXME
-        /*
-        final boolean ac = mMeter.disp_ac[c];
-        double val;
-        int lsb_int;
-        if(ac) { lsb_int = (int)(Math.sqrt(mMeter.meter_sample.reading_ms[c])); }
-        else   { lsb_int = mMeter.meter_sample.reading_lsb[c]; }
-
-        final String label_text;
-        final String unit_text;
-
-        if( mMeter.disp_hex[c]) {
-            // If we've been requested to just show the raw hex
-            lsb_int &= 0x00FFFFFF;
-            label_text = String.format("0x%06X", lsb_int);
-        } else if (MooshimeterDevice.METER_CALC_SETTINGS_RES == (mMeter.meter_settings.calc_settings & MooshimeterDevice.METER_CALC_SETTINGS_RES)
-                &&  (mMeter.meter_info.build_time > 1445139447)  // And we have a firmware version late enough that the resistance is calculated in firmware
-                && 0x09 == (mMeter.meter_settings.chset[c] & MooshimeterDevice.METER_CH_SETTINGS_INPUT_MASK)) {
-            //Resistance
-            // FIXME: lsbToNativeUnits doesn't even look at lsb_int in this context...
-            val = mMeter.lsbToNativeUnits(lsb_int, c);
-            label_text = MooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
-        } else {
-            // If at the edge of your range, say overload
-            // Remember the bounds are asymmetrical
-            final int upper_limit_lsb = (int) (1.1*(1<<22));
-            final int lower_limit_lsb = (int) (-0.9*(1<<22));
-
-            if(   lsb_int > upper_limit_lsb
-                    || lsb_int < lower_limit_lsb ) {
-                label_text = "OVERLOAD";
-            } else {
-                // TODO: implement these methods and revive this segment of code
-                val = mMeter.lsbToNativeUnits(lsb_int, c);
-                label_text = MooshimeterDevice.formatReading(val, mMeter.getSigDigits(c));
-            }
-        }
-
-        unit_text = mMeter.getUnits(c);
-
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if(v==null) {
-                    return;
-                }
-                v.setText(label_text);
-                v_unit.setText(unit_text);
-            }
-        });*/
     }
 
     ///////////////////////////////
