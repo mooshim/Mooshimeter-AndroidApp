@@ -54,7 +54,6 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.main;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
@@ -107,7 +106,7 @@ public class OADActivity extends MyActivity {
         mMeter = (OADDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
 
         // GUI init
-        setContentView(R.layout.activity_fwupdate);
+        setContentView(R.layout.activity_oad);
 
         // Icon padding
         ImageView view = (ImageView) findViewById(android.R.id.home);

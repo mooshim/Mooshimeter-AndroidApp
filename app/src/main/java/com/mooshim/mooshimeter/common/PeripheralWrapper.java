@@ -120,15 +120,15 @@ public class PeripheralWrapper {
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTING,new ArrayList<Runnable>());
         mConnectionStateCBByHandle = new HashMap<>();
 
-        bleStateCondition    = new StatLockManager(conditionLock);
-        bleDiscoverCondition = new StatLockManager(conditionLock);
-        bleReadCondition     = new StatLockManager(conditionLock);
-        bleWriteCondition    = new StatLockManager(conditionLock);
-        bleChangedCondition  = new StatLockManager(conditionLock);
-        bleDReadCondition    = new StatLockManager(conditionLock);
-        bleDWriteCondition   = new StatLockManager(conditionLock);
-        bleRWriteCondition   = new StatLockManager(conditionLock);
-        bleRSSICondition     = new StatLockManager(conditionLock);
+        bleStateCondition    = new StatLockManager(conditionLock,"STATE");
+        bleDiscoverCondition = new StatLockManager(conditionLock,"DISCO");
+        bleReadCondition     = new StatLockManager(conditionLock,"READ ");
+        bleWriteCondition    = new StatLockManager(conditionLock,"WRITE");
+        bleChangedCondition  = new StatLockManager(conditionLock,"CHANG");
+        bleDReadCondition    = new StatLockManager(conditionLock,"DREAD");
+        bleDWriteCondition   = new StatLockManager(conditionLock,"DWRIT");
+        bleRWriteCondition   = new StatLockManager(conditionLock,"RWRIT");
+        bleRSSICondition     = new StatLockManager(conditionLock,"RSSI ");
         
         mGattCallbacks = new BluetoothGattCallback() {
             @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { Log.d(TAG,"GATTCB:DISCOVER");bleDiscoverCondition.l(stat);               bleDiscoverCondition.sig(); bleDiscoverCondition.ul();}
@@ -259,7 +259,7 @@ public class PeripheralWrapper {
 
         while (!isConnected()) {
             //If we time out in connection or the connect routine returns an error
-            if (bleStateCondition.awaitMilli(5000) ) {
+            if (bleStateCondition.awaitMilli(10000) ) {
                 return -1;
             }
             if (bleStateCondition.stat != 0) {
