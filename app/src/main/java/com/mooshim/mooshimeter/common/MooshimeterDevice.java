@@ -465,6 +465,17 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         return rval;
     }
+
+    @Override
+    public void setName(String name) {
+        tree.command("NAME "+name);
+    }
+
+    @Override
+    public String getName() {
+        return (String)tree.getValueAt("NAME");
+    }
+
     private double getEnob(final int channel) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
@@ -569,6 +580,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 "END_OF_FILE",
         };
         return messages[getLoggingStatus()];
+    }
+    @Override
+    public void setLoggingInterval(int ms) {
+        tree.command("LOG:INTERVAL "+Integer.toString(ms));
+    }
+    @Override
+    public int getLoggingIntervalMS() {
+        return (Integer)getValueAt("LOG:INTERVAL");
     }
     @Override
     public float getValue(int c) {

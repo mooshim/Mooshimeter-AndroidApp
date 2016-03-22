@@ -29,6 +29,9 @@ interface MooshimeterControlInterface {
     // Interacting with the Mooshimeter itself
     //////////////////////////////////////
 
+    void setName(String name);
+    String getName();
+
     void pause();
     void oneShot();
     void stream();
@@ -50,6 +53,8 @@ interface MooshimeterControlInterface {
     void setLoggingOn(boolean on);
     int getLoggingStatus();
     String getLoggingStatusMessage();
+    void setLoggingInterval(int ms);
+    int getLoggingIntervalMS();
 
     float getValue(int c);
     String formatValueLabel(int c, float value);
