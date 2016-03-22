@@ -29,6 +29,7 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.UnknownFormatConversionException;
@@ -54,9 +55,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 METER_SAMPLE       = fromString("1BC5FFA6-0200-62AB-E411-F254E005DBD4"),
                 METER_CH1BUF       = fromString("1BC5FFA7-0200-62AB-E411-F254E005DBD4"),
                 METER_CH2BUF       = fromString("1BC5FFA8-0200-62AB-E411-F254E005DBD4"),
-                METER_CAL          = fromString("1BC5FFA9-0200-62AB-E411-F254E005DBD4"),
-                METER_LOG_DATA     = fromString("1BC5FFAA-0200-62AB-E411-F254E005DBD4"),
-                METER_TEMP         = fromString("1BC5FFAB-0200-62AB-E411-F254E005DBD4"),
                 METER_BAT          = fromString("1BC5FFAC-0200-62AB-E411-F254E005DBD4");
     }
 
@@ -663,7 +661,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 Log.e(TAG,"UNSUPPORTED:Unrecognized pcb version!");
         }
         h=addInputDescriptor(channel,"DIODE",INPUT_MODE.DIODE,false,"V");
-        h.addRange("100m",(float)0.1,1,PGA_GAIN.PGA_GAIN_1,ISRC_SETTING.ISRC_HIGH);
+        h.addRange("1.7V",(float)1.7,1,PGA_GAIN.PGA_GAIN_1,ISRC_SETTING.ISRC_HIGH);
         h=addInputDescriptor(channel,"TEMP",INPUT_MODE.TEMP,false,"C");
         h.addRange("350",350,1,PGA_GAIN.PGA_GAIN_1);
     }
@@ -708,19 +706,79 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
         // Add channel 2 ranges and inputs
         h=addInputDescriptor(1,"VOLTAGE DC",INPUT_MODE.NATIVE,false,"V");
-        h.addRange("1.2",(float)1.2,1,                          PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO0);
         h.addRange("60" ,       60 ,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
         h.addRange("600",       600,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
         h=addInputDescriptor(1,"VOLTAGE AC",INPUT_MODE.NATIVE,true,"V");
         h.addRange("1.2",(float)1.2,1,                          PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO0);
-        h.addRange("60" ,       60 ,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
-        h.addRange("600",       600,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
+        h.addRange("60",  60, (float) ((10e6 + 160e3) / 160e3), PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
+        h.addRange("600", 600, (float) ((10e6 + 11e3) / 11e3), PGA_GAIN.PGA_GAIN_1, GPIO_SETTING.GPIO2);
         addSharedInputs(1);
 
+        Util.cancel(log_status_checker);
+        Util.postDelayed(log_status_checker, 5000);
 
+        determineInputDescriptorIndex(0);
+        determineInputDescriptorIndex(1);
 
         mInitialized = true;
         return 0;
+    }
+
+    void determineInputDescriptorIndex(int c) {
+        GPIO_SETTING gs = GPIO_SETTING.IGNORE;
+        ISRC_SETTING is = ISRC_SETTING.IGNORE;
+        switch(meter_settings.chset[c]&METER_CH_SETTINGS_INPUT_MASK) {
+            case 0x00:
+                if(c==1) {
+                    switch(meter_settings.adc_settings&ADC_SETTINGS_GPIO_MASK) {
+                        case 0x00:
+                            gs=GPIO_SETTING.GPIO0;
+                            break;
+                        case 0x10:
+                            gs=GPIO_SETTING.GPIO1;
+                            break;
+                        case 0x20:
+                            gs=GPIO_SETTING.GPIO2;
+                            break;
+                        case 0x30:
+                            gs=GPIO_SETTING.GPIO3;
+                            break;
+                    }
+                }
+                break;
+            case 0x04:
+                break;
+            case 0x09:
+                switch(meter_settings.adc_settings) {
+                    case 0:
+                        break;
+                    case METER_MEASURE_SETTINGS_ISRC_ON:
+                        is=ISRC_SETTING.ISRC_LOW;
+                        break;
+                    case METER_MEASURE_SETTINGS_ISRC_LVL:
+                        is=ISRC_SETTING.ISRC_MID;
+                        break;
+                    case METER_MEASURE_SETTINGS_ISRC_ON|METER_MEASURE_SETTINGS_ISRC_LVL:
+                        is=ISRC_SETTING.ISRC_HIGH;
+                        break;
+                }
+                break;
+        }
+        boolean found=false;
+        for(InputDescriptor id:input_descriptors[c]) {
+            for(MooshimeterDeviceBase.RangeDescriptor uncast_rd:id.ranges) {
+                RangeDescriptor rd = (RangeDescriptor)uncast_rd;
+                if(     rd.chset   == meter_settings.chset[c]
+                        && rd.gpio == gs
+                        && rd.isrc == is) {
+                    input_descriptors_indices[c] = input_descriptors[c].indexOf(id);
+                    range_indices[c] = id.ranges.indexOf(uncast_rd);
+                    found=true;
+                    break;
+                }
+            }
+            if(found) { break; }
+        }
     }
 
     //////////////////////////////////////
@@ -738,12 +796,24 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     private Runnable meter_buffer_handler = new Runnable() {
         @Override
         public void run() {
-            float dt = 1/getSampleRateHz();
-            delegate.onBufferReceived(0,0,dt,meter_ch1_buf.floatBuf);
-            delegate.onBufferReceived(0,1,dt,meter_ch2_buf.floatBuf);
+            float dt = 1/(float)getSampleRateHz();
+            double timestamp = Util.getNanoTime();
+            delegate.onBufferReceived(timestamp, 0, dt, Arrays.copyOfRange(meter_ch1_buf.floatBuf, 0, getBufferDepth()));
+            delegate.onBufferReceived(timestamp, 1, dt, Arrays.copyOfRange(meter_ch2_buf.floatBuf, 0, getBufferDepth()));
         }
     };
 
+    private Runnable log_status_checker = new Runnable() {
+        @Override
+        public void run() {
+            if(!isConnected()) {
+                return;
+            }
+            meter_log_settings.update();
+            delegate.onLoggingStatusChanged(getLoggingOn(), getLoggingStatus(), getLoggingStatusMessage());
+            Util.postDelayed(log_status_checker, 5000);
+        }
+    };
 
     //////////////////////////////////////
     // Data conversion
@@ -1023,6 +1093,17 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
+    public void setName(String name) {
+        meter_name.name = name;
+        meter_name.send();
+    }
+
+    @Override
+    public String getName() {
+        return meter_name.name;
+    }
+
+    @Override
     public void pause() {
         meter_sample.enableNotify(false, null);
         if(meter_settings.target_meter_state != METER_PAUSED) {
@@ -1123,11 +1204,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 // sending meter settings will cause the ADC to run for one buffer fill even if the state is METER_PAUSED
                 meter_settings.calc_settings &= ~(METER_CALC_SETTINGS_MS | METER_CALC_SETTINGS_MEAN);
                 meter_settings.calc_settings |= METER_CALC_SETTINGS_ONESHOT;
-                meter_settings.target_meter_state = METER_PAUSED;
-                meter_settings.send();
+                //meter_settings.target_meter_state = METER_PAUSED;
+                //meter_settings.send();
             } else if (meter_settings.present_meter_state != METER_PAUSED) {
-                meter_settings.target_meter_state = METER_PAUSED;
-                meter_settings.send();
+                //meter_settings.target_meter_state = METER_PAUSED;
+                //meter_settings.send();
             }
 
             meter_sample.enableNotify(false, null);
@@ -1146,7 +1227,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     @Override
     public boolean getLoggingOn() {
-        return meter_log_settings.present_logging_state >= LOGGING_SAMPLING;
+        return meter_log_settings.present_logging_state > LOGGING_OFF;
     }
 
     @Override
@@ -1160,10 +1241,28 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return meter_log_settings.logging_error;
     }
 
+    private enum LogCodes {
+        OK,
+        NO_MEDIA,
+        MOUNT_FAIL,
+        INSUFFICIENT_SPACE,
+        WRITE_ERROR,
+        END_OF_FILE,
+    };
     @Override
     public String getLoggingStatusMessage() {
-        //return meter_log_settings.logging_error;
-        return "Uhhh";
+        return LogCodes.values()[meter_log_settings.logging_error].toString();
+    }
+
+    @Override
+    public void setLoggingInterval(int ms) {
+        meter_log_settings.logging_period_ms = (short)ms;
+        meter_log_settings.send();
+    }
+
+    @Override
+    public int getLoggingIntervalMS() {
+        return meter_log_settings.logging_period_ms;
     }
 
     @Override

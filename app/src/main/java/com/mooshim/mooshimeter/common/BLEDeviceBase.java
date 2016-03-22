@@ -96,7 +96,8 @@ public class BLEDeviceBase {
 
     public static final class mPreferenceKeys {
         public static final String
-                AUTOCONNECT = "AUTOCONNECT";
+                AUTOCONNECT = "AUTOCONNECT",
+                SKIP_UPGRADE= "SKIP_UPGRADE";
     }
 
     private String getSharedPreferenceString() {
