@@ -26,9 +26,11 @@ import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.text.InputType;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.PopupMenu;
 
 import java.io.IOException;
@@ -257,6 +259,8 @@ public class Util {
                 alertDialog.setTitle(title);
                 alertDialog.setMessage(message);
                 for(int i = 0; i < buttons.length; i++) {
+                    // i-3 is because BUTTON_NEUTRAL, BUTTON_POSITIVE and BUTTON_NEGATIVE
+                    // are -3,-2,-1, respectively
                     alertDialog.setButton(i-3, buttons[i],
                           new DialogInterface.OnClickListener() {
                               public void onClick(DialogInterface dialog, int which) {
@@ -270,6 +274,47 @@ public class Util {
             }
         };
 
+        mHandler.post(r);
+
+        // block until the dialog to be dismissed
+        try {
+            sem.acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return response[0];
+    }
+
+    public static String offerStringInputBox(final Context context, final String title) {
+        checkNotOnMainThread();
+        final Semaphore sem = new Semaphore(0);
+        final String[] response = new String[1]; // Capture the user's decision
+
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                final EditText input = new EditText(context);
+                builder.setTitle(title);
+                builder.setView(input);
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        response[0] = input.getText().toString();
+                        sem.release();
+                    }
+                });
+                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        response[0] = null;
+                        dialog.cancel();
+                        sem.release();
+                    }
+                });
+                builder.show();
+            }
+        };
         mHandler.post(r);
 
         // block until the dialog to be dismissed
