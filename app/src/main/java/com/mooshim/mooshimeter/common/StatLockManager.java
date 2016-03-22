@@ -19,6 +19,8 @@
 
 package com.mooshim.mooshimeter.common;
 
+import android.util.Log;
+
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -30,12 +32,23 @@ public class StatLockManager {
     public int stat;
     private Condition con;
     private Lock lock;
-    public StatLockManager(Lock l) {
+    private String name;
+    private void dbg(String msg) {
+        if(false && name!=null && name.length()>0) {
+            Log.d("LOCK:" + name, msg);
+        }
+    }
+    public StatLockManager(Lock l,String dbg_name) {
+        name = dbg_name;
         stat = 0;
         lock = l;
         con = l.newCondition();
     }
+    public StatLockManager(Lock l) {
+        this(l, "");
+    }
     public void l() {
+        dbg("L");
         lock.lock();
     }
     public void l(int newstat) {
@@ -43,17 +56,25 @@ public class StatLockManager {
         stat = newstat;
     }
     public void ul() {
+        dbg("UL");
         lock.unlock();
     }
     public void sig() {
+        dbg("SIG");
         con.signalAll();
     }
     // returns whether it was interrupted or not
     public boolean awaitMilli(int ms) {
+        boolean rval = false;
         try {
             l();
+            dbg("AWAIT");
             if(ms!=0) {
-                con.await(ms, TimeUnit.MILLISECONDS);
+                if(!con.await(ms, TimeUnit.MILLISECONDS)) {
+                    // The waiting time elapsed!
+                    dbg("TIMEOUT");
+                    rval=true;
+                }
             } else {
                 con.await();
             }
@@ -63,9 +84,10 @@ public class StatLockManager {
                 // We should never be interrupted like this...
                 e.printStackTrace();
             }
-            return true;
+            rval=true;
+        } finally {
+            return rval;
         }
-        return false;
     }
     public boolean await() {
         return awaitMilli(0);
