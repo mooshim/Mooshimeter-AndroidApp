@@ -75,7 +75,6 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.CooldownTimer;
 import com.mooshim.mooshimeter.common.MooshimeterDelegate;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.SpeaksOnLargeChange;
@@ -149,7 +148,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 		super.onCreate(savedInstanceState);
 
         // GUI
-        setContentView(R.layout.activity_meter_new);
+        setContentView(R.layout.activity_meter);
 
         // Bind the GUI elements
         value_labels[0]        =         findAndAutofit(R.id.ch1_value_label);
@@ -270,9 +269,9 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
 
 	private void startPreferenceActivity() {
-		//final Intent i = new Intent(this, PreferencesActivity.class);
-        //i.putExtra("addr", mMeter.getAddress());
-		//startActivityForResult(i, PREF_ACT_REQ);
+		final Intent i = new Intent(this, PreferencesActivity.class);
+        i.putExtra("addr", mMeter.getAddress());
+		startActivityForResult(i, PREF_ACT_REQ);
 	}
 
 	private void setError(final String txt) {

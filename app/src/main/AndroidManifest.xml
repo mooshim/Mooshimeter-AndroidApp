@@ -49,5 +49,9 @@
             android:name=".main.OADActivity"
             android:parentActivityName=".main.ScanActivity"
             android:screenOrientation="portrait" />
+        <activity
+            android:name=".main.PreferencesActivity"
+            android:parentActivityName=".main.DeviceActivity"
+            android:screenOrientation="portrait" />
     </application>
 </manifest>
