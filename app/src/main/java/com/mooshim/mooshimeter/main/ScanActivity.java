@@ -359,6 +359,8 @@ public class ScanActivity extends MyActivity {
             int color = 0xFF000000;
             if(d.mBuildTime<1454355414) {
                 color = 0xFFFF0000;
+            } else if(d.mBuildTime<Util.getBundledFirmwareVersion()) {
+                color = 0xFFFF8000;
             }
             SpannableString bt= new SpannableString(Integer.toString(d.mBuildTime));
             bt.setSpan(new ForegroundColorSpan(color), 0, bt.length(), 0);
