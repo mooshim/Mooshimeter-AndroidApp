@@ -176,6 +176,7 @@ public class PreferencesActivity extends MyActivity {
                                 public void run() {
                                     if(Util.offerYesNoDialog(mContext, "Enter shipping mode?", "This will disconnect the meter, you will need to wake it before you can reconnect.")) {
                                         // HIBERNATE
+                                        mMeter.enterShippingMode();
                                     }
                                 }
                             });

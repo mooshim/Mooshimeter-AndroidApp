@@ -631,6 +631,11 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
 
     @Override
+    public void onRssiReceived(int rssi) {
+        Log.d(TAG,"RSSI: "+Integer.toString(rssi));
+    }
+
+    @Override
     public void onBatteryVoltageReceived(float voltage) {
         refreshTitle(voltage);
     }

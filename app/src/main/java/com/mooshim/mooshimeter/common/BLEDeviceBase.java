@@ -21,13 +21,10 @@ package com.mooshim.mooshimeter.common;
 
 
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
@@ -52,6 +49,7 @@ public class BLEDeviceBase {
     // Used so the inner classes have something to grab
     public BLEDeviceBase mInstance;
     public PeripheralWrapper mPwrap;
+    protected Runnable rssi_cb = null;
 
     public int              mBuildTime;
     public boolean          mOADMode;
@@ -62,10 +60,23 @@ public class BLEDeviceBase {
     }
 
     public int initialize() {
-        // Should be called after connection and discovery
-        Log.e(TAG,"MUST OVERRIDE IN SUBCLASSES");
-        return -1;
+        Util.postDelayed(RSSI_poller,1000);
+        return 0;
     }
+
+    private Runnable RSSI_poller = new Runnable() {
+        @Override
+        public void run() {
+            if(!isConnected()) {
+                return;
+            }
+            mPwrap.reqRSSI();
+            if(rssi_cb!=null) {
+                rssi_cb.run();
+            }
+            Util.postDelayed(RSSI_poller, 5000);
+        }
+    };
 
     public int disconnect() {
         mInitialized = false;
@@ -87,6 +98,7 @@ public class BLEDeviceBase {
         }
         // FIXME: This is hacked up.
         rval.mBuildTime = mBuildTime;
+        rval.mOADMode = mOADMode;
         return rval;
     }
 

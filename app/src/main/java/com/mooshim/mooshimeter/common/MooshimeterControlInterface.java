@@ -36,6 +36,8 @@ interface MooshimeterControlInterface {
     void oneShot();
     void stream();
 
+    void enterShippingMode();
+
     float getOffset(int c);
     void setOffset(int c, float offset);
 

@@ -8,6 +8,8 @@ public interface MooshimeterDelegate {
 
     void onDisconnect();
 
+    void onRssiReceived(int rssi);
+
     void onBatteryVoltageReceived(final float voltage);
 
     void onSampleReceived(final double timestamp_utc, final int channel, final float val);

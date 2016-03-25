@@ -234,26 +234,6 @@ public class PeripheralWrapper {
                 mBluetoothGatt = mDevice.connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
                 return null;
-                /*
-                // Start a periodic RSSI poller
-                Util.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        protectedCall(new Interruptable() {
-                            @Override
-                            public Void call() throws InterruptedException {
-                                if (isConnected()) {
-                                    mBluetoothGatt.readRemoteRssi();
-                                    if(bleRSSICondition.awaitMilli(500)) {
-                                        Log.e(TAG, "RSSI read timed out!");
-                                    }
-                                }
-                                return null;
-                            }
-                        });
-                        Util.postDelayed(this,5000);
-                    }
-                }, 5000);*/
             }
         });
 
@@ -313,6 +293,22 @@ public class PeripheralWrapper {
                 return null;
             }
         });
+    }
+
+    public int reqRSSI() {
+        protectedCall(new Interruptable() {
+            @Override
+            public Void call() throws InterruptedException {
+                if (isConnected()) {
+                    mBluetoothGatt.readRemoteRssi();
+                    if(bleRSSICondition.awaitMilli(500)) {
+                        Log.e(TAG, "RSSI read timed out!");
+                    }
+                }
+                return null;
+            }
+        });
+        return mRssi;
     }
 
     public byte[] req(UUID uuid) {

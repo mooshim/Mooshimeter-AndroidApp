@@ -202,6 +202,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public int initialize() {
+        super.initialize();
         int rval=0;
         if(mPwrap.getChar(mUUID.METER_SERIN)==null||mPwrap.getChar(mUUID.METER_SEROUT)==null) {
             return -1;
@@ -267,7 +268,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH1:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(timestamp_utc, 0, (Float)payload);
+                delegate.onSampleReceived(timestamp_utc, 0, (Float) payload);
             }
         });
         attachCallback("CH1:OFFSET",new NotifyHandler() {
@@ -279,7 +280,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH2:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(timestamp_utc, 1, (Float)payload);
+                delegate.onSampleReceived(timestamp_utc, 1, (Float) payload);
             }
         });
         attachCallback("CH2:OFFSET",new NotifyHandler() {
@@ -318,7 +319,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 int i = (Integer)payload;
-                delegate.onRangeChange(0, i, (RangeDescriptor)getSelectedDescriptor(0).ranges.get(i));
+                delegate.onRangeChange(0, i, (RangeDescriptor) getSelectedDescriptor(0).ranges.get(i));
             }
         });
         attachCallback("CH2:RANGE_I", new NotifyHandler() {
@@ -381,6 +382,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         tree.command("SAMPLING:TRIGGER 2");
     }
     @Override
+    public void enterShippingMode() {
+        tree.command("HIBERNATE 1");
+    }
+    @Override
     public float getOffset(int c) {
         return (Float)tree.getValueAt(getChString(c)+":OFFSET");
     }
@@ -416,7 +421,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         ConfigTree.ConfigNode rnode = getInputNode(c);
         int cnum = (Integer)tree.getValueAt(getChString(c)+":RANGE_I");
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
-        return Float.parseFloat(choice.getShortName());
+        return (float)1.1*Float.parseFloat(choice.getShortName());
     }
     private boolean applyAutorange(int c) {
         if(!range_auto[c]) {
@@ -596,7 +601,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public String formatValueLabel(int c, float value) {
         SignificantDigits digits = getSigDigits(c);
-        if(Math.abs(value) > 1.1*getMaxRangeForChannel(c)) {
+        if(Math.abs(value) > 1.2*getMaxRangeForChannel(c)) {
             return "OUT OF RANGE";
         }
         return formatReading(value, digits);
@@ -655,7 +660,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public List<String> getInputList(int c) {
         List<String> rval = new ArrayList<String>();
+        // We need to ensure that both channels don't try to use the shared input
+        int other_c = (c+1)%2;
+        boolean add_shared_to_list = getSelectedDescriptor(other_c).shared_node==null;
         for(InputDescriptor d:input_descriptors[c]) {
+            if(!add_shared_to_list && d.shared_node!=null) {
+                continue;
+            }
             rval.add(d.name);
         }
         return rval;

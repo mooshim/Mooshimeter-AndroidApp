@@ -67,6 +67,8 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         @Override
         public void onDisconnect() {        }
         @Override
+        public void onRssiReceived(int rssi) {}
+        @Override
         public void onBatteryVoltageReceived(float voltage) {}
         @Override
         public void onSampleReceived(final double timestamp_utc, int channel, float val) {        }
@@ -134,6 +136,18 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     public int disconnect() {
         mInitialized = false;
         return super.disconnect();
+    }
+
+    @Override
+    public int initialize() {
+        super.initialize();
+        rssi_cb = new Runnable() {
+            @Override
+            public void run() {
+                delegate.onRssiReceived(getRSSI());
+            }
+        };
+        return 0;
     }
 
     ////////////////////////////////

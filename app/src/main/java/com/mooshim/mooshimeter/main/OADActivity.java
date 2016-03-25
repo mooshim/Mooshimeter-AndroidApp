@@ -374,8 +374,7 @@ public class OADActivity extends MyActivity {
     }
 
     private void displayImageInfo(TextView v) {
-        int imgSize = mMeter.oad_identity.len * 4;
-        String s = String.format("Ver.: %d Build: %d Size: %d", mMeter.oad_identity.ver, mMeter.oad_identity.build_time, imgSize);
+        String s = String.format("Old Build: %d<br/>New Build: %d", mMeter.mBuildTime, Util.getBundledFirmwareVersion());
         v.setText(Html.fromHtml(s));
     }
 

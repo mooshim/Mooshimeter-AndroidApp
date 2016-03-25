@@ -991,11 +991,22 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         delegate.onInputChange(c, mapping, getInputDescriptorForChannel(c));
         return setRangeIndex(c,0);
     }
-
+    private static boolean isSharedInput(InputDescriptor id) {
+        return       id.input == INPUT_MODE.AUX_V
+                ||   id.input == INPUT_MODE.RESISTANCE
+                ||   id.input == INPUT_MODE.DIODE;
+    }
     @Override
     public List<String> getInputList(int c) {
         List<String> rval = new ArrayList<>(input_descriptors[c].size());
+        // We need to ensure that both channels don't try to use the shared input
+        int other_c = (c+1)%2;
+        InputDescriptor other_id = getInputDescriptorForChannel(other_c);
+        boolean add_shared_to_list = !isSharedInput(other_id);
         for(InputDescriptor id:input_descriptors[c]) {
+            if(!add_shared_to_list && isSharedInput(id)) {
+                continue;
+            }
             rval.add(id.name);
         }
         return rval;
@@ -1033,7 +1044,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return (float)0.9 * getInputDescriptorForChannel(c).ranges.get(cnum).max;
     }
     private float getMaxRangeForChannel(int c) {
-        return getRangeDescriptorForChannel(c).max;
+        return (float)1.1*getRangeDescriptorForChannel(c).max;
     }
     private boolean applyAutorange(int c) {
         if(!range_auto[c]) {
@@ -1126,6 +1137,12 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         meter_settings.calc_settings &=~LegacyMooshimeterDevice.METER_CALC_SETTINGS_ONESHOT;
         meter_settings.target_meter_state = LegacyMooshimeterDevice.METER_RUNNING;
         meter_sample.enableNotify(true, meter_sample_handler);
+        meter_settings.send();
+    }
+
+    @Override
+    public void enterShippingMode() {
+        meter_settings.target_meter_state = METER_HIBERNATE;
         meter_settings.send();
     }
 
@@ -1276,7 +1293,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     @Override
     public String formatValueLabel(int c, float value) {
-        if(Math.abs(value) > 1.1*getMaxRangeForChannel(c)) {
+        if(Math.abs(value) > 1.2*getMaxRangeForChannel(c)) {
             return "OUT OF RANGE";
         }
         return formatReading(value,getSigDigits(c));
