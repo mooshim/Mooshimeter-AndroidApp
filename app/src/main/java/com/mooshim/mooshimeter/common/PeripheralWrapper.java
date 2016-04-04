@@ -159,9 +159,23 @@ public class PeripheralWrapper {
             }
             @Override
             public void onConnectionStateChange(BluetoothGatt g, int stat, int newState) {
-                Log.d(TAG,"GATTCB:CONN");
+                Log.d(TAG, "GATTCB:CONN");
                 bleStateCondition   .l(stat);
                 mConnectionState = newState;
+                switch(newState) {
+                    case BluetoothProfile.STATE_DISCONNECTED:
+                        Log.d(TAG,"New state: Disconnected");
+                        break;
+                    case BluetoothProfile.STATE_CONNECTING:
+                        Log.d(TAG,"New state: Connecting");
+                        break;
+                    case BluetoothProfile.STATE_CONNECTED:
+                        Log.d(TAG,"New state: Connected");
+                        break;
+                    case BluetoothProfile.STATE_DISCONNECTING:
+                        Log.d(TAG,"New state: Disconnecting");
+                        break;
+                }
                 synchronized (mConnectionStateCB) {
                     List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
                     for(Runnable cb : cbs) {
@@ -226,7 +240,7 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
-                    Log.e(TAG,"Trying to connect while the adapter is discovering!  Going to cancel discovery.");
+                    Log.e(TAG,"Trying to connect while the adapter is discovering!  Going to cancelDelayedCB discovery.");
                     BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
                 }
                 // Try to connect
@@ -263,8 +277,13 @@ public class PeripheralWrapper {
                 return null;
             }
         });
-        if(bleDiscoverCondition.awaitMilli(5000)) {
+        if(bleDiscoverCondition.awaitMilli(10000)) {
+        //if(bleDiscoverCondition.await()) {
             // Timed out
+            Log.e(TAG,"Timed out, canceling discovery");
+            if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
+                BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
+            }
             return -1;
         }
         // Build a local dictionary of all characteristics and their UUIDs
@@ -279,7 +298,6 @@ public class PeripheralWrapper {
 
     public int disconnect() {
         if(isDisconnected()) {
-            new Exception().printStackTrace();
             return 0;
         }
         return protectedCall(new Interruptable() {
