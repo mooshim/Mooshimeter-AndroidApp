@@ -37,6 +37,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
@@ -145,7 +147,7 @@ public class Util {
     public static void postDelayed(Runnable r, int ms) {
         mHandler.postDelayed(r, ms);
     }
-    public static void cancel(Runnable r) {
+    public static void cancelDelayedCB(Runnable r) {
         mHandler.removeCallbacks(r);
     }
 
@@ -479,5 +481,13 @@ public class Util {
             }
         };
         speech_timer.scheduleAtFixedRate(speech_timertask, 500, ms_interval);
+    }
+
+    public static List<String> stringifyCollection(Collection<?> objectCollection) {
+        List<String> rval = new ArrayList<>(objectCollection.size());
+        for(Object o:objectCollection) {
+            rval.add(o.toString());
+        }
+        return rval;
     }
 }

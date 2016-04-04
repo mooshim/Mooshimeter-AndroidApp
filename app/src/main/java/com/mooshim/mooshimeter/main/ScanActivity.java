@@ -23,6 +23,8 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -31,6 +33,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.ParcelUuid;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
@@ -119,6 +122,8 @@ public class ScanActivity extends MyActivity {
         filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(mReceiver, filter);
+
+
     }
 
     @Override
@@ -130,9 +135,6 @@ public class ScanActivity extends MyActivity {
     @Override
     public void onPause() {
         super.onPause();
-        // Find if we have any connected meters, if so make sure they stop streaming
-        for(BLEDeviceBase m : mMeterDict.values()) {
-        }
     }
 
     @Override
@@ -158,7 +160,7 @@ public class ScanActivity extends MyActivity {
         * Less ideally, we'd disconnect it so we could scan it.
         * But I can only find an interface to get BluetoothDevice's from the OS, which have no way
         * to disconnect them.
-        *
+        */
         // Check if there are any presently connected Mooshimeters
         // If there are, disconnect them.
         BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
@@ -168,39 +170,26 @@ public class ScanActivity extends MyActivity {
             if(type != BluetoothDevice.DEVICE_TYPE_LE) {
                 continue;
             }
-            // Assume service discovery has already run for this connected device
-            ParcelUuid[] puuids = device.getUuids();
-            if(puuids == null) {
-                // We don't know what services the device offers
-                // Just disconnect it for now... eventually we should do something smarter
-                // but right now it's not worth the time banging your head off the terrible API
+            Log.d(TAG,"FOUND AN ALREADY CONNECTED BLE DEVICE!");
+            // Is this already in our list or is it an orphan?
+            if(null == getDeviceWithAddress(device.getAddress())) {
+                // This is an orphan device.  Just disconnect it.
                 final BluetoothDevice inner_device = device;
                 final Context inner_context = this;
                 Util.dispatch(new Runnable() {
                     @Override
                     public void run() {
                         PeripheralWrapper p = new PeripheralWrapper(inner_device, inner_context);
+                        // This song and dance is simply because you can't call "disconnect" on a BLEDevice
+                        // you have to call it on a BluetoothGatt, so we're using PeripheralWrapper to handle
+                        // that
                         p.connect();
                         p.disconnect();
                     }
                 });
-            } else {
-                for(ParcelUuid puuid:puuids) {
-                    UUID uuid = puuid.getUuid();
-                    final byte[] uuid_bytes = uuidToBytes(uuid);
-                    // If the device is a Mooshimeter
-                    if(    Arrays.equals(uuid_bytes, mMeterServiceUUID)
-                            || Arrays.equals(uuid_bytes, mOADServiceUUID) ) {
-                        // And we weren't the ones to connect to it
-                        if(!mMeterDict.containsKey(device.getAddress())) {
-                            MooshimeterDevice newMooshimeter = new MooshimeterDevice(device, this);
-                            addDevice(newMooshimeter);
-                        }
-                    }
-                }
             }
-        }*/
-        //startScan();
+        }
+        startScan();
     }
 
     @Override
@@ -503,8 +492,7 @@ public class ScanActivity extends MyActivity {
                     refreshMeterTile((ViewGroup) findTileForMeter(m));
                 }
             });
-            if(   m.hasPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)
-               && m.getPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
+            if(   m.getPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)) {
                 // We've found a meter with the autoconnect feature enabled
                 // Connect to it!
                 setStatus("Autoconnecting...");
@@ -689,8 +677,13 @@ public class ScanActivity extends MyActivity {
                 m = m.chooseSubclass();
                 // Replace the copy in the singleton dict
                 mMeterDict.put(m.getAddress(),m);
-
+                setStatus("Initializing...");
                 rval = m.initialize();
+                if(rval != 0) {
+                    setStatus(String.format("Initialization failed.  Status: %d",rval));
+                    m.disconnect();
+                    break;
+                }
                 setStatus("Connected!");
                 startSingleMeterActivity(m);
             }while(false);

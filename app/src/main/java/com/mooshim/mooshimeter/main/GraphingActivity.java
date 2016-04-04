@@ -15,6 +15,8 @@ import android.widget.ImageButton;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.GraphingActivityInterface;
+import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.common.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.common.MooshimeterDelegate;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
@@ -251,13 +253,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     private void toggleXYMode() {
         xyModeOn = !xyModeOn;
         if(xyModeOn) {
-            setXAxisTitle(mMeter.getInputLabel(0));
-            setYAxisTitle(0, mMeter.getInputLabel(1));
+            setXAxisTitle(mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1));
+            setYAxisTitle(0, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2));
             setYAxisTitle(1, "NA");
         } else {
             setXAxisTitle("Time [s]");
-            setYAxisTitle(0, mMeter.getInputLabel(0));
-            setYAxisTitle(1, mMeter.getInputLabel(1));
+            setYAxisTitle(0, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1));
+            setYAxisTitle(1, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2));
         }
     }
 
@@ -265,8 +267,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         bufferModeOn = !bufferModeOn;
         leftAxisValues.clear();
         rightAxisValues.clear();
-        mMeter.setBufferMode(0,bufferModeOn);
-        mMeter.setBufferMode(1,bufferModeOn);
+        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH1,bufferModeOn);
+        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,bufferModeOn);
         refreshSampleButton();
     }
 
@@ -281,7 +283,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 toggleXYMode();
                 break;
             case R.id.action_back:
-                onDisconnect();
+                transitionToActivity(mMeter, ScanActivity.class);
                 break;
             default:
                 return super.onOptionsItemSelected(item);
@@ -322,11 +324,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         xAxis.setHasTiltedLabels(true);
         lineChartData.setAxisXBottom(xAxis);
 
-        yAxisLeft = new Axis().setName(mMeter.getInputLabel(0)).setHasLines(true);
+        yAxisLeft = new Axis().setName(mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1)).setHasLines(true);
         yAxisLeft.setLineColor(mColorList[0]);
         yAxisLeft.setTextColor(mColorList[0]);
         yAxisLeft.setHasTiltedLabels(true);
-        yAxisRight = new Axis().setName(mMeter.getInputLabel(1)).setHasLines(true);
+        yAxisRight = new Axis().setName(mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2)).setHasLines(true);
         yAxisRight.setLineColor(mColorList[1]);
         yAxisRight.setTextColor(mColorList[1]);
         yAxisRight.setHasTiltedLabels(true);
@@ -342,6 +344,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         leftAxisValues  = new VisibleVsBackupHelper();
         rightAxisValues = new VisibleVsBackupHelper();
         axisValueHelpers = new VisibleVsBackupHelper[]{leftAxisValues,rightAxisValues};
+
+        time_start = Util.getNanoTime();
     }
 
     @Override
@@ -372,12 +376,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         actionBar.hide();
 
         final MooshimeterDelegate d = this;
-        time_start = Util.getNanoTime();
 
         Util.dispatch(new Runnable() {
             @Override
             public void run() {
-                mMeter.setDelegate(d);
+                mMeter.addDelegate(d);
                 if(bufferModeOn) {
                     toggleBufferMode();
                 }
@@ -746,32 +749,32 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     }
 
     @Override
-    public void onRssiReceived(int rssi) {
-
-    }
+    public void onRssiReceived(int rssi) {}
 
     @Override
     public void onBatteryVoltageReceived(float voltage) {
 
     }
-
     @Override
-    public void onSampleReceived(double timestamp_utc, int channel, float val) {
+    public void onSampleReceived(double timestamp_utc, final MooshimeterControlInterface.Channel c, MeterReading val) {
         if(bufferModeOn || !playing) {
             Log.d(TAG,"Received a trailing sample");
             return;
         }
+        if(c== MooshimeterControlInterface.Channel.MATH) {
+            // Ignore for now
+            return;
+        }
         float dt = (float) (timestamp_utc - time_start);
-        addPoint(channel, dt, val);
+        addPoint(c.ordinal(), dt, val.value);
         if(scrollLockOn) {
             calcViewport();
             refresh();
         }
     }
-
     double buf0_t = 0;
     @Override
-    public void onBufferReceived(double timestamp_utc, int channel, float dt, float[] val) {
+    public void onBufferReceived(double timestamp_utc, final MooshimeterControlInterface.Channel c, float dt, float[] val) {
         if(!bufferModeOn || !playing) {
             Log.d(TAG,"Received a trailing buffer");
             return;
@@ -780,7 +783,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         // to when the buffers were received, not when they were taken.
         // We know for a fact the sampling was simultaneous, so we'll ignore channel1's
         // timestamp and just use ch0.
-        if(channel == 0) {
+        if(c == MooshimeterControlInterface.Channel.CH1) {
             buf0_t = (timestamp_utc - dt*val.length)-time_start;
         }
         double t = buf0_t;
@@ -789,8 +792,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             l.add(new PointValue((float)t,v));
             t += dt;
         }
-        addPoints(channel, l);
-        if(channel==1) {
+        addPoints(c.ordinal(), l);
+        if(c== MooshimeterControlInterface.Channel.CH2) {
             // This is the second buffer
             maxNumberOfPointsOnScreen = val.length;
             runOnUiThread(new Runnable() {
@@ -810,13 +813,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     @Override
     public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
     @Override
-    public void onRangeChange(int c, int i, MooshimeterDeviceBase.RangeDescriptor new_range) {}
+    public void onRangeChange(final MooshimeterControlInterface.Channel c, MooshimeterDeviceBase.RangeDescriptor new_range) {}
     @Override
-    public void onInputChange(int c, int i, MooshimeterDeviceBase.InputDescriptor descriptor) {}
+    public void onInputChange(final MooshimeterControlInterface.Channel c, MooshimeterDeviceBase.InputDescriptor descriptor) {}
     @Override
-    public void onRealPowerCalculated(double timestamp_utc, float val) {}
-    @Override
-    public void onOffsetChange(int c, float offset) {}
+    public void onOffsetChange(MooshimeterControlInterface.Channel c, MeterReading offset) {
+
+    }
     private class RightAxisFormatter extends SimpleAxisValueFormatter {
         @Override
         public int formatValueForAutoGeneratedAxis(char[] formattedValue, float value, int autoDecimalDigits) {

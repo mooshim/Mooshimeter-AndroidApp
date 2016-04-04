@@ -20,19 +20,16 @@
 package com.mooshim.mooshimeter.common;
 
 
-import android.bluetooth.BluetoothDevice;
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.util.Log;
 
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.UnknownFormatConversionException;
 
 import static java.util.UUID.fromString;
 
@@ -94,6 +91,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         PGA_GAIN_1,
         PGA_GAIN_4,
         PGA_GAIN_12,
+        IGNORE,
     }
     public enum GPIO_SETTING {
         IGNORE,
@@ -111,7 +109,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     // Display control settings
-    public final float[] offsets = new float[]{0,0};
+    public final Map<Channel,Float> offsets;
 
     /**
      * MeterSettings
@@ -384,7 +382,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
                 ByteBuffer bb = wrap(buf);
                 for(int i = 0; i < getBufferDepth(); i++) {
-                    floatBuf[i] = lsbToNativeUnits(getInt24(bb),0);
+                    floatBuf[i] = lsbToNativeUnits(getInt24(bb),Channel.CH1);
                 }
             }
             String s = String.format("CH1 Progress: %d of %d", buf_i, nBytes);
@@ -426,7 +424,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
                 ByteBuffer bb = wrap(buf);
                 for (int i = 0; i < getBufferDepth(); i++) {
-                    floatBuf[i] = lsbToNativeUnits(getInt24(bb), 1);
+                    floatBuf[i] = lsbToNativeUnits(getInt24(bb), Channel.CH2);
                 }
                 if (buf_full_cb != null) {
                     buf_full_cb.run();
@@ -540,7 +538,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public class InputDescriptor extends  MooshimeterDeviceBase.InputDescriptor{
         INPUT_MODE input;
         boolean isAC;
-        int channel;
         public void addRange(String name, float max, Lsb2NativeConverter converter, PGA_GAIN gain,GPIO_SETTING gpio, ISRC_SETTING isrc) {
             RangeDescriptor ret = new RangeDescriptor();
             ret.name=name;
@@ -580,7 +577,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             ranges.add(ret);
         }
         public void addRange(String name, float max, Lsb2NativeConverter converter, PGA_GAIN gain,ISRC_SETTING isrc) {
-            addRange(name,max,converter,gain,GPIO_SETTING.IGNORE,isrc);
+            addRange(name, max, converter, gain, GPIO_SETTING.IGNORE, isrc);
         }
         public void addRange(String name, float max, float adc2native, PGA_GAIN gain,GPIO_SETTING gpio,ISRC_SETTING isrc) {
             Lsb2NativeConverter converter = generateSimpleConverter(adc2native,gain);
@@ -596,19 +593,22 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             addRange(name,max,adc2native,gain,GPIO_SETTING.IGNORE,isrc);
         }
     }
+    public static abstract class MathInputDescriptor extends MooshimeterDeviceBase.InputDescriptor {
+        public MathInputDescriptor(String name, String units) {super(name, units);}
+        public abstract void onChosen();
+        public abstract boolean meterSettingsAreValid();
+        public abstract MeterReading calculate();
+    }
 
-    final List<InputDescriptor> input_descriptors[];
-    final int input_descriptors_indices[] = new int[]{0,0};
-    final int range_indices[] = new int[]{0,0};
+    Map<Channel,Chooser<MooshimeterDeviceBase.InputDescriptor>> input_descriptors;
 
-    private InputDescriptor addInputDescriptor(int channel, String name, INPUT_MODE in, boolean ac, String units) {
+    private InputDescriptor addInputDescriptor(Channel channel, String name, INPUT_MODE in, boolean ac, String units) {
         InputDescriptor rval = new InputDescriptor();
-        rval.channel = channel;
         rval.name=name;
         rval.input = in;
         rval.isAC = ac;
         rval.units = units;
-        input_descriptors[channel].add(rval);
+        input_descriptors.get(channel).add(rval);
         return rval;
     }
 
@@ -628,42 +628,57 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         meter_ch2_buf       = new MeterCH2Buf     (mPwrap);
         meter_time          = new MeterTime       (mPwrap);
 
-        input_descriptors = new List[]{new ArrayList<>(),new ArrayList<>()};
+        offsets = new HashMap<>();
+        offsets.put(Channel.CH1, (float) 0);
+        offsets.put(Channel.CH2,(float)0);
+
+        input_descriptors = new HashMap<>();
+        input_descriptors.put(Channel.CH1, new Chooser<MooshimeterDeviceBase.InputDescriptor>());
+        input_descriptors.put(Channel.CH2,new Chooser<MooshimeterDeviceBase.InputDescriptor>());
+        input_descriptors.put(Channel.MATH, new Chooser<MooshimeterDeviceBase.InputDescriptor>());
     }
 
-    private void addSharedInputs(int channel) {
+    private void addSharedInputs(Channel channel) {
         InputDescriptor h;
         h=addInputDescriptor(channel,"AUX VOLTAGE DC",INPUT_MODE.AUX_V,false,"V");
-        h.addRange("100m",(float)0.1,1,PGA_GAIN.PGA_GAIN_12);
-        h.addRange("300m",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 );
-        h.addRange("1.2", (float)1.2,1,PGA_GAIN.PGA_GAIN_1 );
+        h.addRange("100mV",(float)0.1,1,PGA_GAIN.PGA_GAIN_12);
+        h.addRange("300mV",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 );
+        h.addRange("1.2V", (float) 1.2, 1, PGA_GAIN.PGA_GAIN_1);
         h=addInputDescriptor(channel,"AUX VOLTAGE AC",INPUT_MODE.AUX_V,true,"V");
-        h.addRange("100m",(float)0.1,1,PGA_GAIN.PGA_GAIN_12);
-        h.addRange("300m",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 );
-        h.addRange("1.2", (float)1.2,1,PGA_GAIN.PGA_GAIN_1 );
-        h=addInputDescriptor(channel,"RESISTANCE",INPUT_MODE.AUX_V,false,"V");
+        h.addRange("100mV",(float)0.1,1,PGA_GAIN.PGA_GAIN_12);
+        h.addRange("300mV",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 );
+        h.addRange("1.2V", (float)1.2,1,PGA_GAIN.PGA_GAIN_1 );
+        h=addInputDescriptor(channel,"RESISTANCE",INPUT_MODE.AUX_V,false,"\u03A9");
         switch (meter_info.pcb_version){
             case 7:
-                h.addRange("1k"  ,(float)1e3,(float)(1/100e-6),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_HIGH);
-                h.addRange("10k" ,(float)1e4,(float)(1/100e-6),PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_HIGH);
-                h.addRange("100k",(float)1e5,(float)(1/100e-9),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW);
-                h.addRange("1M"  ,(float)1e6,(float)(1/100e-9),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW);
-                h.addRange("10M" ,(float)1e7,(float)(1/100e-9),PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_LOW);
+                h.addRange("1k\u03a9"  ,(float)1e3,(float)(1/100e-6),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_HIGH);
+                h.addRange("10k\u03a9" ,(float)1e4,(float)(1/100e-6),PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_HIGH);
+                h.addRange("100k\u03a9",(float)1e5,(float)(1/100e-9),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW);
+                h.addRange("1M\u03a9"  ,(float)1e6,(float)(1/100e-9),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW);
+                h.addRange("10M\u03a9" ,(float)1e7,(float)(1/100e-9),PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_LOW);
             case 8:
                 // FIXME: I don't like that I have to repeat myself in the arguments below...
-                h.addRange("1k"  ,(float)1e3,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_HIGH),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_HIGH);
-                h.addRange("10k" ,(float)1e4,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_HIGH),PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_HIGH);
-                h.addRange("100k",(float)1e5,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_4 ,ISRC_SETTING.ISRC_MID) ,PGA_GAIN.PGA_GAIN_4 ,ISRC_SETTING.ISRC_MID);
-                h.addRange("1M"  ,(float)1e6,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW) ,PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW);
-                h.addRange("10M" ,(float)1e7,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_LOW) ,PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_LOW);
+                h.addRange("1k\u03a9"  ,(float)1e3,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_HIGH),PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_HIGH);
+                h.addRange("10k\u03a9" ,(float)1e4,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_HIGH),PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_HIGH);
+                h.addRange("100k\u03a9",(float)1e5,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_4 ,ISRC_SETTING.ISRC_MID) ,PGA_GAIN.PGA_GAIN_4 ,ISRC_SETTING.ISRC_MID);
+                h.addRange("1M\u03a9"  ,(float)1e6,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW) ,PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_LOW);
+                h.addRange("10M\u03a9" ,(float)1e7,generateResistiveBridgeConverter(PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_LOW) ,PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_LOW);
                 break;
             default:
                 Log.e(TAG,"UNSUPPORTED:Unrecognized pcb version!");
         }
-        h=addInputDescriptor(channel,"DIODE",INPUT_MODE.DIODE,false,"V");
+        h=addInputDescriptor(channel,"DIODE DROP",INPUT_MODE.DIODE,false,"V");
         h.addRange("1.7V",(float)1.7,1,PGA_GAIN.PGA_GAIN_1,ISRC_SETTING.ISRC_HIGH);
-        h=addInputDescriptor(channel,"TEMP",INPUT_MODE.TEMP,false,"C");
-        h.addRange("350",350,1,PGA_GAIN.PGA_GAIN_1);
+        h=addInputDescriptor(channel,"INTERNAL TEMP",INPUT_MODE.TEMP,false,"K");
+        Lsb2NativeConverter temperature_converter = new Lsb2NativeConverter() {
+            @Override
+            public float convert(int lsb) {
+                float volts = lsb2PGAVoltage(lsb);
+                // PGA gain is 1, so PGA voltage=ADC voltage
+                return (float)(volts/490e-6);
+            }
+        };
+        h.addRange("350K",350,temperature_converter,PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.IGNORE,ISRC_SETTING.IGNORE);
     }
 
     public int initialize() {
@@ -678,11 +693,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         meter_name.update();
 
         // Automatically sync the meter's clock to the phone clock
-        meter_time.utc_time = (int)Util.getUTCTime();
-        meter_time.send();
+        setTime(Util.getUTCTime());
 
-        input_descriptors[0].clear();
-        input_descriptors[1].clear();
+        input_descriptors.get(Channel.CH1).clear();
+        input_descriptors.get(Channel.CH2).clear();
+        input_descriptors.get(Channel.MATH).clear();
 
         InputDescriptor h;
         // Add channel 1 ranges and inputs
@@ -698,38 +713,105 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 Log.e(TAG,"UNSUPPORTED:Unknown board type");
                 i_gain = 0;
         }
-        h=addInputDescriptor(0,"CURRENT DC",INPUT_MODE.NATIVE,false,"A");
-        h.addRange("10",10,i_gain,PGA_GAIN.PGA_GAIN_1);
-        h=addInputDescriptor(0,"CURRENT AC",INPUT_MODE.NATIVE,true,"A");
-        h.addRange("10", 10, i_gain, PGA_GAIN.PGA_GAIN_1);
-        addSharedInputs(0);
+        h=addInputDescriptor(Channel.CH1,"CURRENT DC",INPUT_MODE.NATIVE,false,"A");
+        h.addRange("10A",10,i_gain,PGA_GAIN.PGA_GAIN_1);
+        h=addInputDescriptor(Channel.CH1,"CURRENT AC",INPUT_MODE.NATIVE, true, "A");
+        h.addRange("10A", 10, i_gain, PGA_GAIN.PGA_GAIN_1);
+        addSharedInputs(Channel.CH1);
 
         // Add channel 2 ranges and inputs
-        h=addInputDescriptor(1,"VOLTAGE DC",INPUT_MODE.NATIVE,false,"V");
-        h.addRange("60" ,       60 ,(float)((10e6+160e3)/160e3),PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
-        h.addRange("600",       600,(float)((10e6+11e3)/11e3),  PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO2);
-        h=addInputDescriptor(1,"VOLTAGE AC",INPUT_MODE.NATIVE,true,"V");
-        h.addRange("1.2",(float)1.2,1,                          PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO0);
-        h.addRange("60",  60, (float) ((10e6 + 160e3) / 160e3), PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.GPIO1);
-        h.addRange("600", 600, (float) ((10e6 + 11e3) / 11e3), PGA_GAIN.PGA_GAIN_1, GPIO_SETTING.GPIO2);
-        addSharedInputs(1);
+        h=addInputDescriptor(Channel.CH2,"VOLTAGE DC",INPUT_MODE.NATIVE,false,"V");
+        h.addRange("60V", 60, (float) ((10e6 + 160e3) / 160e3), PGA_GAIN.PGA_GAIN_1, GPIO_SETTING.GPIO1);
+        h.addRange("600V", 600, (float) ((10e6 + 11e3) / 11e3), PGA_GAIN.PGA_GAIN_1, GPIO_SETTING.GPIO2);
+        h=addInputDescriptor(Channel.CH2,"VOLTAGE AC",INPUT_MODE.NATIVE,true,"V");
+        h.addRange("60V", 60, (float) ((10e6 + 160e3) / 160e3), PGA_GAIN.PGA_GAIN_1, GPIO_SETTING.GPIO1);
+        h.addRange("600V", 600, (float) ((10e6 + 11e3) / 11e3), PGA_GAIN.PGA_GAIN_1, GPIO_SETTING.GPIO2);
+        addSharedInputs(Channel.CH2);
 
-        Util.cancel(log_status_checker);
+        // On the math channel, input mode, AC and units are ignored
+        Chooser<MooshimeterDeviceBase.InputDescriptor> l = input_descriptors.get(Channel.MATH);
+        MathInputDescriptor mid = new MathInputDescriptor("APPARENT POWER","W") {
+            @Override
+            public void onChosen() {}
+            @Override
+            public boolean meterSettingsAreValid() {
+                InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+                InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+                boolean valid = true;
+                valid &= id0.units.equals("A");
+                valid &= id1.units.equals("V");
+                return valid;
+            }
+            @Override
+            public MeterReading calculate() {
+                MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
+                return rval;
+            }
+        };
+        l.add(mid);
+        // Find the inputs we need to set and bind them
+        h=null;
+        for(InputDescriptor id:(List<InputDescriptor>)(List<?>)getInputList(Channel.CH1)) {
+            if(id.input==INPUT_MODE.AUX_V) {
+                h=id;
+                break;
+            }
+        }
+        final InputDescriptor auxv_id=h;
+        for(InputDescriptor id:(List<InputDescriptor>)(List<?>)getInputList(Channel.CH2)) {
+            if(id.input==INPUT_MODE.TEMP) {
+                h=id;
+                break;
+            }
+        }
+        final InputDescriptor temp_id=h;
+        mid = new MathInputDescriptor("THERMOCOUPLE K","C") {
+            @Override
+            public void onChosen() {
+                setInput(Channel.CH1,auxv_id);
+                setInput(Channel.CH2,temp_id);
+            }
+            @Override
+            public boolean meterSettingsAreValid() {
+                InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+                InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+                boolean valid = true;
+                valid &= id0 == auxv_id;
+                valid &= id1 == temp_id;
+                return valid;
+            }
+            @Override
+            public MeterReading calculate() {
+                float volts = getValue(Channel.CH1).value;
+                float delta = (float)ThermocoupleHelper.K.voltsToDegC(volts);
+                float internal_temp = getValue(Channel.CH2).value;
+                MeterReading rval;
+                if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                    rval = new MeterReading(internal_temp+TemperatureUnitsHelper.RelK2F(delta),5,2000,"F");
+                } else {
+                    rval = new MeterReading(internal_temp+delta,5,1000,"C");
+                }
+                return rval;
+            }
+        };
+        l.add(mid);
+
+        Util.cancelDelayedCB(log_status_checker);
         Util.postDelayed(log_status_checker, 5000);
 
-        determineInputDescriptorIndex(0);
-        determineInputDescriptorIndex(1);
+        determineInputDescriptorIndex(Channel.CH1);
+        determineInputDescriptorIndex(Channel.CH2);
 
         mInitialized = true;
         return 0;
     }
 
-    void determineInputDescriptorIndex(int c) {
+    void determineInputDescriptorIndex(Channel c) {
         GPIO_SETTING gs = GPIO_SETTING.IGNORE;
         ISRC_SETTING is = ISRC_SETTING.IGNORE;
-        switch(meter_settings.chset[c]&METER_CH_SETTINGS_INPUT_MASK) {
+        switch(meter_settings.chset[c.ordinal()]&METER_CH_SETTINGS_INPUT_MASK) {
             case 0x00:
-                if(c==1) {
+                if(c==Channel.CH2) {
                     switch(meter_settings.adc_settings&ADC_SETTINGS_GPIO_MASK) {
                         case 0x00:
                             gs=GPIO_SETTING.GPIO0;
@@ -765,14 +847,14 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 break;
         }
         boolean found=false;
-        for(InputDescriptor id:input_descriptors[c]) {
-            for(MooshimeterDeviceBase.RangeDescriptor uncast_rd:id.ranges) {
+        for(InputDescriptor id:(List<InputDescriptor>)(List<?>)input_descriptors.get(c).getChoices()) {
+            for(MooshimeterDeviceBase.RangeDescriptor uncast_rd:id.ranges.getChoices()) {
                 RangeDescriptor rd = (RangeDescriptor)uncast_rd;
-                if(     rd.chset   == meter_settings.chset[c]
+                if(     rd.chset   == meter_settings.chset[c.ordinal()]
                         && rd.gpio == gs
                         && rd.isrc == is) {
-                    input_descriptors_indices[c] = input_descriptors[c].indexOf(id);
-                    range_indices[c] = id.ranges.indexOf(uncast_rd);
+                    input_descriptors.get(c).choose(id);
+                    id.ranges.choose(uncast_rd);
                     found=true;
                     break;
                 }
@@ -788,8 +870,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     private NotifyHandler meter_sample_handler = new NotifyHandler() {
         @Override
         public void onReceived(double timestamp_utc, Object payload) {
-            delegate.onSampleReceived(timestamp_utc, 0, getValue(0));
-            delegate.onSampleReceived(timestamp_utc, 1, getValue(1));
+            delegate.onSampleReceived(timestamp_utc, Channel.CH1, getValue(Channel.CH1));
+            delegate.onSampleReceived(timestamp_utc, Channel.CH2, getValue(Channel.CH2));
+            delegate.onSampleReceived(timestamp_utc, Channel.MATH, getValue(Channel.MATH));
         }
     };
 
@@ -798,8 +881,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         public void run() {
             float dt = 1/(float)getSampleRateHz();
             double timestamp = Util.getNanoTime();
-            delegate.onBufferReceived(timestamp, 0, dt, Arrays.copyOfRange(meter_ch1_buf.floatBuf, 0, getBufferDepth()));
-            delegate.onBufferReceived(timestamp, 1, dt, Arrays.copyOfRange(meter_ch2_buf.floatBuf, 0, getBufferDepth()));
+            delegate.onBufferReceived(timestamp, Channel.CH1, dt, Arrays.copyOfRange(meter_ch1_buf.floatBuf, 0, getBufferDepth()));
+            delegate.onBufferReceived(timestamp, Channel.CH2, dt, Arrays.copyOfRange(meter_ch2_buf.floatBuf, 0, getBufferDepth()));
         }
     };
 
@@ -841,7 +924,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      * @return Effective number of bits
      */
 
-    private double getEnob(final int channel) {
+    private double getEnob(final Channel channel) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
         // Based on ADS1292 datasheet and some special sauce.
@@ -858,7 +941,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         final int samplerate_setting =meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK;
         final int buffer_depth_log2 = meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2;
         double enob = base_enob_table[ samplerate_setting ];
-        int pga_setting = meter_settings.chset[channel];
+        int pga_setting = meter_settings.chset[channel.ordinal()];
         pga_setting &= METER_CH_SETTINGS_PGA_MASK;
         pga_setting >>= 4;
         int pga_gain = pga_gain_table[pga_setting];
@@ -869,7 +952,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         // Oversampling adds 1 ENOB per factor of 4
         enob += ((double)buffer_depth_log2)/2.0;
         //
-        if(meter_info.pcb_version==7 && channel == 0 && (meter_settings.chset[0] & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
+        if(meter_info.pcb_version==7 && channel == Channel.CH1 && (meter_settings.chset[0] & METER_CH_SETTINGS_INPUT_MASK) == 0 ) {
             // This is compensation for a bug in RevH, where current sense chopper noise dominates
             enob -= 2;
         }
@@ -923,12 +1006,13 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return temp_c;
     }
 
-    private InputDescriptor getInputDescriptorForChannel(int c) {
-        return input_descriptors[c].get(input_descriptors_indices[c]);
+    @Override
+    public MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(Channel c) {
+        return input_descriptors.get(c).getChosen();
     }
 
-    private RangeDescriptor getRangeDescriptorForChannel(int c) {
-        return (RangeDescriptor) getInputDescriptorForChannel(c).ranges.get(range_indices[c]);
+    private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
+        return (RangeDescriptor) getSelectedDescriptor(c).ranges.getChosen();
     }
 
     /**
@@ -938,11 +1022,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      * @return      Value at the input terminal.  Depending on measurement settings, can be V, A or Ohms
      */
 
-    public float lsbToNativeUnits(int lsb, final int ch) {
+    public float lsbToNativeUnits(int lsb, final Channel ch) {
         return getRangeDescriptorForChannel(ch).converter.convert(lsb);
     }
 
-    public float lsbToNativeUnits(float lsb, final int ch) {
+    public float lsbToNativeUnits(float lsb, final Channel ch) {
         return lsbToNativeUnits((int) lsb, ch);
     }
 
@@ -951,18 +1035,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      * @param channel The channel index (0 or 1)
      * @return A string describing what the channel is measuring
      */
-    public String getDescriptor(final int channel) {
-        return getInputDescriptorForChannel(channel).name;
-    }
-
-    /**
-     *
-     * @param channel The channel index (0 or 1)
-     * @return A string containing the units label for the channel
-     */
-    @Override
-    public String getUnits(final int channel) {
-        return getInputDescriptorForChannel(channel).units;
+    public String getDescriptor(final Channel channel) {
+        return getSelectedDescriptor(channel).name;
     }
 
     /**
@@ -971,25 +1045,43 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      * @return        A String containing the input label of the channel (V, A, Omega or Internal)
      */
 
-    public String getInputLabel(final int channel) {
+    public String getInputLabel(final Channel channel) {
         return getDescriptor(channel);
     }
 
     @Override
-    public int getInputIndex(int c) {
-        return input_descriptors_indices[c];
-    }
+    public int setInput(Channel c, MooshimeterDeviceBase.InputDescriptor descriptor) {
+        Chooser<MooshimeterDeviceBase.InputDescriptor> chooser = input_descriptors.get(c);
+        switch(c) {
+            case CH1:
+            case CH2:
+                InputDescriptor cast = (InputDescriptor)descriptor;
+                if(input_descriptors.get(c).isChosen(cast)) {
+                    // No action required
+                    return 0;
+                }
 
-    @Override
-    public int setInputIndex(int c, int mapping) {
-        if(mapping==input_descriptors_indices[c]) {
-            // Already selected input in question, do nothing
-            return 0;
+                if(isSharedInput(cast)) {
+                    // Make sure we're not about to jump on to a channel that's in use
+                    Channel other = c==Channel.CH1?Channel.CH2:Channel.CH1;
+                    InputDescriptor other_id = (InputDescriptor)input_descriptors.get(other).getChosen();
+                    if(isSharedInput(other_id)) {
+                        Log.e(TAG, "Tried to select an input already in use!");
+                        return -1;
+                    }
+                }
+
+                chooser.choose(cast);
+                delegate.onInputChange(c, descriptor);
+                setRange(c, cast.ranges.get(0));
+                return 0;
+            case MATH:
+                MathInputDescriptor mcast = (MathInputDescriptor)descriptor;
+                mcast.onChosen();
+                chooser.choose(mcast);
+                return 0;
         }
-        offsets[c] = 0;
-        input_descriptors_indices[c] = mapping;
-        delegate.onInputChange(c, mapping, getInputDescriptorForChannel(c));
-        return setRangeIndex(c,0);
+        return 0;
     }
     private static boolean isSharedInput(InputDescriptor id) {
         return       id.input == INPUT_MODE.AUX_V
@@ -997,19 +1089,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 ||   id.input == INPUT_MODE.DIODE;
     }
     @Override
-    public List<String> getInputList(int c) {
-        List<String> rval = new ArrayList<>(input_descriptors[c].size());
-        // We need to ensure that both channels don't try to use the shared input
-        int other_c = (c+1)%2;
-        InputDescriptor other_id = getInputDescriptorForChannel(other_c);
-        boolean add_shared_to_list = !isSharedInput(other_id);
-        for(InputDescriptor id:input_descriptors[c]) {
-            if(!add_shared_to_list && isSharedInput(id)) {
-                continue;
-            }
-            rval.add(id.name);
-        }
-        return rval;
+    public List<MooshimeterDeviceBase.InputDescriptor> getInputList(Channel c) {
+        return (List<MooshimeterDeviceBase.InputDescriptor>)(List<?>)input_descriptors.get(c).getChoices();
     }
 
     ////////////////////////
@@ -1018,41 +1099,41 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     /**
      * Changes the measurement settings for a channel to expand or contract the measurement range
-     * @param channel   The channel index (0 or 1)
+     * @param c   The channel index (0 or 1)
      * @param expand    Expand (true) or contract (false) the range.
      */
     @Override
-    public boolean bumpRange(int channel, boolean expand) {
-        int cnum = range_indices[channel];
-        int n_choices = getInputDescriptorForChannel(channel).ranges.size();
+    public boolean bumpRange(Channel c, boolean expand) {
+        InputDescriptor id = (InputDescriptor)input_descriptors.get(c).getChosen();
+        Chooser<MooshimeterDeviceBase.RangeDescriptor> range_chooser = id.ranges;
+        int choice_i = range_chooser.getChosenI();
+        int n_choices = getSelectedDescriptor(c).ranges.size();
         // If we're not wrapping and we're against a wall
-        if (cnum == 0 && !expand) {
+        if (choice_i == 0 && !expand) {
             return false;
         }
-        if(cnum == n_choices-1 && expand) {
+        if(choice_i == n_choices-1 && expand) {
             return false;
         }
-        cnum += expand?1:-1;
-        cnum %= n_choices;
-        setRangeIndex(channel, cnum);
+        choice_i += expand?1:-1;
+        choice_i %= n_choices;
+        setRange(c, range_chooser.choose(choice_i));
         return true;
     }
 
-    private float getMinRangeForChannel(int c) {
-        int cnum = range_indices[c];
-        cnum = cnum>0?cnum-1:cnum;
-        return (float)0.9 * getInputDescriptorForChannel(c).ranges.get(cnum).max;
+    private float getMinRangeForChannel(Channel c) {
+        return (float)0.9 * getSelectedDescriptor(c).ranges.getChoiceBelow().max;
     }
-    private float getMaxRangeForChannel(int c) {
+    private float getMaxRangeForChannel(Channel c) {
         return (float)1.1*getRangeDescriptorForChannel(c).max;
     }
-    private boolean applyAutorange(int c) {
-        if(!range_auto[c]) {
+    private boolean applyAutorange(Channel c) {
+        if(!range_auto.get(c)) {
             return false;
         }
         float max = getMaxRangeForChannel(c);
         float min = getMinRangeForChannel(c);
-        float val = getValue(c) + getOffset(c);
+        float val = getValue(c).value + getOffset(c).value;
         val = Math.abs(val);
         if(val > max) {
             return bumpRange(c,true);
@@ -1064,7 +1145,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     private boolean applyRateAndDepthRange() {
-        final boolean ac_used = getInputDescriptorForChannel(0).isAC||getInputDescriptorForChannel(1).isAC;
+        InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+        InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+        final boolean ac_used = id0.isAC|| id1.isAC;
         byte adc_stash = meter_settings.adc_settings;
         byte calc_stash = meter_settings.calc_settings;
         // Autorange sample rate and buffer depth.
@@ -1098,8 +1181,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public boolean applyAutorange() {
         boolean rval = false;
         rval |= applyRateAndDepthRange();
-        rval |= applyAutorange(0);
-        rval |= applyAutorange(1);
+        rval |= applyAutorange(Channel.CH1);
+        rval |= applyAutorange(Channel.CH2);
         return rval;
     }
 
@@ -1145,15 +1228,23 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         meter_settings.target_meter_state = METER_HIBERNATE;
         meter_settings.send();
     }
-
     @Override
-    public float getOffset(int c) {
-        return offsets[c];
+    public double getUTCTime() {
+        return meter_time.utc_time;
+    }
+    @Override
+    public void setTime(double utc_time) {
+        meter_time.utc_time = (long)utc_time;
+        meter_time.send();
+    }
+    @Override
+    public MeterReading getOffset(Channel c) {
+        return wrapMeterReading(c, offsets.get(c));
     }
 
     @Override
-    public void setOffset(int c, float offset) {
-        offsets[c] = offset;
+    public void setOffset(Channel c, float offset) {
+        offsets.put(c,offset);
     }
 
     @Override
@@ -1206,7 +1297,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
-    public void setBufferMode(int c, boolean on) {
+    public void setBufferMode(Channel c, boolean on) {
         /**
          * Downloads the complete sample buffer from the Mooshimeter.
          * This interaction spans many connection intervals, the exact length depends on the number of samples in the buffer
@@ -1244,13 +1335,16 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     @Override
     public boolean getLoggingOn() {
-        return meter_log_settings.present_logging_state > LOGGING_OFF;
+        boolean rval = meter_log_settings.present_logging_state != LOGGING_OFF;
+        rval &= meter_log_settings.target_logging_state != LOGGING_OFF;
+        return rval;
     }
 
     @Override
     public void setLoggingOn(boolean on) {
         meter_log_settings.target_logging_state = on?LOGGING_SAMPLING:LOGGING_OFF;
         meter_log_settings.send();
+        meter_log_settings.update();
     }
 
     @Override
@@ -1281,40 +1375,62 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public int getLoggingIntervalMS() {
         return meter_log_settings.logging_period_ms;
     }
-
-    @Override
-    public float getValue(int c) {
-        if(getInputDescriptorForChannel(c).isAC) {
-            return lsbToNativeUnits((float)Math.sqrt(meter_sample.reading_ms[c]),c);
-        } else {
-            return lsbToNativeUnits(meter_sample.reading_lsb[c],c);
+    private MeterReading wrapMeterReading(Channel c,float val) {
+        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
+        final double enob = getEnob(c);
+        float max = getMaxRangeForChannel(c);
+        MeterReading rval = new MeterReading(val,
+                                             (int)Math.log10(Math.pow(2.0, enob)),
+                                             max,
+                                             id.units);
+        if(id.units.equals("K")) {
+            // Nobody likes Kelvin!  C or F?
+            if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                rval.value = TemperatureUnitsHelper.AbsK2F(rval.value);
+                rval.max = TemperatureUnitsHelper.AbsK2F(rval.max);
+                rval.units = "F";
+            } else {
+                rval.value = TemperatureUnitsHelper.AbsK2C(rval.value);
+                rval.max = TemperatureUnitsHelper.AbsK2C(rval.max);
+                rval.units = "C";
+            }
         }
+        return rval;
     }
 
+
     @Override
-    public String formatValueLabel(int c, float value) {
-        if(Math.abs(value) > 1.2*getMaxRangeForChannel(c)) {
-            return "OUT OF RANGE";
+    public MeterReading getValue(Channel c) {
+        switch(c) {
+            case CH1:
+            case CH2:
+                if(((InputDescriptor)getSelectedDescriptor(c)).isAC) {
+                    return wrapMeterReading(c,lsbToNativeUnits((float) Math.sqrt(meter_sample.reading_ms[c.ordinal()]), c));
+                } else {
+                    return wrapMeterReading(c,lsbToNativeUnits(meter_sample.reading_lsb[c.ordinal()], c));
+                }
+            case MATH:
+                MathInputDescriptor id = (MathInputDescriptor)input_descriptors.get(Channel.MATH).getChosen();
+                if(id.meterSettingsAreValid()) {
+                    return id.calculate();
+                } else {
+                    MeterReading rval = new MeterReading(0,0,0,"INVALID INPUTS");
+                    return rval;
+                }
         }
-        return formatReading(value,getSigDigits(c));
+        return new MeterReading();
     }
 
     @Override
-    public float getPower() {
-        Log.e(TAG,"UNSUPPORTED:Feature not supported by firmware");
-        return 0;
-    }
-
-    @Override
-    public String getRangeLabel(int c) {
+    public String getRangeLabel(Channel c) {
         return getRangeDescriptorForChannel(c).name;
     }
 
     @Override
-    public int setRangeIndex(int c, int r) {
-        range_indices[c]=r;
-        RangeDescriptor rd = getRangeDescriptorForChannel(c);
-        meter_settings.chset[c] = rd.chset;
+    public int setRange(Channel c, MooshimeterDeviceBase.RangeDescriptor uncast) {
+        RangeDescriptor rd = (RangeDescriptor)uncast;
+        getSelectedDescriptor(c).ranges.choose(rd);
+        meter_settings.chset[c.ordinal()] = rd.chset;
         applyRateAndDepthRange();
         switch(rd.isrc) {
             case IGNORE:
@@ -1356,34 +1472,12 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 throw new UnsupportedOperationException();
         }
         meter_settings.send();
-        delegate.onRangeChange(c,r,rd);
+        delegate.onRangeChange(c,rd);
         return 0;
     }
 
     @Override
-    public List<String> getRangeList(int c) {
-        List<String> rval = new ArrayList<>();
-        for(MooshimeterDeviceBase.RangeDescriptor r:getInputDescriptorForChannel(c).ranges) {
-            rval.add(r.name);
-        }
-        return rval;
-    }
-
-    /**
-     * Based on the ENOB and the measurement range for the given channel, determine which digits are
-     * significant in the output.
-     * @param channel The channel index (0 or 1)
-     * @return  A SignificantDigits structure, "high" is the number of digits to the left of the decimal point and "digits" is the number of significant digits
-     */
-
-    public SignificantDigits getSigDigits(final int channel) {
-        SignificantDigits retval = new SignificantDigits();
-        final double enob = getEnob(channel);
-        final double max = lsbToNativeUnits((1<<22),channel);
-        final double max_dig  = Math.log10(max);
-        final double n_digits = Math.log10(Math.pow(2.0, enob));
-        retval.high = (int)(max_dig+1);
-        retval.n_digits = (int) n_digits;
-        return retval;
+    public List<String> getRangeList(Channel c) {
+        return input_descriptors.get(c).getChosen().ranges.getChoiceNames();
     }
 }

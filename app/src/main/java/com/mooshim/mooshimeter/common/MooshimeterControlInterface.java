@@ -1,13 +1,18 @@
 package com.mooshim.mooshimeter.common;
-
 import java.util.List;
 
 /**
  * Created by First on 2/26/2016.
  */
-interface MooshimeterControlInterface {
+public interface MooshimeterControlInterface {
 
-    void setDelegate(final MooshimeterDelegate d);
+    enum Channel {
+        CH1,
+        CH2,
+        MATH,
+    }
+
+    void addDelegate(final MooshimeterDelegate d);
     void removeDelegate();
 
     ////////////////////////////////
@@ -20,7 +25,7 @@ interface MooshimeterControlInterface {
     // Autoranging
     //////////////////////////////////////
 
-    boolean bumpRange(int channel, boolean expand);
+    boolean bumpRange(Channel c, boolean expand);
 
     // Return true if settings changed
     boolean applyAutorange();
@@ -38,8 +43,11 @@ interface MooshimeterControlInterface {
 
     void enterShippingMode();
 
-    float getOffset(int c);
-    void setOffset(int c, float offset);
+    double getUTCTime();
+    void setTime(double utc_time);
+
+    MeterReading getOffset(Channel c);
+    void setOffset(Channel c, float offset);
 
     int getSampleRateHz();
     int setSampleRateIndex(int i);
@@ -49,7 +57,7 @@ interface MooshimeterControlInterface {
     int setBufferDepthIndex(int i);
     List<String> getBufferDepthList();
 
-    void setBufferMode(int c, boolean on);
+    void setBufferMode(Channel c, boolean on);
 
     boolean getLoggingOn();
     void setLoggingOn(boolean on);
@@ -58,17 +66,14 @@ interface MooshimeterControlInterface {
     void setLoggingInterval(int ms);
     int getLoggingIntervalMS();
 
-    float getValue(int c);
-    String formatValueLabel(int c, float value);
+    MeterReading getValue(Channel c);
 
-    float getPower();
+    String       getRangeLabel(Channel c);
+    int          setRange(Channel c,MooshimeterDeviceBase.RangeDescriptor rd);
+    List<String> getRangeList (Channel c);
 
-    String       getRangeLabel(int c);
-    int          setRangeIndex(int c,int r);
-    List<String> getRangeList (int c);
-
-    String getInputLabel(final int c);
-    int getInputIndex(int c);
-    int setInputIndex(int c, int mapping);
-    List<String> getInputList(int c);
+    String getInputLabel(final Channel c);
+    int setInput(Channel c, MooshimeterDeviceBase.InputDescriptor descriptor);
+    List<MooshimeterDeviceBase.InputDescriptor> getInputList(Channel c);
+    MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(Channel c);
 }

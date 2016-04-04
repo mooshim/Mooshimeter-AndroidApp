@@ -1,8 +1,13 @@
 package com.mooshim.mooshimeter.common;
 
+import android.bluetooth.BluetoothGatt;
+import android.util.Log;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
@@ -21,6 +26,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
      */
     public static class mUUID {
         public final static UUID
+            METER_SERVICE       = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
             METER_SERIN         = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),
             METER_SEROUT        = fromString("1BC5FFA2-0200-62AB-E411-F254E005DBD4"),
 
@@ -44,14 +50,20 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         public ConfigTree.ConfigNode node;
     }
 
+    public static abstract class MathInputDescriptor extends MooshimeterDeviceBase.InputDescriptor {
+        public MathInputDescriptor(String name, String units) {super(name,units);}
+        public abstract void onChosen();
+        public abstract boolean meterSettingsAreValid();
+        public abstract MeterReading calculate();
+    }
+
     public static class InputDescriptor extends MooshimeterDeviceBase.InputDescriptor{
         public ConfigTree.ConfigNode input_node;
         public ConfigTree.ConfigNode analysis_node;
-        public ConfigTree.ConfigNode shared_node; // ugly
+        public ConfigTree.ConfigNode shared_node;
     }
 
-    final List<InputDescriptor> input_descriptors[];
-    final int input_descriptors_indices[] = new int[]{0,0};
+    final Map<Channel,Chooser<MooshimeterDeviceBase.InputDescriptor>> input_descriptors = new HashMap<>();
 
     ////////////////////////////////
     // Private methods for dealing with config tree
@@ -93,9 +105,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public MooshimeterDevice(PeripheralWrapper wrap) {
         super(wrap);
         tree = new ConfigTree();
-        input_descriptors = new List[2];
-        input_descriptors[0] = new ArrayList<>();
-        input_descriptors[1] = new ArrayList<>();
+        input_descriptors.put(Channel.CH1,new Chooser<MooshimeterDeviceBase.InputDescriptor>());
+        input_descriptors.put(Channel.CH2,new Chooser<MooshimeterDeviceBase.InputDescriptor>());
+        input_descriptors.put(Channel.MATH,new Chooser<MooshimeterDeviceBase.InputDescriptor>());
     }
     public void attachCallback(String nodestr,NotifyHandler cb) {
         ConfigTree.ConfigNode n = tree.getNode(nodestr);
@@ -112,9 +124,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // Private helpers
     ////////////////////////////////
 
-    private ConfigTree.ConfigNode getInputNode(int channel) {
-        assert channel<2;
-        ConfigTree.ConfigNode rval = tree.getNode(getChString(channel) + ":MAPPING");
+    private ConfigTree.ConfigNode getInputNode(Channel c) {
+        ConfigTree.ConfigNode rval = tree.getNode(c.name() + ":MAPPING");
         while(true) {
             if (rval.ntype == ConfigTree.NTYPE.LINK) {
                 rval = tree.getNode((String)rval.getValue());
@@ -124,9 +135,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 return rval;
             }
         }
-    }
-    private static String getChString(int channel) {
-        return (channel==0?"CH1":"CH2");
     }
     private Object getValueAt(String p) {
         Object rval = tree.getValueAt(p);
@@ -144,45 +152,39 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return inputs;
     }
 
-    private InputDescriptor getSelectedDescriptor(final int channel) {
-        return input_descriptors[channel].get(input_descriptors_indices[channel]);
-    }
-    private InputDescriptor makeInputDescriptor(int c, String name, boolean analysis_in_name, String analysis, String units, boolean shared) {
+    private InputDescriptor makeInputDescriptor(Channel c, String name, String node_name, String analysis, String units, boolean shared) {
         InputDescriptor i = new InputDescriptor();
-        i.analysis_node = tree.getNode(getChString(c)+":ANALYSIS:"+analysis);
+        i.analysis_node = tree.getNode(c.name()+":ANALYSIS:"+analysis);
         i.name          = name;
-        if(analysis_in_name) {
-            if(analysis.equals("MEAN")) {
-                i.name += " DC";
-            } else {
-                i.name += " AC";
-            }
-        }
         i.units         = units;
         if(shared) {
-            i.shared_node   = tree.getNode(getChString(c)+":MAPPING:SHARED");
-            i.input_node    = tree.getNode("SHARED:"+name);
+            i.shared_node   = tree.getNode(c.name()+":MAPPING:SHARED");
+            i.input_node    = tree.getNode("SHARED:"+node_name);
         } else {
-            i.input_node    = tree.getNode(getChString(c)+":MAPPING:"+name);
+            i.input_node    = tree.getNode(c.name()+":MAPPING:"+node_name);
         }
         addRangeDescriptors(i, i.input_node);
         return i;
     }
-    private int determineInputDescriptorIndex(int c) {
-        for(InputDescriptor d:input_descriptors[c]) {
+    private void determineInputDescriptorIndex(Channel c) {
+        if(c==Channel.MATH) {
+            // Math input can be set arbitrarily
+            return;
+        }
+        Chooser<MooshimeterDeviceBase.InputDescriptor> chooser = input_descriptors.get(c);
+        for(InputDescriptor d:(List<InputDescriptor>)(List<?>)chooser.getChoices()) {
             if(getInputNode(c) == d.input_node) {
-                if(d.analysis_node == tree.getNode(getChString(c)+":ANALYSIS").getChosen()) {
-                    input_descriptors_indices[c] = input_descriptors[c].indexOf(d);
+                if(d.analysis_node == tree.getNode(c.name()+":ANALYSIS").getChosen()) {
+                    chooser.choose(d);
                 }
             }
         }
-        return input_descriptors_indices[c];
     }
-    private float[] interpretSampleBuffer(int c, byte[] payload) {
+    private float[] interpretSampleBuffer(Channel c, byte[] payload) {
         ByteBuffer b = ByteBuffer.wrap(payload);
-        int bytes_per_sample = (Integer)tree.getValueAt(getChString(c)+":BUF_BPS");
+        int bytes_per_sample = (Integer)tree.getValueAt(c.name()+":BUF_BPS");
         bytes_per_sample /= 8;
-        float lsb2native = (Float)tree.getValueAt(getChString(c)+":BUF_LSB2NATIVE");
+        float lsb2native = (Float)tree.getValueAt(c.name()+":BUF_LSB2NATIVE");
         int n_samples = payload.length/bytes_per_sample;
         float[] rval = new float[n_samples];
         for(int i = 0; i < n_samples; i++) {
@@ -204,6 +206,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public int initialize() {
         super.initialize();
         int rval=0;
+
         if(mPwrap.getChar(mUUID.METER_SERIN)==null||mPwrap.getChar(mUUID.METER_SEROUT)==null) {
             return -1;
         }
@@ -212,121 +215,229 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // At this point the tree is loaded.  Refresh all values in the tree.
         tree.refreshAll();
 
-        input_descriptors[0].clear();
-        input_descriptors[1].clear();
+        setTime(Util.getUTCTime());
 
-        input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "MEAN","A"  ,false));
-        input_descriptors[0].add(makeInputDescriptor(0,"CURRENT"   ,true, "RMS" ,"A"  ,false));
-        input_descriptors[0].add(makeInputDescriptor(0,"TEMP"      ,false,"MEAN","K"  ,false));
-        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "MEAN","V"  ,true));
-        input_descriptors[0].add(makeInputDescriptor(0,"AUX_V"     ,true, "RMS" ,"V"  ,true));
-        input_descriptors[0].add(makeInputDescriptor(0,"RESISTANCE",false,"MEAN","Ohm",true));
-        input_descriptors[0].add(makeInputDescriptor(0,"DIODE"     ,false,"MEAN","V"  ,true));
+        Channel c = Channel.CH1;
+        Chooser<MooshimeterDeviceBase.InputDescriptor> l = input_descriptors.get(c);
 
-        input_descriptors[1].add(makeInputDescriptor(1,"VOLTAGE"   ,true, "MEAN","V"  ,false));
-        input_descriptors[1].add(makeInputDescriptor(1,"VOLTAGE"   ,true, "RMS", "V"  ,false));
-        input_descriptors[1].add(makeInputDescriptor(1,"TEMP"      ,false,"MEAN","K"  ,false));
-        input_descriptors[1].add(makeInputDescriptor(1,"AUX_V"     ,true ,"MEAN","V"  ,true));
-        input_descriptors[1].add(makeInputDescriptor(1,"AUX_V"     ,true, "RMS", "V"  ,true));
-        input_descriptors[1].add(makeInputDescriptor(1, "RESISTANCE", false, "MEAN", "Ohm", true));
-        input_descriptors[1].add(makeInputDescriptor(1, "DIODE", false, "MEAN", "V", true));
+        l.add(makeInputDescriptor(c, "CURRENT DC", "CURRENT", "MEAN", "A", false));
+        l.add(makeInputDescriptor(c, "CURRENT AC", "CURRENT", "RMS", "A", false));
+        l.add(makeInputDescriptor(c, "INTERNAL TEMPERATURE", "TEMP", "MEAN", "K", false));
+        // Create a hook for this input because thermocouple input will need to refer to it later
+        final MooshimeterDeviceBase.InputDescriptor auxv_id = makeInputDescriptor(c, "AUXILIARY VOLTAGE DC", "AUX_V", "MEAN", "V", true);
+        l.add(auxv_id);
+        l.add(makeInputDescriptor(c, "AUXILIARY VOLTAGE AC", "AUX_V", "RMS", "V", true));
+        l.add(makeInputDescriptor(c, "RESISTANCE", "RESISTANCE", "MEAN", "\u03A9", true));
+        l.add(makeInputDescriptor(c, "DIODE DROP", "DIODE", "MEAN", "V", true));
+
+        c = Channel.CH2;
+        l = input_descriptors.get(c);
+
+        l.add(makeInputDescriptor(c, "VOLTAGE DC", "VOLTAGE", "MEAN", "V", false));
+        l.add(makeInputDescriptor(c, "VOLTAGE AC", "VOLTAGE", "RMS", "V", false));
+        // Create a hook for this input because thermocouple input will need to refer to it later
+        final MooshimeterDeviceBase.InputDescriptor temp_id = makeInputDescriptor(c, "INTERNAL TEMPERATURE", "TEMP", "MEAN", "K", false);
+        l.add(temp_id);
+        l.add(makeInputDescriptor(c, "AUXILIARY VOLTAGE DC", "AUX_V", "MEAN", "V", true));
+        l.add(makeInputDescriptor(c, "AUXILIARY VOLTAGE AC", "AUX_V", "RMS", "V", true));
+        l.add(makeInputDescriptor(c, "RESISTANCE", "RESISTANCE", "MEAN", "\u03a9", true));
+        l.add(makeInputDescriptor(c, "DIODE DROP", "DIODE", "MEAN", "V", true));
+
+        c = Channel.MATH;
+        l = input_descriptors.get(c);
+
+        MathInputDescriptor mid = new MathInputDescriptor("REAL POWER","W") {
+            @Override
+            public void onChosen() {}
+            @Override
+            public boolean meterSettingsAreValid() {
+                InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+                InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+                boolean valid = true;
+                valid &= id0.units.equals("A");
+                valid &= id1.units.equals("V");
+                return valid;
+            }
+            @Override
+            public MeterReading calculate() {
+                MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
+                rval.value = (Float)tree.getValueAt("REAL_PWR");
+                return rval;
+            }
+        };
+        l.add(mid);
+        mid = new MathInputDescriptor("APPARENT POWER","W") {
+            @Override
+            public void onChosen() {}
+            @Override
+            public boolean meterSettingsAreValid() {
+                InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+                InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+                boolean valid = true;
+                valid &= id0.units.equals("A");
+                valid &= id1.units.equals("V");
+                return valid;
+            }
+            @Override
+            public MeterReading calculate() {
+                MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
+                return rval;
+            }
+        };
+        l.add(mid);
+        mid = new MathInputDescriptor("POWER FACTOR","") {
+            @Override
+            public void onChosen() {}
+            @Override
+            public boolean meterSettingsAreValid() {
+                InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+                InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+                boolean valid = true;
+                valid &= id0.units.equals("A")||id0.units.equals("V");
+                valid &= id1.units.equals("V");
+                return valid;
+            }
+            @Override
+            public MeterReading calculate() {
+                // We use MeterReading.mult to ensure we get the decimals right
+                MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
+                // Then overload the value
+                rval.value = (Float)tree.getValueAt("REAL_PWR")/rval.value;
+                rval.units = "";
+                return rval;
+            }
+        };
+        l.add(mid);
+        mid = new MathInputDescriptor("THERMOCOUPLE K","C") {
+            @Override
+            public void onChosen() {
+                setInput(Channel.CH1,auxv_id);
+                setInput(Channel.CH2,temp_id);
+            }
+            @Override
+            public boolean meterSettingsAreValid() {
+                InputDescriptor id0 = (InputDescriptor)getSelectedDescriptor(Channel.CH1);
+                InputDescriptor id1 = (InputDescriptor)getSelectedDescriptor(Channel.CH2);
+                boolean valid = true;
+                valid &= id0 == auxv_id;
+                valid &= id1 == temp_id;
+                return valid;
+            }
+            @Override
+            public MeterReading calculate() {
+                float volts = getValue(Channel.CH1).value;
+                float delta_c = (float)ThermocoupleHelper.K.voltsToDegC(volts);
+                float internal_temp = getValue(Channel.CH2).value;
+                MeterReading rval;
+                if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                    delta_c = TemperatureUnitsHelper.RelK2F(delta_c);
+                    rval = new MeterReading(internal_temp+delta_c,5,2000,"F");
+                } else {
+                    rval = new MeterReading(internal_temp+delta_c,5,1000,"C");
+                }
+                return rval;
+            }
+        };
+        l.add(mid);
 
         // Figure out which input we're presently reading based on the tree state
-        determineInputDescriptorIndex(0);
-        determineInputDescriptorIndex(1);
+        determineInputDescriptorIndex(Channel.CH1);
+        determineInputDescriptorIndex(Channel.CH2);
 
         // Stitch together updates on nodes of the config tree with calls to the delegate
 
         attachCallback("CH1:MAPPING", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                determineInputDescriptorIndex(0);
-                delegate.onInputChange(0, input_descriptors_indices[0], getSelectedDescriptor(0));
+                determineInputDescriptorIndex(Channel.CH1);
+                delegate.onInputChange(Channel.CH1, getSelectedDescriptor(Channel.CH1));
             }
         });
         attachCallback("CH1:ANALYSIS", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                determineInputDescriptorIndex(0);
-                delegate.onInputChange(0, input_descriptors_indices[0], getSelectedDescriptor(0));
+                determineInputDescriptorIndex(Channel.CH1);
+                delegate.onInputChange(Channel.CH1, getSelectedDescriptor(Channel.CH1));
             }
         });
         attachCallback("CH2:MAPPING", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                determineInputDescriptorIndex(1);
-                delegate.onInputChange(1, input_descriptors_indices[1], getSelectedDescriptor(1));
+                determineInputDescriptorIndex(Channel.CH2);
+                delegate.onInputChange(Channel.CH2, getSelectedDescriptor(Channel.CH2));
             }
         });
         attachCallback("CH2:ANALYSIS", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                determineInputDescriptorIndex(1);
-                delegate.onInputChange(1, input_descriptors_indices[1], getSelectedDescriptor(1));
+                determineInputDescriptorIndex(Channel.CH2);
+                delegate.onInputChange(Channel.CH2, getSelectedDescriptor(Channel.CH2));
             }
         });
         attachCallback("CH1:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(timestamp_utc, 0, (Float) payload);
+                MeterReading val = wrapMeterReading(Channel.CH1,(Float)payload);
+                delegate.onSampleReceived(timestamp_utc, Channel.CH1, val);
             }
         });
         attachCallback("CH1:OFFSET",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onOffsetChange(0, (Float) payload);
+                delegate.onOffsetChange(Channel.CH1, wrapMeterReading(Channel.CH1,(Float)payload));
             }
         });
         attachCallback("CH2:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onSampleReceived(timestamp_utc, 1, (Float) payload);
-            }
+                MeterReading val = wrapMeterReading(Channel.CH2, (Float) payload);
+                delegate.onSampleReceived(timestamp_utc, Channel.CH2, val);
+        }
         });
         attachCallback("CH2:OFFSET",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onOffsetChange(1, (Float) payload);
+                delegate.onOffsetChange(Channel.CH1, wrapMeterReading(Channel.CH2, (Float) payload));
             }
         });
         attachCallback("CH1:BUF", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 // payload is a byte[] which we must translate in to
-                float[] samplebuf = interpretSampleBuffer(0,(byte[])payload);
+                float[] samplebuf = interpretSampleBuffer(Channel.CH1,(byte[])payload);
                 float dt = (float)getSampleRateHz();
                 dt = (float)1.0/dt;
-                delegate.onBufferReceived(timestamp_utc, 0, dt, samplebuf);
+                delegate.onBufferReceived(timestamp_utc, Channel.CH1, dt, samplebuf);
             }
         });
         attachCallback("CH2:BUF", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 // payload is a byte[] which we must translate in to
-                float[] samplebuf = interpretSampleBuffer(1,(byte[])payload);
+                float[] samplebuf = interpretSampleBuffer(Channel.CH2,(byte[])payload);
                 float dt = (float)getSampleRateHz();
                 dt = (float)1.0/dt;
-                delegate.onBufferReceived(timestamp_utc, 1, dt, samplebuf);
+                delegate.onBufferReceived(timestamp_utc, Channel.CH2, dt, samplebuf);
             }
         });
         attachCallback("REAL_PWR", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onRealPowerCalculated(timestamp_utc, (Float) payload);
+                delegate.onSampleReceived(timestamp_utc,Channel.MATH, getValue(Channel.MATH));
             }
         });
         attachCallback("CH1:RANGE_I", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 int i = (Integer)payload;
-                delegate.onRangeChange(0, i, (RangeDescriptor) getSelectedDescriptor(0).ranges.get(i));
+                delegate.onRangeChange(Channel.CH1, (RangeDescriptor) getSelectedDescriptor(Channel.CH1).ranges.get(i));
             }
         });
         attachCallback("CH2:RANGE_I", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 int i = (Integer)payload;
-                delegate.onRangeChange(1, i, (RangeDescriptor)getSelectedDescriptor(1).ranges.get(i));
+                delegate.onRangeChange(Channel.CH2, (RangeDescriptor) getSelectedDescriptor(Channel.CH2).ranges.get(i));
             }
         });
         attachCallback("SAMPLING:RATE", new NotifyHandler() {
@@ -364,7 +475,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         });
         return rval;
     }
-
     ////////////////////////////////
     // MooshimeterControlInterface methods
     ////////////////////////////////
@@ -386,17 +496,25 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         tree.command("HIBERNATE 1");
     }
     @Override
-    public float getOffset(int c) {
-        return (Float)tree.getValueAt(getChString(c)+":OFFSET");
+    public double getUTCTime() {
+        return (Double)tree.getValueAt("TIME_UTC");
     }
     @Override
-    public void setOffset(int c, float offset) {
-        tree.command(getChString(c)+":OFFSET "+Float.toString(offset));
+    public void setTime(double utc_time) {
+        tree.command("TIME_UTC "+(int)Util.getUTCTime());
     }
     @Override
-    public boolean bumpRange(int channel, boolean expand) {
+    public MeterReading getOffset(Channel c) {
+        return wrapMeterReading(c,(Float)tree.getValueAt(c.name()+":OFFSET"));
+    }
+    @Override
+    public void setOffset(Channel c, float offset) {
+        tree.command(c.name()+":OFFSET "+Float.toString(offset));
+    }
+    @Override
+    public boolean bumpRange(Channel channel, boolean expand) {
         ConfigTree.ConfigNode rnode = getInputNode(channel);
-        int cnum = (Integer)tree.getValueAt(getChString(channel)+":RANGE_I");
+        int cnum = (Integer)tree.getValueAt(channel.name()+":RANGE_I");
         int n_choices = rnode.children.size();
         // If we're not wrapping and we're against a wall
         if (cnum == 0 && !expand) {
@@ -407,29 +525,29 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         cnum += expand?1:-1;
         cnum %= n_choices;
-        tree.command(getChString(channel) + ":RANGE_I " + cnum);
+        tree.command(channel.name() + ":RANGE_I " + cnum);
         return true;
     }
-    private float getMinRangeForChannel(int c) {
+    private float getMinRangeForChannel(Channel c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
-        int cnum = (Integer)tree.getValueAt(getChString(c)+":RANGE_I");
+        int cnum = (Integer)tree.getValueAt(c.name()+":RANGE_I");
         cnum = cnum>0?cnum-1:cnum;
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
-        return (float)0.9 * Float.parseFloat(choice.getShortName());
+        return (float)0.9*Float.parseFloat(choice.getShortName());
     }
-    private float getMaxRangeForChannel(int c) {
+    private float getMaxRangeForChannel(Channel c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
-        int cnum = (Integer)tree.getValueAt(getChString(c)+":RANGE_I");
+        int cnum = (Integer)tree.getValueAt(c.name()+":RANGE_I");
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)1.1*Float.parseFloat(choice.getShortName());
     }
-    private boolean applyAutorange(int c) {
-        if(!range_auto[c]) {
+    private boolean applyAutorange(Channel c) {
+        if(!range_auto.get(c)) {
             return false;
         }
         float max = getMaxRangeForChannel(c);
         float min = getMinRangeForChannel(c);
-        float val = getValue(c) + getOffset(c);
+        float val = getValue(c).value + getOffset(c).value;
         val = Math.abs(val);
         if(val > max) {
             return bumpRange(c,true);
@@ -442,10 +560,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public boolean applyAutorange() {
         boolean rval = false;
-        rval |= applyAutorange(0);
-        rval |= applyAutorange(1);
-        boolean rms_on = tree.getNode(getChString(0)+":ANALYSIS").getChosen().getShortName().equals("RMS")
-                ||tree.getNode(getChString(1)+":ANALYSIS").getChosen().getShortName().equals("RMS");
+        rval |= applyAutorange(Channel.CH1);
+        rval |= applyAutorange(Channel.CH2);
+        boolean rms_on = tree.getNode("CH1:ANALYSIS").getChosen().getShortName().equals("RMS")
+                ||       tree.getNode("CH2:ANALYSIS").getChosen().getShortName().equals("RMS");
         if(rate_auto) {
             if( rms_on ) {
                 if(!tree.getChosenName("SAMPLING:RATE").equals("4000")) {
@@ -481,7 +599,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return (String)tree.getValueAt("NAME");
     }
 
-    private double getEnob(final int channel) {
+    private double getEnob(final Channel c) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
         // Based on ADS1292 datasheet and some special sauce.
@@ -501,22 +619,33 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         enob += (buffer_depth_log4);
         return enob;
     }
-    @Override
-    public SignificantDigits getSigDigits(int channel) {
-        SignificantDigits rval = new SignificantDigits();
-        float max = getMaxRangeForChannel(channel);
-        final double enob = getEnob(channel);
-
-        rval.high     = (int)Math.log10(max);
-        rval.n_digits = (int)Math.log10(Math.pow(2.0, enob));
+    private MeterReading wrapMeterReading(Channel c,float val) {
+        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
+        final double enob = getEnob(c);
+        float max = getMaxRangeForChannel(c);
+        MeterReading rval = new MeterReading(val,
+                                             (int)Math.log10(Math.pow(2.0, enob)),
+                                             max,
+                                             id.units);
+        if(id.units.equals("K")) {
+            // Nobody likes Kelvin!  C or F?
+            if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                rval.value = TemperatureUnitsHelper.AbsK2F(rval.value);
+                rval.max = TemperatureUnitsHelper.AbsK2F(rval.max);
+                rval.units = "F";
+            } else {
+                rval.value = TemperatureUnitsHelper.AbsK2C(rval.value);
+                rval.max = TemperatureUnitsHelper.AbsK2C(rval.max);
+                rval.units = "C";
+            }
+        }
         return rval;
     }
-    @Override
-    public String getUnits(int channel) {
-        return getSelectedDescriptor(channel).units;
+    public String getUnits(Channel c) {
+        return getSelectedDescriptor(c).units;
     }
     @Override
-    public String getInputLabel(int channel) {
+    public String getInputLabel(Channel channel) {
         return getSelectedDescriptor(channel).name;
     }
     public int getSampleRateIndex() {
@@ -554,13 +683,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     int[] preBufferModeStash = new int[]{0,0};
     @Override
-    public void setBufferMode(int c, boolean on) {
-        String cmd = getChString(c)+":ANALYSIS";
+    public void setBufferMode(Channel c, boolean on) {
+        String cmd = c.name()+":ANALYSIS";
         if(on) {
-            preBufferModeStash[c] = (Integer)tree.getValueAt(cmd);
+            preBufferModeStash[c.ordinal()] = (Integer)tree.getValueAt(cmd);
             cmd += " 2";
         } else {
-            cmd += " " + Integer.toString(preBufferModeStash[c]);
+            cmd += " " + Integer.toString(preBufferModeStash[c.ordinal()]);
         }
         tree.command(cmd);
     }
@@ -588,87 +717,96 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public void setLoggingInterval(int ms) {
-        tree.command("LOG:INTERVAL "+Integer.toString(ms));
+        tree.command("LOG:INTERVAL "+Integer.toString(ms/1000));
     }
     @Override
     public int getLoggingIntervalMS() {
         return (Integer)getValueAt("LOG:INTERVAL");
     }
     @Override
-    public float getValue(int c) {
-        return (Float)tree.getValueAt(getChString(c)+":VALUE");
-    }
-    @Override
-    public String formatValueLabel(int c, float value) {
-        SignificantDigits digits = getSigDigits(c);
-        if(Math.abs(value) > 1.2*getMaxRangeForChannel(c)) {
-            return "OUT OF RANGE";
+    public MeterReading getValue(Channel c) {
+        switch(c) {
+            case CH1:
+            case CH2:
+                return wrapMeterReading(c, (Float) tree.getValueAt(c.name() + ":VALUE"));
+            case MATH:
+                MathInputDescriptor id = (MathInputDescriptor)input_descriptors.get(Channel.MATH).getChosen();
+                if(id.meterSettingsAreValid()) {
+                    return id.calculate();
+                } else {
+                    MeterReading rval = new MeterReading(0,0,0,"INVALID INPUTS");
+                    return rval;
+                }
         }
-        return formatReading(value, digits);
+        return new MeterReading();
     }
     @Override
     public int getLoggingStatus() {
         return (Integer)getValueAt("LOG:STATUS");
     }
     @Override
-    public String getRangeLabel(int c) {
-        InputDescriptor id = getSelectedDescriptor(c);
-        int range_i = (Integer)tree.getValueAt(getChString(c) + ":RANGE_I");
+    public String getRangeLabel(Channel c) {
+        InputDescriptor id = (InputDescriptor)getSelectedDescriptor(c);
+        int range_i = (Integer)tree.getValueAt(c.name() + ":RANGE_I");
         // FIXME: This is borking because our internal descriptor structures are out of sync with the configtree updates
         RangeDescriptor rd =(RangeDescriptor)id.ranges.get(range_i);
         return rd.name;
     }
     @Override
-    public List<String> getRangeList(int c) {
-        InputDescriptor id = getSelectedDescriptor(c);
-        List<String> rval = new ArrayList<String>();
-        for(MooshimeterDeviceBase.RangeDescriptor rd:id.ranges) {
-            rval.add(rd.name);
-        }
-        return rval;
+    public List<String> getRangeList(Channel c) {
+        return Util.stringifyCollection(getSelectedDescriptor(c).ranges.getChoices());
     }
     @Override
-    public int setRangeIndex(int c, int r) {
-        tree.command(getChString(c) + ":RANGE_I " + r);
+    public int setRange(Channel c, MooshimeterDeviceBase.RangeDescriptor r) {
+        getSelectedDescriptor(c).ranges.choose(r);
+        tree.command(c.name() + ":RANGE_I " + getSelectedDescriptor(c).ranges.getChosenI());
         return 0;
     }
     @Override
-    public float getPower() {
-        return (Float)tree.getValueAt("REAL_PWR");
-    }
-    @Override
-    public int getInputIndex(int c) {
-        return input_descriptors_indices[c];
-    }
-    @Override
-    public int setInputIndex(int c, int mapping) {
-        if(input_descriptors_indices[c] == mapping) {
+    public int setInput(Channel c, MooshimeterDeviceBase.InputDescriptor descriptor) {
+        Chooser<MooshimeterDeviceBase.InputDescriptor> chooser = input_descriptors.get(c);
+        if(chooser.isChosen(descriptor)) {
             // No action required
             return 0;
         }
-        input_descriptors_indices[c] = mapping;
-        // Reset range manually... probably a cleaner way to do this
-        tree.getNode(getChString(c)+":RANGE_I").setValue(0);
-        InputDescriptor inputDescriptor = input_descriptors[c].get(mapping);
-        inputDescriptor.input_node.choose();
-        if(inputDescriptor.shared_node!=null) {
-            inputDescriptor.shared_node.choose();
+        switch(c) {
+            case CH1:
+            case CH2:
+                InputDescriptor cast = (InputDescriptor)descriptor;
+                if(cast.shared_node!=null) {
+                    // Make sure we're not about to jump on to a channel that's in use
+                    Channel other = c==Channel.CH1?Channel.CH2:Channel.CH1;
+                    InputDescriptor other_id = (InputDescriptor)input_descriptors.get(other).getChosen();
+                    if(other_id.shared_node!=null) {
+                        Log.e(TAG, "Tried to select an input already in use!");
+                        return -1;
+                    }
+                }
+
+                chooser.choose(cast);
+                // Reset range manually... probably a cleaner way to do this
+                tree.getNode(c.name()+":RANGE_I").setValue(0);
+
+                cast.input_node.choose();
+                if(cast.shared_node!=null) {
+                    cast.shared_node.choose();
+                }
+                cast.analysis_node.choose();
+                break;
+            case MATH:
+                MathInputDescriptor mcast = (MathInputDescriptor)descriptor;
+                mcast.onChosen();
+                chooser.choose(mcast);
+                break;
         }
-        inputDescriptor.analysis_node.choose();
         return 0;
     }
     @Override
-    public List<String> getInputList(int c) {
-        List<String> rval = new ArrayList<String>();
-        // We need to ensure that both channels don't try to use the shared input
-        int other_c = (c+1)%2;
-        boolean add_shared_to_list = getSelectedDescriptor(other_c).shared_node==null;
-        for(InputDescriptor d:input_descriptors[c]) {
-            if(!add_shared_to_list && d.shared_node!=null) {
-                continue;
-            }
-            rval.add(d.name);
-        }
-        return rval;
+    public List<MooshimeterDeviceBase.InputDescriptor> getInputList(Channel c) {
+        return input_descriptors.get(c).getChoices();
+    }
+    @Override
+    public MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(final Channel channel) {
+        return input_descriptors.get(channel).getChosen();
     }
 }

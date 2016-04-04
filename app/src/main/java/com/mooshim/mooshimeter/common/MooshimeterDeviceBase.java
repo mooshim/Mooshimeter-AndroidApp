@@ -20,40 +20,43 @@
 package com.mooshim.mooshimeter.common;
 
 
-import android.bluetooth.BluetoothDevice;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.util.Log;
+import android.bluetooth.BluetoothGatt;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-import static java.util.UUID.fromString;
+import java.util.HashMap;
+import java.util.Map;
 
 public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements MooshimeterControlInterface {
     ////////////////////////////////
     // Statics
     ////////////////////////////////
-    public static final class SignificantDigits {
-        public int high;
-        public int n_digits;
-    }
+
 
     public static class RangeDescriptor {
-        public String name;
-        public float max;
+        public String name="";
+        public float max=0;
+        public String toString() {
+            return name;
+        }
     }
-
     public static class InputDescriptor {
         public String name;
-        public List<RangeDescriptor> ranges = new ArrayList<>();
+        public Chooser<RangeDescriptor> ranges = new Chooser<>();
         public String units;
+        public InputDescriptor(String name,String units) {
+            this.name=name;
+            this.units=units;
+        }
+        public InputDescriptor() {
+            this("","");
+        }
+        public String toString() {
+            return name;
+        }
     }
 
-    private static final String TAG="MooshimeterDevice";
+    private static final String TAG="MooshimeterDeviceBase";
 
     public enum TEMP_UNITS {
         CELSIUS,
@@ -71,9 +74,9 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         @Override
         public void onBatteryVoltageReceived(float voltage) {}
         @Override
-        public void onSampleReceived(final double timestamp_utc, int channel, float val) {        }
+        public void onSampleReceived(double timestamp_utc, Channel c, MeterReading val) {}
         @Override
-        public void onBufferReceived(final double timestamp_utc, int channel, float dt, float[] val) {        }
+        public void onBufferReceived(double timestamp_utc, Channel c, float dt, float[] val) {}
         @Override
         public void onSampleRateChanged(int i, int sample_rate_hz) {        }
         @Override
@@ -81,23 +84,23 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         @Override
         public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
         @Override
-        public void onRangeChange(int c, int i, RangeDescriptor new_range) {        }
+        public void onRangeChange(Channel c, RangeDescriptor new_range) {        }
         @Override
-        public void onInputChange(int c, int i, InputDescriptor descriptor) {        }
+        public void onInputChange(Channel c, InputDescriptor descriptor) {        }
         @Override
-        public void onRealPowerCalculated(final double timestamp_utc, float val) {        }
-        @Override
-        public void onOffsetChange(int c, float offset) { }
+        public void onOffsetChange(Channel c, MeterReading offset) { }
     };
     public MooshimeterDelegate delegate = dummy_delegate;
 
+    public int disconnect_handle;
+
     // Display control settings
     public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
-    public final boolean[] range_auto = new boolean[]{true,true};
+    public final Map<Channel,Boolean> range_auto = new HashMap<>();
     public boolean         rate_auto = true;
     public boolean         depth_auto = true;
 
-    public final boolean[] speech_on = new boolean[]{false,false};
+    public final Map<Channel,Boolean> speech_on = new HashMap<>();
 
     protected static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b
@@ -131,6 +134,10 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         // Initialize super
         super(wrap);
         mInstance = this;
+        range_auto.put(Channel.CH1,true);
+        range_auto.put(Channel.CH2,true);
+        speech_on.put(Channel.CH1, false);
+        speech_on.put(Channel.CH2, false);
     }
 
     public int disconnect() {
@@ -147,58 +154,22 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
                 delegate.onRssiReceived(getRSSI());
             }
         };
+
+        disconnect_handle = mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+            @Override
+            public void run() {
+                mPwrap.cancelConnectionStateCB(disconnect_handle);
+                delegate.onDisconnect();
+            }
+        });
         return 0;
     }
-
-    ////////////////////////////////
-    // Convenience functions
-    ////////////////////////////////
-
-    public static String formatReading(float val, MooshimeterDeviceBase.SignificantDigits digits) {
-        final String prefixes[] = new String[]{"n","?","m","","k","M","G"};
-        int prefix_i = 3;
-        while(digits.high > 3) {
-            prefix_i++;
-            digits.high -= 3;
-            val /= 1000;
-        }
-        while(digits.high <= 0) {
-            prefix_i--;
-            digits.high += 3;
-            val *= 1000;
-        }
-
-        // TODO: Prefixes for units.  This will fail for wrong values of digits
-        boolean neg = val<0;
-        int left  = digits.high;
-        int right = digits.n_digits - digits.high;
-        String formatstring = String.format("%s%%0%d.%df",neg?"":" ", left+right+(neg?1:0), right); // To live is to suffer
-        String retval;
-        try {
-            retval = String.format(formatstring, val);
-        } catch ( java.util.UnknownFormatConversionException e ) {
-            // Something went wrong with the string formatting, provide a default and log the error
-            Log.e(TAG, "BAD FORMAT STRING");
-            Log.e(TAG, formatstring);
-            retval = "%f";
-        }
-        //Truncate
-        retval += prefixes[prefix_i];
-        return retval;
-    }
-
-    //////////////////////////////////////
-    // Representation helpers
-    //////////////////////////////////////
-
-    public abstract SignificantDigits getSigDigits(final int channel);
-    public abstract String getUnits(final int c);
 
     //////////////////////////////////////
     // MooshimeterControlInterface
     //////////////////////////////////////
     @Override
-    public void setDelegate(MooshimeterDelegate d) {
+    public void addDelegate(MooshimeterDelegate d) {
         delegate = d;
     }
     @Override

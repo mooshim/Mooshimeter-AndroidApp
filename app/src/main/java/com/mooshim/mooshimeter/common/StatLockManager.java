@@ -82,6 +82,7 @@ public class StatLockManager {
         } catch (InterruptedException e) {
             if(ms==0) {
                 // We should never be interrupted like this...
+                dbg("INTERRUPTION!");
                 e.printStackTrace();
             }
             rval=true;

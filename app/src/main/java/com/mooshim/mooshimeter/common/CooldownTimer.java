@@ -12,7 +12,7 @@ public class CooldownTimer {
         }
     };
     public void fire(int ms) {
-        Util.cancel(cb);
+        Util.cancelDelayedCB(cb);
         Util.postDelayed(cb,ms);
         expired = false;
     }
