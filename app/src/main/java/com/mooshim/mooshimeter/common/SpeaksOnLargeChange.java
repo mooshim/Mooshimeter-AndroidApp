@@ -34,12 +34,12 @@ public class SpeaksOnLargeChange {
         }
         return outbuilder.toString();
     }
-    public boolean decideAndSpeak(final float new_value, final String value_label) {
+    public boolean decideAndSpeak(MeterReading val) {
         if( timer.expired
-            || (abs(last_value - new_value)>abs(0.20*new_value))) {
+            || (abs(last_value - val.value)>abs(0.20*val.value))) {
             // If the value has changed 20%, or just every 5 second
-            last_value = new_value;
-            Util.speak(formatValueLabelForSpeaking(value_label));
+            last_value = val.value;
+            Util.speak(formatValueLabelForSpeaking(val.toString()));
             timer.fire(5000);
             return true;
         }
