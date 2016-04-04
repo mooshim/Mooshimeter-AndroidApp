@@ -93,7 +93,10 @@ public class BLEDeviceBase {
             rval = new OADDevice(mPwrap);
         } else if(mBuildTime < 1454355414) {
             rval = new LegacyMooshimeterDevice(mPwrap);
+        } else if(mBuildTime <= Util.getBundledFirmwareVersion()){
+            rval = new MooshimeterDevice(mPwrap);
         } else {
+            // TODO: RAISE SOME KIND OF WARNING TO UPDATE THE APP
             rval = new MooshimeterDevice(mPwrap);
         }
         // FIXME: This is hacked up.
@@ -109,7 +112,8 @@ public class BLEDeviceBase {
     public static final class mPreferenceKeys {
         public static final String
                 AUTOCONNECT = "AUTOCONNECT",
-                SKIP_UPGRADE= "SKIP_UPGRADE";
+                SKIP_UPGRADE= "SKIP_UPGRADE",
+                USE_FAHRENHEIT= "USE_FAHRENHEIT";
     }
 
     private String getSharedPreferenceString() {

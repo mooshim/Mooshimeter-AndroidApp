@@ -20,6 +20,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.BLEDeviceBase;
+import com.mooshim.mooshimeter.common.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.common.MooshimeterDevice;
 import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.common.NotifyHandler;
@@ -185,6 +187,7 @@ public class PreferencesActivity extends MyActivity {
         // Extra preferences
         builder.add("Autoconnect","Automatically connect to this meter when detected",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT));
         builder.add("Skip upgrade","Suppress offering firmware upgrade",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.SKIP_UPGRADE));
+        builder.add("Use Fahrenheit","Display temperatures in F instead of C",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.USE_FAHRENHEIT));
 	}
 
 	@Override
@@ -227,7 +230,7 @@ public class PreferencesActivity extends MyActivity {
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if(!(mMeter.speech_on[0] || mMeter.speech_on[1])) {
+        if(!(mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH1) || mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH2))) {
             Util.dispatch(new Runnable() {
                 @Override
                 public void run() {
