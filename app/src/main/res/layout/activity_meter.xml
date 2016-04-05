@@ -21,7 +21,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh1InputSetClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
         <Button
@@ -33,7 +33,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh1RangeClick"
             style="@style/AppBaseTheme"
             android:textSize="16dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_auto"
             android:layout_gravity="center"
             android:layout_margin="0px"
             android:gravity="center_horizontal|top" android:paddingLeft="10dp"
@@ -76,7 +76,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh1ZeroClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
 
@@ -89,7 +89,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh1SoundClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
     </LinearLayout>
@@ -114,7 +114,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh2InputSetClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
 
@@ -127,7 +127,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onCh2RangeClick"
             style="@style/AppBaseTheme"
             android:textSize="16dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_auto"
             android:layout_gravity="center"
             android:layout_margin="0px"
             android:gravity="center_horizontal|top" android:paddingLeft="10dp"
@@ -170,7 +170,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2ZeroClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
 
@@ -183,7 +183,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onCh2SoundClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
     </LinearLayout>
@@ -220,7 +220,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:layout_weight="1"
             android:onClick="onPowerButtonClick"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
     </LinearLayout>
@@ -245,7 +245,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onRateClick"
             style="@style/AppBaseTheme"
             android:textSize="16dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_auto"
             android:layout_gravity="center"
             android:layout_margin="0px"
             android:gravity="center_horizontal|top" android:paddingLeft="10dp"
@@ -260,7 +260,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onDepthClick"
             style="@style/AppBaseTheme"
             android:textSize="16dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_auto"
             android:layout_gravity="center"
             android:layout_margin="0px"
             android:gravity="center_horizontal|top" android:paddingLeft="10dp"
@@ -281,7 +281,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onLoggingClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_auto"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
 
@@ -294,7 +294,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
             android:onClick="onGraphClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/custom_button_background"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
     </LinearLayout>

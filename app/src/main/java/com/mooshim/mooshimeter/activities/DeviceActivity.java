@@ -4,6 +4,7 @@ package com.mooshim.mooshimeter.activities;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Spannable;
@@ -67,14 +68,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private Button power_button;
 
     // GUI housekeeping
-
-    private static GradientDrawable __getDrawable(int[] colors) {
-        GradientDrawable rval = new GradientDrawable( GradientDrawable.Orientation.TOP_BOTTOM, colors);
-        rval.setStroke(1, 0xFF999999);
-        return rval;
+    private Drawable getAutoBG(){
+        return getResources().getDrawable(R.drawable.button_auto);
     }
-    private static GradientDrawable getDisableGradient(){return __getDrawable(new int[] {0xFFBBBBBB,0xFF888888});}
-    private static GradientDrawable getEnableGradient() {return __getDrawable(new int[] {0xFFFFFFFF,0xFFCCCCCC});}
+    private Drawable getNormalBG() {
+        return getResources().getDrawable(R.drawable.button_normal);
+    }
 
     // Helpers
     private CooldownTimer autorange_cooldown = new CooldownTimer();
@@ -250,12 +249,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         });
     }
     private void disableableButtonRefresh(Button b, String title, boolean en) {
-        final GradientDrawable bg = en?getEnableGradient():getDisableGradient();
+        final Drawable bg = en? getNormalBG(): getAutoBG();
         b.setText(title);
         b.setBackground(bg);
     }
     private void autoButtonRefresh(final Button b, final String title, boolean auto) {
-        final GradientDrawable bg = auto?getDisableGradient():getEnableGradient();
+        final Drawable bg = auto? getAutoBG(): getNormalBG();
         SpannableStringBuilder sb = new SpannableStringBuilder();
 
         String auto_string = auto?"AUTO":"MANUAL";

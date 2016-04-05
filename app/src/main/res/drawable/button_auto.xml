@@ -4,15 +4,15 @@
 
     <item
         android:state_focused="true"
-        android:drawable="@drawable/button_focus" >
+        android:drawable="@drawable/button_auto_focus" >
     </item>
 
     <item
         android:state_pressed="true"
-        android:drawable="@drawable/button_pressed" >
+        android:drawable="@drawable/button_auto_pressed" >
     </item>
 
     <item
-        android:drawable="@drawable/button_normal" >
+        android:drawable="@drawable/button_auto_normal" >
     </item>
 </selector>
