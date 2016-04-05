@@ -287,8 +287,8 @@ public class PeripheralWrapper {
                 return null;
             }
         });
-        if(bleDiscoverCondition.awaitMilli(10000)) {
-        //if(bleDiscoverCondition.await()) {
+        //if(bleDiscoverCondition.awaitMilli(10000)) {
+        if(bleDiscoverCondition.await()) {
             // Timed out
             Log.e(TAG,"Timed out, canceling discovery");
             if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
