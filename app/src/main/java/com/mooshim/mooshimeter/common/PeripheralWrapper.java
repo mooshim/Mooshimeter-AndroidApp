@@ -87,7 +87,7 @@ public class PeripheralWrapper {
             Log.e(TAG,"DON'T DO BLE STUFF FROM THE CB THREAD!");
             new Exception().printStackTrace();
         }
-        Util.blockUntilRunOnMainThread(new Runnable() {
+        Runnable payload = new Runnable() {
             @Override
             public void run() {
                 try {
@@ -101,7 +101,13 @@ public class PeripheralWrapper {
                     bleLock.unlock();
                 }
             }
-        });
+        };
+        if(true) {
+            // TODO: Tie this to a global preference
+            payload.run();
+        } else {
+            Util.blockUntilRunOnMainThread(payload);
+        }
         return r.mRval;
     }
     
