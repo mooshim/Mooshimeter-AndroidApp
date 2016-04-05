@@ -660,14 +660,14 @@ public class ScanActivity extends MyActivity {
                     rval = m.connect();
                 }
                 if (BluetoothGatt.GATT_SUCCESS != rval) {
-                    setStatus(String.format("Connection failed.  Status: %d", rval));
+                    setStatus("Connection failed.  Status: "+rval);
                     break;
                 }
                 setStatus("Discovering Services...");
                 rval = m.discover();
                 if (BluetoothGatt.GATT_SUCCESS != rval) {
                     // We may have failed because
-                    setStatus(String.format("Discovery failed.  Status: %d", rval));
+                    setStatus("Discovery failed.  Status: "+rval);
                     m.disconnect();
                     break;
                 }
@@ -680,7 +680,7 @@ public class ScanActivity extends MyActivity {
                 setStatus("Initializing...");
                 rval = m.initialize();
                 if(rval != 0) {
-                    setStatus(String.format("Initialization failed.  Status: %d",rval));
+                    setStatus("Initialization failed.  Status: "+rval);
                     m.disconnect();
                     break;
                 }

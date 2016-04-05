@@ -430,7 +430,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                     buf_full_cb.run();
                 }
             }
-            String s = String.format("CH2 Progress: %d of %d", buf_i, nBytes);
+            String s = "CH2 Progress: "+buf_i+" of "+nBytes;
             Log.i(TAG,s);
         }
     }
@@ -1379,25 +1379,30 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
         final double enob = getEnob(c);
         float max = getMaxRangeForChannel(c);
-        MeterReading rval = new MeterReading(val,
-                                             (int)Math.log10(Math.pow(2.0, enob)),
-                                             max,
-                                             id.units);
+        MeterReading rval;
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
             if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                rval.value = TemperatureUnitsHelper.AbsK2F(rval.value);
-                rval.max = TemperatureUnitsHelper.AbsK2F(rval.max);
-                rval.units = "F";
+                rval = new MeterReading(TemperatureUnitsHelper.AbsK2F(val),
+                                        (int)Math.log10(Math.pow(2.0, enob)),
+                                        TemperatureUnitsHelper.AbsK2F(max),
+                                        "F");
             } else {
-                rval.value = TemperatureUnitsHelper.AbsK2C(rval.value);
-                rval.max = TemperatureUnitsHelper.AbsK2C(rval.max);
-                rval.units = "C";
+                rval = new MeterReading(TemperatureUnitsHelper.AbsK2C(val),
+                                        (int)Math.log10(Math.pow(2.0, enob)),
+                                        TemperatureUnitsHelper.AbsK2C(max),
+                                        "C");
             }
+        } else {
+            rval = new MeterReading(val,
+                                    (int)Math.log10(Math.pow(2.0, enob)),
+                                    max,
+                                    id.units);
         }
         return rval;
     }
 
+    private static MeterReading invalid_inputs = new MeterReading(0,0,0,"INVALID INPUTS");
 
     @Override
     public MeterReading getValue(Channel c) {
@@ -1414,7 +1419,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 if(id.meterSettingsAreValid()) {
                     return id.calculate();
                 } else {
-                    MeterReading rval = new MeterReading(0,0,0,"INVALID INPUTS");
+                    MeterReading rval = invalid_inputs;
                     return rval;
                 }
         }

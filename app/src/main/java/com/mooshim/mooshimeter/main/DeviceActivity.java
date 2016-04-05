@@ -1,57 +1,4 @@
-/**************************************************************************************************
-  Filename:       DeviceActivity.java
-  Revised:        $Date: 2013-09-05 07:58:48 +0200 (to, 05 sep 2013) $
-  Revision:       $Revision: 27616 $
 
-  Copyright (c) 2013 - 2014 Texas Instruments Incorporated
-
-  All rights reserved not granted herein.
-  Limited License. 
-
-  Texas Instruments Incorporated grants a world-wide, royalty-free,
-  non-exclusive license under copyrights and patents it now or hereafter
-  owns or controls to make, have made, use, import, offer to sell and sell ("Utilize")
-  this software subject to the terms herein.  With respect to the foregoing patent
-  license, such license is granted  solely to the extent that any such patent is necessary
-  to Utilize the software alone.  The patent license shall not apply to any combinations which
-  include this software, other than combinations with devices manufactured by or for TI (�TI Devices�). 
-  No hardware patent is licensed hereunder.
-
-  Redistributions must preserve existing copyright notices and reproduce this license (including the
-  above copyright notice and the disclaimer and (if applicable) source code license limitations below)
-  in the documentation and/or other materials provided with the distribution
-
-  Redistribution and use in binary form, without modification, are permitted provided that the following
-  conditions are met:
-
-    * No reverse engineering, decompilation, or disassembly of this software is permitted with respect to any
-      software provided in binary form.
-    * any redistribution and use are licensed by TI for use only with TI Devices.
-    * Nothing shall obligate TI to provide you with source code for the software licensed and provided to you in object code.
-
-  If software source code is provided to you, modification and redistribution of the source code are permitted
-  provided that the following conditions are met:
-
-    * any redistribution and use of the source code, including any resulting derivative works, are licensed by
-      TI for use only with TI Devices.
-    * any redistribution and use of any object code compiled from the source code and any resulting derivative
-      works, are licensed by TI for use only with TI Devices.
-
-  Neither the name of Texas Instruments Incorporated nor the names of its suppliers may be used to endorse or
-  promote products derived from this software without specific prior written permission.
-
-  DISCLAIMER.
-
-  THIS SOFTWARE IS PROVIDED BY TI AND TI�S LICENSORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
-  BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-  IN NO EVENT SHALL TI AND TI�S LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-  OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-  POSSIBILITY OF SUCH DAMAGE.
-
-
- **************************************************************************************************/
 package com.mooshim.mooshimeter.main;
 
 import android.content.Context;
@@ -59,7 +6,9 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.text.Html;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.RelativeSizeSpan;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -82,7 +31,6 @@ import com.mooshim.mooshimeter.common.NotifyHandler;
 import com.mooshim.mooshimeter.common.SpeaksOnLargeChange;
 import com.mooshim.mooshimeter.common.Util;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import me.grantland.widget.AutofitHelper;
@@ -308,13 +256,20 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void autoButtonRefresh(final Button b, final String title, boolean auto) {
         final GradientDrawable bg = auto?getDisableGradient():getEnableGradient();
-        final String composite = String.format("%s<br/><big><big>%s</big></big>",auto?"AUTO":"MANUAL",title);
-        final CharSequence s = Html.fromHtml(composite);
+        SpannableStringBuilder sb = new SpannableStringBuilder();
 
+        String auto_string = auto?"AUTO":"MANUAL";
+        sb.append(auto_string);
+        //sb.setSpan(new RelativeSizeSpan(14), 0, sb.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sb.append("\n");
+        int i = sb.length();
+        sb.append(title);
+        sb.setSpan(new RelativeSizeSpan((float)1.6), i, sb.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        Util.setText(b, sb);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                b.setText(s);
                 b.setBackground(bg);
             }
         });
@@ -338,13 +293,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         });
     }
     private void math_label_refresh(final MeterReading val) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                power_label.setText(val.toString());
-                power_button.setText(mMeter.getSelectedDescriptor(MooshimeterControlInterface.Channel.MATH).name);
-            }
-        });
+        Util.setText(power_label,val.toString());
+        Util.setText(power_button, mMeter.getSelectedDescriptor(MooshimeterControlInterface.Channel.MATH).name);
     }
     private void math_button_refresh() {
         math_label_refresh(mMeter.getValue(MooshimeterControlInterface.Channel.MATH));
@@ -378,12 +328,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void input_set_button_refresh(final int c) {
         final String s = mMeter.getInputLabel(chanEnum(c));
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                input_set_buttons[c].setText(s);
-            }
-        });
+        Util.setText(input_set_buttons[c], s);
     }
     private void range_button_refresh(final int c) {
         String lval = "";
@@ -393,13 +338,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private void valueLabelRefresh(final int c,final MeterReading val) {
         final TextView v = value_labels[c];
         final String label_text = val.toString();
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                //v.setText(Html.fromHtml(label_text));
-                v.setText(label_text);
-            }
-        });
+        Util.setText(v, label_text);
     }
     private void zero_button_refresh (final int c, MeterReading value) {
         Log.i(TAG,"zerorefresh");
@@ -410,23 +349,13 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         } else {
             s = value.toString();
         }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                zero_buttons[c].setText(s);
-            }
-        });
+        Util.setText(zero_buttons[c], s);
     }
     private void sound_button_refresh(final int c) {
         Log.i(TAG,"soundrefresh");
         final Button b = sound_buttons[c];
         final String s = "SOUND:"+(mMeter.speech_on.get(chanEnum(c))?"ON":"OFF");
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                b.setText(s);
-            }
-        });
+        Util.setText(b, s);
     }
 
     /////////////////////////

@@ -49,7 +49,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
 
         <TextView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:text="OVERLOAD"
             android:id="@+id/ch1_value_label"
@@ -143,7 +143,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
 
         <TextView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:text="OVERLOAD"
             android:id="@+id/ch2_value_label"
@@ -201,7 +201,7 @@ The iOS app screen is in 10 rows, 6 columns.-->
 
         <TextView
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:text="N/A"
             android:id="@+id/power_label"

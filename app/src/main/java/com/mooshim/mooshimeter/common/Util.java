@@ -32,6 +32,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.PopupMenu;
+import android.widget.TextView;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -144,11 +145,27 @@ public class Util {
         return cb_dispatcher.isCallingThread();
     }
 
+    public static void postToMain(Runnable r) {
+        mHandler.post(r);
+    }
     public static void postDelayed(Runnable r, int ms) {
         mHandler.postDelayed(r, ms);
     }
     public static void cancelDelayedCB(Runnable r) {
         mHandler.removeCallbacks(r);
+    }
+
+    public static void setText(final TextView v,final CharSequence s) {
+        CharSequence cached = v.getText();
+        if(     cached != null
+                && !cached.equals(s)) {
+            Util.postToMain(new Runnable() {
+                @Override
+                public void run() {
+                    v.setText(s);
+                }
+            });
+        }
     }
 
     public static void displayProgressBar(final Context context, final String title, final String message ) {

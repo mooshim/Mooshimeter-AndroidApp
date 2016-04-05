@@ -86,7 +86,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             max *= 1000;
             prefix_i--;
         }
-        return String.format("%s%s",cleanFloatFmt(max),prefixes[prefix_i]);
+        return cleanFloatFmt(max)+prefixes[prefix_i];
     }
     private void addRangeDescriptors(InputDescriptor id, ConfigTree.ConfigNode rangenode) {
         for(ConfigTree.ConfigNode r:rangenode.children) {
@@ -623,20 +623,19 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
         final double enob = getEnob(c);
         float max = getMaxRangeForChannel(c);
-        MeterReading rval = new MeterReading(val,
-                                             (int)Math.log10(Math.pow(2.0, enob)),
-                                             max,
-                                             id.units);
+        MeterReading rval = null;
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
             if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                rval.value = TemperatureUnitsHelper.AbsK2F(rval.value);
-                rval.max = TemperatureUnitsHelper.AbsK2F(rval.max);
-                rval.units = "F";
+                rval = new MeterReading(TemperatureUnitsHelper.AbsK2F(val),
+                                        (int)Math.log10(Math.pow(2.0, enob)),
+                                        TemperatureUnitsHelper.AbsK2F(max),
+                                        "F");
             } else {
-                rval.value = TemperatureUnitsHelper.AbsK2C(rval.value);
-                rval.max = TemperatureUnitsHelper.AbsK2C(rval.max);
-                rval.units = "C";
+                rval = new MeterReading(TemperatureUnitsHelper.AbsK2C(val),
+                                        (int)Math.log10(Math.pow(2.0, enob)),
+                                        TemperatureUnitsHelper.AbsK2C(max),
+                                        "C");
             }
         }
         return rval;
