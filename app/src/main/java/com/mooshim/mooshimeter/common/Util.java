@@ -26,13 +26,14 @@ import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
-import android.text.InputType;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -506,5 +507,20 @@ public class Util {
             rval.add(o.toString());
         }
         return rval;
+    }
+
+    public static class TemperatureUnitsHelper {
+        public static float AbsK2C(float K) {
+            return (float) (K-273.15);
+        }
+        public static float AbsK2F(float K) {
+            return (float) ((K - 273.15)* 1.8000 + 32.00);
+        }
+        public static float AbsC2F(float C) {
+            return (float) ((C)* 1.8000 + 32.00);
+        }
+        public static float RelK2F(float C) {
+            return (float) ((C)* 1.8000);
+        }
     }
 }

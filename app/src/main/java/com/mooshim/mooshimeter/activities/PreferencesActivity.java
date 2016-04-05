@@ -1,4 +1,4 @@
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.activities;
 
 import android.content.Context;
 import android.content.Intent;
@@ -20,17 +20,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.BLEDeviceBase;
-import com.mooshim.mooshimeter.common.MooshimeterControlInterface;
-import com.mooshim.mooshimeter.common.MooshimeterDevice;
-import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.common.NotifyHandler;
+import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
+import com.mooshim.mooshimeter.devices.MooshimeterDevice;
+import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-
-import me.grantland.widget.AutofitHelper;
 
 public class PreferencesActivity extends MyActivity {
     private static final String TAG = "PreferenceActivity";

@@ -20,7 +20,7 @@ public class MeterReading {
 
     private DecimalFormat format;
     private float format_mult;
-    private float format_prefix;
+    private int format_prefix;
 
     public MeterReading() {
         this(0,0,0,"");
@@ -34,7 +34,12 @@ public class MeterReading {
         this.max    = max;
         this.units  = units;
 
-        int high = (int)Math.log10(max)+1;
+        if(max == 0) {
+            // Formatting code will break if max is 0
+            max = 1;
+        }
+
+        int high = (int)Math.log10(max);
         format_mult = 1;
         format_prefix = 3;
 
@@ -64,13 +69,16 @@ public class MeterReading {
     // Convenience functions
     ////////////////////////////////
 
+    public float getMax() {
+        return max;
+    }
+
     public String toString() {
         if(max==0) {
             return units;
         }
 
         final String prefixes[] = new String[]{"n","\u03bc","m","","k","M","G"};
-        int prefix_i = 3;
         float lval = value;
         if(Math.abs(lval) > 1.2*max) {
             return "OUT OF RANGE";
@@ -79,8 +87,8 @@ public class MeterReading {
         if(lval>=0) {
             retval.append(" "); // Space for neg sign
         }
-        retval.append(format.format(lval));
-        retval.append(prefixes[prefix_i]);
+        retval.append(format.format(lval*format_mult));
+        retval.append(prefixes[format_prefix]);
         retval.append(units);
         return retval.toString();
     }

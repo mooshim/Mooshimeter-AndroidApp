@@ -17,13 +17,15 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
+
+import com.mooshim.mooshimeter.common.Util;
 
 import java.util.UUID;
 
@@ -60,7 +62,7 @@ public class BLEDeviceBase {
     }
 
     public int initialize() {
-        Util.postDelayed(RSSI_poller,1000);
+        Util.postDelayed(RSSI_poller, 1000);
         return 0;
     }
 

@@ -17,12 +17,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
 
-import android.util.Log;
-
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;

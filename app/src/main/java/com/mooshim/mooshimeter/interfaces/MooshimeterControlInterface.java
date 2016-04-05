@@ -1,4 +1,7 @@
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.interfaces;
+import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+
 import java.util.List;
 
 /**

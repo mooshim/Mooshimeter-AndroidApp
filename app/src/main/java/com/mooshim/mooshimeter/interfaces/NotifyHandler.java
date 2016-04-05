@@ -1,4 +1,4 @@
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.interfaces;
 
 /**
  * Created by First on 2/12/2016.

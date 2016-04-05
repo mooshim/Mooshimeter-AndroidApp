@@ -17,10 +17,15 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
 
 import android.bluetooth.BluetoothGatt;
+
+import com.mooshim.mooshimeter.common.Chooser;
+import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
+import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

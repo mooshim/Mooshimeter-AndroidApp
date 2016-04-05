@@ -1,5 +1,5 @@
 
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.activities;
 
 import android.content.Context;
 import android.content.Intent;
@@ -24,10 +24,10 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.CooldownTimer;
 import com.mooshim.mooshimeter.common.MeterReading;
-import com.mooshim.mooshimeter.common.MooshimeterControlInterface;
-import com.mooshim.mooshimeter.common.MooshimeterDelegate;
-import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.common.NotifyHandler;
+import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
+import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
+import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.SpeaksOnLargeChange;
 import com.mooshim.mooshimeter.common.Util;
 

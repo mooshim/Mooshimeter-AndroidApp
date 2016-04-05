@@ -18,14 +18,14 @@
         android:required="true" />
 
     <application
-        android:name=".main.MyApplication"
+        android:name=".activities.MyApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Holo.Light" >
 
         <activity
-            android:name=".main.ScanActivity"
+            android:name=".activities.ScanActivity"
             android:label="@string/app_name"
             android:screenOrientation="portrait" >
             <intent-filter>
@@ -36,22 +36,22 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".main.DeviceActivity"
-            android:parentActivityName=".main.ScanActivity"
+            android:name=".activities.DeviceActivity"
+            android:parentActivityName=".activities.ScanActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".main.GraphingActivity"
-            android:parentActivityName=".main.ScanActivity"
+            android:name=".activities.GraphingActivity"
+            android:parentActivityName=".activities.ScanActivity"
             android:configChanges="orientation|screenSize"
             android:screenOrientation="landscape" />
         <activity
-            android:name=".main.OADActivity"
-            android:parentActivityName=".main.ScanActivity"
+            android:name=".activities.OADActivity"
+            android:parentActivityName=".activities.ScanActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".main.PreferencesActivity"
-            android:parentActivityName=".main.DeviceActivity"
+            android:name=".activities.PreferencesActivity"
+            android:parentActivityName=".activities.DeviceActivity"
             android:screenOrientation="portrait" />
     </application>
 </manifest>

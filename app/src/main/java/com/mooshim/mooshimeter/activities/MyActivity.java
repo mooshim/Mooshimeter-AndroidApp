@@ -1,12 +1,11 @@
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.activities;
 
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.mooshim.mooshimeter.common.BLEDeviceBase;
-import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 
 import java.util.HashMap;
 import java.util.Map;

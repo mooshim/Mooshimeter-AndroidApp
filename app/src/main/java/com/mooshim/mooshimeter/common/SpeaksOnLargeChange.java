@@ -19,13 +19,31 @@ public class SpeaksOnLargeChange {
                     outbuilder.append("neg ");
                     break;
                 case 'm':
-                    outbuilder.append(" emm");
+                    outbuilder.append(" milli ");
                     break;
                 case 'k':
-                    outbuilder.append(" kay");
+                    outbuilder.append(" kilo ");
                     break;
                 case 'M':
-                    outbuilder.append(" mega");
+                    outbuilder.append(" mega ");
+                    break;
+                case 'A':
+                    outbuilder.append(" amps ");
+                    break;
+                case 'V':
+                    outbuilder.append(" volts ");
+                    break;
+                case '\u03A9':
+                    outbuilder.append(" ohms ");
+                    break;
+                case 'W':
+                    outbuilder.append(" watts ");
+                    break;
+                case 'F':
+                    outbuilder.append(" fahrenheit ");
+                    break;
+                case 'C':
+                    outbuilder.append(" celsius ");
                     break;
                 default:
                     outbuilder.append(c);
@@ -35,12 +53,14 @@ public class SpeaksOnLargeChange {
         return outbuilder.toString();
     }
     public boolean decideAndSpeak(MeterReading val) {
+        double threshold = Math.max(abs(0.20 * val.value), abs(0.05 * val.getMax()));
+        double change = abs(last_value - val.value);
         if( timer.expired
-            || (abs(last_value - val.value)>abs(0.20*val.value))) {
+            || (change>threshold)) {
             // If the value has changed 20%, or just every 5 second
             last_value = val.value;
             Util.speak(formatValueLabelForSpeaking(val.toString()));
-            timer.fire(5000);
+            timer.fire(10000);
             return true;
         }
         return false;

@@ -17,10 +17,16 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
 
 import android.util.Log;
+
+import com.mooshim.mooshimeter.common.Chooser;
+import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
+import com.mooshim.mooshimeter.common.ThermocoupleHelper;
+import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -783,11 +789,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             @Override
             public MeterReading calculate() {
                 float volts = getValue(Channel.CH1).value;
-                float delta = (float)ThermocoupleHelper.K.voltsToDegC(volts);
+                float delta = (float) ThermocoupleHelper.K.voltsToDegC(volts);
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
                 if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                    rval = new MeterReading(internal_temp+TemperatureUnitsHelper.RelK2F(delta),5,2000,"F");
+                    rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.RelK2F(delta),5,2000,"F");
                 } else {
                     rval = new MeterReading(internal_temp+delta,5,1000,"C");
                 }
@@ -1383,14 +1389,14 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
             if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                rval = new MeterReading(TemperatureUnitsHelper.AbsK2F(val),
+                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
                                         (int)Math.log10(Math.pow(2.0, enob)),
-                                        TemperatureUnitsHelper.AbsK2F(max),
+                                        Util.TemperatureUnitsHelper.AbsK2F(max),
                                         "F");
             } else {
-                rval = new MeterReading(TemperatureUnitsHelper.AbsK2C(val),
+                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2C(val),
                                         (int)Math.log10(Math.pow(2.0, enob)),
-                                        TemperatureUnitsHelper.AbsK2C(max),
+                                        Util.TemperatureUnitsHelper.AbsK2C(max),
                                         "C");
             }
         } else {

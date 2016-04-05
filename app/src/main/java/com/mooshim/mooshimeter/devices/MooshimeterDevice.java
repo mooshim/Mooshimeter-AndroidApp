@@ -1,7 +1,12 @@
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
-import android.bluetooth.BluetoothGatt;
 import android.util.Log;
+
+import com.mooshim.mooshimeter.common.Chooser;
+import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
+import com.mooshim.mooshimeter.common.ThermocoupleHelper;
+import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -198,6 +203,33 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
 
+    private MeterReading wrapMeterReading(Channel c,float val) {
+        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
+        final double enob = getEnob(c);
+        float max = getMaxRangeForChannel(c);
+        MeterReading rval;
+        if(id.units.equals("K")) {
+            // Nobody likes Kelvin!  C or F?
+            if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
+                                        (int)Math.log10(Math.pow(2.0, enob)),
+                                        Util.TemperatureUnitsHelper.AbsK2F(max),
+                                        "F");
+            } else {
+                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2C(val),
+                                        (int)Math.log10(Math.pow(2.0, enob)),
+                                        Util.TemperatureUnitsHelper.AbsK2C(max),
+                                        "C");
+            }
+        } else {
+            rval = new MeterReading(val,
+                                    (int)Math.log10(Math.pow(2.0, enob)),
+                                    max,
+                                    id.units);
+        }
+        return rval;
+    }
+
     ////////////////////////////////
     // BLEDeviceBase methods
     ////////////////////////////////
@@ -326,11 +358,11 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             @Override
             public MeterReading calculate() {
                 float volts = getValue(Channel.CH1).value;
-                float delta_c = (float)ThermocoupleHelper.K.voltsToDegC(volts);
+                float delta_c = (float) ThermocoupleHelper.K.voltsToDegC(volts);
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
                 if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                    delta_c = TemperatureUnitsHelper.RelK2F(delta_c);
+                    delta_c = Util.TemperatureUnitsHelper.RelK2F(delta_c);
                     rval = new MeterReading(internal_temp+delta_c,5,2000,"F");
                 } else {
                     rval = new MeterReading(internal_temp+delta_c,5,1000,"C");
@@ -618,27 +650,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // Oversampling adds 1 ENOB per factor of 4
         enob += (buffer_depth_log4);
         return enob;
-    }
-    private MeterReading wrapMeterReading(Channel c,float val) {
-        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
-        final double enob = getEnob(c);
-        float max = getMaxRangeForChannel(c);
-        MeterReading rval = null;
-        if(id.units.equals("K")) {
-            // Nobody likes Kelvin!  C or F?
-            if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                rval = new MeterReading(TemperatureUnitsHelper.AbsK2F(val),
-                                        (int)Math.log10(Math.pow(2.0, enob)),
-                                        TemperatureUnitsHelper.AbsK2F(max),
-                                        "F");
-            } else {
-                rval = new MeterReading(TemperatureUnitsHelper.AbsK2C(val),
-                                        (int)Math.log10(Math.pow(2.0, enob)),
-                                        TemperatureUnitsHelper.AbsK2C(max),
-                                        "C");
-            }
-        }
-        return rval;
     }
     public String getUnits(Channel c) {
         return getSelectedDescriptor(c).units;

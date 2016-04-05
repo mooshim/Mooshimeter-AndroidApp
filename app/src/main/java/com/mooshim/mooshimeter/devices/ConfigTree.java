@@ -1,6 +1,9 @@
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
 import android.util.Log;
+
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
+import com.mooshim.mooshimeter.common.StatLockManager;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;

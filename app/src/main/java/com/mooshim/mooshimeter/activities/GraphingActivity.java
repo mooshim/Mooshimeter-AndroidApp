@@ -1,4 +1,4 @@
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.activities;
 
 import android.app.ActionBar;
 import android.content.Context;
@@ -14,12 +14,12 @@ import android.widget.Button;
 import android.widget.ImageButton;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.GraphingActivityInterface;
+import com.mooshim.mooshimeter.interfaces.GraphingActivityInterface;
 import com.mooshim.mooshimeter.common.MeterReading;
-import com.mooshim.mooshimeter.common.MooshimeterControlInterface;
-import com.mooshim.mooshimeter.common.MooshimeterDelegate;
-import com.mooshim.mooshimeter.common.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.common.NotifyHandler;
+import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
+import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
+import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;

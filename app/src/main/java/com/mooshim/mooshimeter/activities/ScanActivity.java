@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.activities;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -33,7 +33,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.ParcelUuid;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
@@ -51,9 +50,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.BLEDeviceBase;
-import com.mooshim.mooshimeter.common.LegacyMooshimeterDevice;
-import com.mooshim.mooshimeter.common.PeripheralWrapper;
+import com.mooshim.mooshimeter.devices.BLEDeviceBase;
+import com.mooshim.mooshimeter.devices.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;

@@ -1,4 +1,4 @@
-package com.mooshim.mooshimeter.main;
+package com.mooshim.mooshimeter.activities;
 
 /**
  * Created by First on 2/3/2015.

@@ -1,4 +1,4 @@
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.interfaces;
 
 import java.util.List;
 

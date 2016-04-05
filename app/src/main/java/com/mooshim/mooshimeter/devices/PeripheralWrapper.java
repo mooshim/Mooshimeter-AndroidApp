@@ -17,7 +17,7 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-package com.mooshim.mooshimeter.common;
+package com.mooshim.mooshimeter.devices;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -29,6 +29,10 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.util.Log;
+
+import com.mooshim.mooshimeter.interfaces.NotifyHandler;
+import com.mooshim.mooshimeter.common.StatLockManager;
+import com.mooshim.mooshimeter.common.Util;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
