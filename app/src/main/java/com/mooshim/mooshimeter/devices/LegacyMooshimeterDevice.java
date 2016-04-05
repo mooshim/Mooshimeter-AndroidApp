@@ -647,13 +647,13 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     private void addSharedInputs(Channel channel) {
         InputDescriptor h;
         h=addInputDescriptor(channel,"AUX VOLTAGE DC",INPUT_MODE.AUX_V,false,"V");
-        h.addRange("100mV",(float)0.1,1,PGA_GAIN.PGA_GAIN_12);
-        h.addRange("300mV",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 );
-        h.addRange("1.2V", (float) 1.2, 1, PGA_GAIN.PGA_GAIN_1);
+        h.addRange("100mV",(float)0.1,1,PGA_GAIN.PGA_GAIN_12  ,ISRC_SETTING.ISRC_OFF);
+        h.addRange("300mV",(float)0.3,1,PGA_GAIN.PGA_GAIN_4   ,ISRC_SETTING.ISRC_OFF);
+        h.addRange("1.2V", (float) 1.2, 1, PGA_GAIN.PGA_GAIN_1,ISRC_SETTING.ISRC_OFF);
         h=addInputDescriptor(channel,"AUX VOLTAGE AC",INPUT_MODE.AUX_V,true,"V");
-        h.addRange("100mV",(float)0.1,1,PGA_GAIN.PGA_GAIN_12);
-        h.addRange("300mV",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 );
-        h.addRange("1.2V", (float)1.2,1,PGA_GAIN.PGA_GAIN_1 );
+        h.addRange("100mV",(float)0.1,1,PGA_GAIN.PGA_GAIN_12,ISRC_SETTING.ISRC_OFF);
+        h.addRange("300mV",(float)0.3,1,PGA_GAIN.PGA_GAIN_4 ,ISRC_SETTING.ISRC_OFF);
+        h.addRange("1.2V", (float)1.2,1,PGA_GAIN.PGA_GAIN_1 ,ISRC_SETTING.ISRC_OFF);
         h=addInputDescriptor(channel,"RESISTANCE",INPUT_MODE.AUX_V,false,"\u03A9");
         switch (meter_info.pcb_version){
             case 7:
@@ -1245,12 +1245,13 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
     @Override
     public MeterReading getOffset(Channel c) {
-        return wrapMeterReading(c, offsets.get(c));
+        return wrapMeterReading(c, offsets.get(c),true);
     }
 
     @Override
     public void setOffset(Channel c, float offset) {
         offsets.put(c,offset);
+        delegate.onOffsetChange(c,wrapMeterReading(c,offset));
     }
 
     @Override
@@ -1381,7 +1382,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public int getLoggingIntervalMS() {
         return meter_log_settings.logging_period_ms;
     }
-    private MeterReading wrapMeterReading(Channel c,float val) {
+    private MeterReading wrapMeterReading(Channel c,float val, boolean relative) {
         MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
         final double enob = getEnob(c);
         float max = getMaxRangeForChannel(c);
@@ -1389,15 +1390,29 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
             if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
-                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
-                                        (int)Math.log10(Math.pow(2.0, enob)),
-                                        Util.TemperatureUnitsHelper.AbsK2F(max),
-                                        "F");
+                if(relative) {
+                    rval = new MeterReading(Util.TemperatureUnitsHelper.RelK2F(val),
+                                            (int)Math.log10(Math.pow(2.0, enob)),
+                                            Util.TemperatureUnitsHelper.RelK2F(max),
+                                            "F");
+                } else {
+                    rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
+                                            (int) Math.log10(Math.pow(2.0, enob)),
+                                            Util.TemperatureUnitsHelper.AbsK2F(max),
+                                            "F");
+                }
             } else {
-                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2C(val),
-                                        (int)Math.log10(Math.pow(2.0, enob)),
-                                        Util.TemperatureUnitsHelper.AbsK2C(max),
-                                        "C");
+                if(relative) {
+                    rval = new MeterReading(val,
+                                            (int)Math.log10(Math.pow(2.0, enob)),
+                                            max,
+                                            "C");
+                } else {
+                    rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2C(val),
+                                            (int)Math.log10(Math.pow(2.0, enob)),
+                                            Util.TemperatureUnitsHelper.AbsK2C(max),
+                                            "C");
+                }
             }
         } else {
             rval = new MeterReading(val,
@@ -1406,6 +1421,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                                     id.units);
         }
         return rval;
+    }
+    private MeterReading wrapMeterReading(Channel c,float val) {
+        return wrapMeterReading(c,val,false);
     }
 
     private static MeterReading invalid_inputs = new MeterReading(0,0,0,"INVALID INPUTS");
@@ -1418,7 +1436,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 if(((InputDescriptor)getSelectedDescriptor(c)).isAC) {
                     return wrapMeterReading(c,lsbToNativeUnits((float) Math.sqrt(meter_sample.reading_ms[c.ordinal()]), c));
                 } else {
-                    return wrapMeterReading(c,lsbToNativeUnits(meter_sample.reading_lsb[c.ordinal()], c));
+                    return wrapMeterReading(c,lsbToNativeUnits(meter_sample.reading_lsb[c.ordinal()], c) + getOffset(c).value);
                 }
             case MATH:
                 MathInputDescriptor id = (MathInputDescriptor)input_descriptors.get(Channel.MATH).getChosen();
