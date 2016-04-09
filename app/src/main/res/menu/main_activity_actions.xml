@@ -1,11 +1,4 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
-
-     <item
-        android:id="@+id/opt_progress"
-        android:showAsAction="always"
-        android:title="@string/progress"
-        android:visibility="invisible"
-        />
     <item
         android:id="@+id/opt_bt"
         android:showAsAction="ifRoom"
