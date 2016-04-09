@@ -12,6 +12,7 @@ import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.RelativeSizeSpan;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -269,12 +270,13 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
         String auto_string = auto?"AUTO":"MANUAL";
         sb.append(auto_string);
-        //sb.setSpan(new RelativeSizeSpan(14), 0, sb.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         sb.append("\n");
         int i = sb.length();
         sb.append(title);
         sb.setSpan(new RelativeSizeSpan((float)1.6), i, sb.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
+        float button_height = b.getHeight(); // Button height in raw pixels
+        b.setTextSize(TypedValue.COMPLEX_UNIT_PX,button_height/3); // Divisor arrived at empirically
         Util.setText(b, sb);
         runOnUiThread(new Runnable() {
             @Override
@@ -290,11 +292,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
 
     private void refreshTitle() {
-        //final StringBuilder s = new StringBuilder();
-        //s.append(mMeter.getBLEDevice().getName());
-        //while(s.length()<20) {
-        //    s.append(' ');
-        //}
         // Approximate remaining charge
         double soc_percent = (battery_voltage - 2.0)*100.0;
         soc_percent = Math.max(0, soc_percent);
@@ -302,15 +299,18 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         final Drawable bat_img = getDrawableByURI("drawable/bat_icon_"+Integer.toString((int)soc_percent));
 
         int rssi_val = mMeter.getRSSI();
-        // rssi is always negative, map it to a percentage.  Let -70 be zero
-        rssi_val += 70;
-        rssi_val *= 2;
+        // rssi is always negative, map it to a percentage.
+        // Let's just make -100db be 0%, and 0db be 100%
+        rssi_val += 100;
         rssi_val = Math.max(0, rssi_val);
         rssi_val = Math.min(100,rssi_val);
         final Drawable rssi_img = getDrawableByURI("drawable/sig_icon_"+Integer.toString(rssi_val));
 
         ActionBar ab = getActionBar();
         final ViewGroup vg = (ViewGroup)ab.getCustomView();
+        if(vg==null) {
+            return;
+        }
         final TextView title = (TextView)vg.findViewById(R.id.title_textview);
         final ImageView bat  = (ImageView)vg.findViewById(R.id.bat_stat_img);
         final ImageView rssi = (ImageView)vg.findViewById(R.id.rssi_img);
@@ -318,7 +318,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                //setTitle(s.toString());
                 title.setText(mMeter.getBLEDevice().getName());
                 bat.setImageDrawable(bat_img);
                 rssi.setImageDrawable(rssi_img);
