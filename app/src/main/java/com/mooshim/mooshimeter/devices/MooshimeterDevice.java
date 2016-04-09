@@ -505,8 +505,26 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 delegate.onBatteryVoltageReceived((Float) payload);
             }
         });
+
+        // Start a heartbeat.  The Mooshimeter needs to hear from the phone every 20 seconds or it
+        // assumes the Android device has fallen in to a phantom connection mode and disconnects itself.
+        // We will just read out the PCB version every 10 seconds to satisfy this constraint.
+        Util.postDelayed(heartbeat_cb, 1000);
+
         return rval;
     }
+
+    private Runnable heartbeat_cb = new Runnable() {
+        @Override
+        public void run() {
+            if(!isConnected()) {
+                return;
+            }
+            tree.command("PCB_VERSION");
+            Util.postDelayed(heartbeat_cb,10000);
+        }
+    };
+
     ////////////////////////////////
     // MooshimeterControlInterface methods
     ////////////////////////////////
@@ -658,6 +676,12 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         double enob = base_enob_table[ samplerate_setting ];
         // Oversampling adds 1 ENOB per factor of 4
         enob += (buffer_depth_log4);
+
+        if(getPCBVersion()==7 && c == Channel.CH1 && ((InputDescriptor)getSelectedDescriptor(Channel.CH1)).input_node == tree.getNode("CH1:MAPPING:CURRENT") ) {
+            // This is compensation for a bug in RevH, where current sense chopper noise dominates
+            enob -= 2;
+        }
+
         return enob;
     }
     public String getUnits(Channel c) {
