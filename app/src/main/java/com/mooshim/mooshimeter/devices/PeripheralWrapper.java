@@ -264,9 +264,15 @@ public class PeripheralWrapper {
         while (!isConnected()) {
             //If we time out in connection or the connect routine returns an error
             if (bleStateCondition.awaitMilli(10000) ) {
+                if(mBluetoothGatt!=null) {
+                    mBluetoothGatt.close();
+                }
                 return -1;
             }
             if (bleStateCondition.stat != 0) {
+                if(mBluetoothGatt!=null) {
+                    mBluetoothGatt.close();
+                }
                 return bleStateCondition.stat;
             }
         }
@@ -283,7 +289,9 @@ public class PeripheralWrapper {
             public Void call() throws InterruptedException {
                 // Discover services
                 Log.d(TAG,"DISCOVER");
-                mBluetoothGatt.discoverServices();
+                while(!mBluetoothGatt.discoverServices()) {
+                    Log.e(TAG,"DISCOVER FAILED TO START");
+                }
                 return null;
             }
         });
@@ -318,6 +326,8 @@ public class PeripheralWrapper {
                 while (mConnectionState != BluetoothProfile.STATE_DISCONNECTED) {
                     bleStateCondition.await();
                 }
+                Log.d(TAG, "CLOSE");
+                mBluetoothGatt.close();
                 return null;
             }
         });
