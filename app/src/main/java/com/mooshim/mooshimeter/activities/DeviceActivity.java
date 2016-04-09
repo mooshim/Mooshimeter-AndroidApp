@@ -1,6 +1,7 @@
 
 package com.mooshim.mooshimeter.activities;
 
+import android.app.ActionBar;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -11,13 +12,16 @@ import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.RelativeSizeSpan;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -65,6 +69,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private Button graph_button;
     private Button power_button;
 
+    private float battery_voltage = 0;
+
     // GUI housekeeping
     private Drawable getAutoBG(){
         return getResources().getDrawable(R.drawable.button_auto);
@@ -108,11 +114,17 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         zero_buttons       [1] = (Button)findAndAutofit(R.id.ch2_zero_button);
         sound_buttons      [1] = (Button)findAndAutofit(R.id.ch2_sound_button);
 
-        rate_button            = (Button)findViewById  (R.id.rate_button);
+        rate_button            = (Button)findViewById(R.id.rate_button);
         depth_button           = (Button)findViewById(R.id.depth_button);
         logging_button         = (Button)findAndAutofit(R.id.log_button);
         graph_button           = (Button)findAndAutofit(R.id.graph_button);
         power_button           = (Button)findAndAutofit(R.id.power_button);
+
+        ActionBar actionBar = getActionBar();
+        actionBar.setDisplayShowHomeEnabled(true);
+        actionBar.setDisplayShowTitleEnabled(false);
+        actionBar.setCustomView(R.layout.element_device_activity_titlebar);
+        actionBar.setDisplayShowCustomEnabled(true);
 	}
 
 	@Override
@@ -271,21 +283,45 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             }
         });
     }
-    private void refreshTitle(float bat_v) {
-        final StringBuilder s = new StringBuilder();
-        s.append(mMeter.getBLEDevice().getName());
-        while(s.length()<20) {
-            s.append(' ');
-        }
+
+    private Drawable getDrawableByURI(String uri) {
+        int imageResource = getResources().getIdentifier(uri, null, getPackageName());
+        return getResources().getDrawable(imageResource);
+    }
+
+    private void refreshTitle() {
+        //final StringBuilder s = new StringBuilder();
+        //s.append(mMeter.getBLEDevice().getName());
+        //while(s.length()<20) {
+        //    s.append(' ');
+        //}
         // Approximate remaining charge
-        double soc_percent = (bat_v - 2.0)*100.0;
-        if(soc_percent<0){soc_percent=0;}
-        if(soc_percent>100){soc_percent=100;}
-        s.append(String.format("BAT:%d%%", (int) soc_percent));
+        double soc_percent = (battery_voltage - 2.0)*100.0;
+        soc_percent = Math.max(0, soc_percent);
+        soc_percent = Math.min(100,soc_percent);
+        final Drawable bat_img = getDrawableByURI("drawable/bat_icon_"+Integer.toString((int)soc_percent));
+
+        int rssi_val = mMeter.getRSSI();
+        // rssi is always negative, map it to a percentage.  Let -70 be zero
+        rssi_val += 70;
+        rssi_val *= 2;
+        rssi_val = Math.max(0, rssi_val);
+        rssi_val = Math.min(100,rssi_val);
+        final Drawable rssi_img = getDrawableByURI("drawable/sig_icon_"+Integer.toString(rssi_val));
+
+        ActionBar ab = getActionBar();
+        final ViewGroup vg = (ViewGroup)ab.getCustomView();
+        final TextView title = (TextView)vg.findViewById(R.id.title_textview);
+        final ImageView bat  = (ImageView)vg.findViewById(R.id.bat_stat_img);
+        final ImageView rssi = (ImageView)vg.findViewById(R.id.rssi_img);
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                setTitle(s.toString());
+                //setTitle(s.toString());
+                title.setText(mMeter.getBLEDevice().getName());
+                bat.setImageDrawable(bat_img);
+                rssi.setImageDrawable(rssi_img);
             }
         });
     }
@@ -532,12 +568,13 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onRssiReceived(int rssi) {
-        Log.d(TAG, "RSSI: " + Integer.toString(rssi));
+        refreshTitle();
     }
 
     @Override
     public void onBatteryVoltageReceived(float voltage) {
-        refreshTitle(voltage);
+        battery_voltage = voltage;
+        refreshTitle();
     }
 
     @Override
