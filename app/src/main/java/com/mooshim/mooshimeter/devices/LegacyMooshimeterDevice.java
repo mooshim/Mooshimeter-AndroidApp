@@ -1509,4 +1509,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public List<String> getRangeList(Channel c) {
         return input_descriptors.get(c).getChosen().ranges.getChoiceNames();
     }
+    @Override
+    public int getPCBVersion() {
+        return meter_info.pcb_version;
+    }
 }

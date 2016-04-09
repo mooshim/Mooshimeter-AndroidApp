@@ -528,6 +528,15 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         tree.command("HIBERNATE 1");
     }
     @Override
+    public int getPCBVersion() {
+        Object o = tree.getValueAt("PCB_VERSION");
+        if(o==null) {
+            return 8;
+        }
+        return (Integer)o;
+    }
+
+    @Override
     public double getUTCTime() {
         return (Double)tree.getValueAt("TIME_UTC");
     }

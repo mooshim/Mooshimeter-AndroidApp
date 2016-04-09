@@ -46,6 +46,8 @@ public interface MooshimeterControlInterface {
 
     void enterShippingMode();
 
+    int getPCBVersion();
+
     double getUTCTime();
     void setTime(double utc_time);
 
