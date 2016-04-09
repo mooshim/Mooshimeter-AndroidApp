@@ -688,6 +688,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     public int initialize() {
+        super.initialize();
         if(isInOADMode()) {
             throw new RuntimeException("LegacyMooshimeterDevice should not be connected to an OAD!");
         }
