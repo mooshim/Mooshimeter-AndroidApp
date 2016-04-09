@@ -86,7 +86,7 @@ public class PeripheralWrapper {
     }
 
     // Anything that has to do with the BluetoothGatt needs to go through here
-    private int protectedCall(final Interruptable r) {
+    private int protectedCall(final Interruptable r,boolean force_main_thread) {
         if(Util.onCBThread()) {
             Log.e(TAG,"DON'T DO BLE STUFF FROM THE CB THREAD!");
             new Exception().printStackTrace();
@@ -106,13 +106,16 @@ public class PeripheralWrapper {
                 }
             }
         };
-        if(true) {
-            // TODO: Tie this to a global preference
-            payload.run();
-        } else {
+        if(force_main_thread) {
             Util.blockUntilRunOnMainThread(payload);
+        } else {
+            payload.run();
         }
         return r.mRval;
+    }
+
+    private int protectedCall(final Interruptable r) {
+        return protectedCall(r,false);
     }
     
     public PeripheralWrapper(final BluetoothDevice device, final Context context) {
@@ -259,7 +262,7 @@ public class PeripheralWrapper {
                 refreshDeviceCache();
                 return null;
             }
-        });
+        },true);
 
         while (!isConnected()) {
             //If we time out in connection or the connect routine returns an error
@@ -294,9 +297,9 @@ public class PeripheralWrapper {
                 }
                 return null;
             }
-        });
-        //if(bleDiscoverCondition.awaitMilli(10000)) {
-        if(bleDiscoverCondition.await()) {
+        },true);
+        if(bleDiscoverCondition.awaitMilli(10000)) {
+        //if(bleDiscoverCondition.await()) {
             // Timed out
             Log.e(TAG,"Timed out, canceling discovery");
             if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
@@ -305,11 +308,20 @@ public class PeripheralWrapper {
             return -1;
         }
         // Build a local dictionary of all characteristics and their UUIDs
-        for (BluetoothGattService s : mBluetoothGatt.getServices()) {
-            mServices.put(s.getUuid(), s);
-            for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
-                mCharacteristics.put(c.getUuid(), c);
+        if(bleDiscoverCondition.stat == 0) {
+            for (BluetoothGattService s : mBluetoothGatt.getServices()) {
+                mServices.put(s.getUuid(), s);
+                for (BluetoothGattCharacteristic c : s.getCharacteristics()) {
+                    mCharacteristics.put(c.getUuid(), c);
+                }
             }
+        } else {
+            // This is a shot in the dark trying to fix a longstanding Android BLE bug
+            // After a failed discover (reason for failure unknown, code 129), the phone
+            // maintains a phantom connection to the Mooshimeter.  This is bad because the Mooshimeter stops
+            // advertising and no longer appears in the scan list and the only way to disconnect
+            // is to reboot the mooshimeter or the phone (cycling BLE doesn't help).
+            refreshDeviceCache();
         }
         return bleDiscoverCondition.stat;
     }
