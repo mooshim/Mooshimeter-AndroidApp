@@ -245,6 +245,10 @@ public class ConfigTree {
         }
         public void sendValue(Object new_value, boolean blocking) {
             byte[] payload = new byte[20];
+            for(int i = 0; i < 20; i++) {
+                // Zero out the buffer
+                payload[i]=0;
+            }
             ByteBuffer b = wrap(payload);
             packToSerial(b,new_value);
             payload = Arrays.copyOf(payload,b.position());
