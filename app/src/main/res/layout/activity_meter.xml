@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TODO: The proportions on all graphical elements here should be reset to look more like the iOS
-app.  https://itunes.apple.com/us/app/mooshimeter/id945898277?mt=8
-The iOS app screen is in 10 rows, 6 columns.-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
     android:layout_height="match_parent">

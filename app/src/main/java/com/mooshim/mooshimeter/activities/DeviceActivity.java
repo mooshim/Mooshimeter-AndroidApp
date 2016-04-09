@@ -46,8 +46,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         return MooshimeterControlInterface.Channel.values()[c];
     }
 
-    // Callback handles
-    private int disconnect_handle = -1;
 
 	// BLE
     private MooshimeterDeviceBase mMeter = null;

@@ -479,27 +479,6 @@ public class Util {
     public static void speak(String speech) {
         speaker.speak(speech, TextToSpeech.QUEUE_FLUSH, null);
     }
-    public static void speakAtInterval(final int ms_interval, final Callable<String> speech_cb) {
-        if(null!=speech_timertask) {
-            speech_timertask.cancel();
-            speech_timertask = null;
-            speak("");
-        }
-        if(speech_cb == null) {
-            return;
-        }
-        speech_timertask = new TimerTask() {
-            @Override
-            public void run() {
-                try {
-                    speak(speech_cb.call());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        speech_timer.scheduleAtFixedRate(speech_timertask, 500, ms_interval);
-    }
 
     public static List<String> stringifyCollection(Collection<?> objectCollection) {
         List<String> rval = new ArrayList<>(objectCollection.size());

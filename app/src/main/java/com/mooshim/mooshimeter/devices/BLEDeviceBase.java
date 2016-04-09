@@ -76,7 +76,7 @@ public class BLEDeviceBase {
             if(rssi_cb!=null) {
                 rssi_cb.run();
             }
-            Util.postDelayed(RSSI_poller, 5000);
+            Util.postDelayed(RSSI_poller, 2000);
         }
     };
 
