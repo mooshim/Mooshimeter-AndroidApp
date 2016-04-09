@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:paddingBottom="5dp"
+    >
+
+    <TextView
+        android:id="@+id/title_textview"
+        style="@style/nameStyle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="left|center_vertical"
+        android:layout_weight="4"
+        android:focusable="false"
+        android:gravity="left" android:text="MooshimeterName"/>
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/bat_stat_img"
+        android:layout_gravity="left|center_vertical"
+        android:layout_weight="0"
+        android:contentDescription="@string/image"
+        android:focusable="false"
+        android:paddingRight="5dp"
+        android:src="@drawable/bat_icon_50" />
+    <ImageView android:layout_width="wrap_content" android:layout_height="wrap_content"
+               android:id="@+id/rssi_img" android:layout_gravity="left|center_vertical"
+               android:layout_weight="0" android:contentDescription="@string/image"
+               android:focusable="false" android:paddingRight="5dp"
+               android:src="@drawable/sig_icon_50"/>
+
+</LinearLayout>
