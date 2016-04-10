@@ -24,7 +24,9 @@ public abstract class MyActivity extends Activity {
 
     protected void transitionToActivity(BLEDeviceBase d, Class activity_class) {
         Intent intent = new Intent(this, activity_class);
-        intent.putExtra("addr", d.getAddress());
+        if(d!=null) {
+            intent.putExtra("addr", d.getAddress());
+        }
         finish();
         startActivityForResult(intent, 0);
     }

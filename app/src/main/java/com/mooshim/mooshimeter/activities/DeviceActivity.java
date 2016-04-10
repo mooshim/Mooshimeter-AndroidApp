@@ -189,6 +189,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         final MooshimeterDelegate d = this;
 
+        // When resuming, Android may have destroyed objects we care about
+        // Just fall back to the scan screen...
+        if(mMeter==null) {
+            onBackPressed();
+        }
+
         Util.dispatch(new Runnable() {
             @Override
             public void run() {

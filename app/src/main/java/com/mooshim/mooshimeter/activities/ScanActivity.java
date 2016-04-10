@@ -202,10 +202,7 @@ public class ScanActivity extends MyActivity {
         // Handle presses on the action bar items
         switch (item.getItemId()) {
             case R.id.opt_prefs:
-                break;
-            case R.id.opt_exit:
-                Toast.makeText(this, "Goodbye!", Toast.LENGTH_LONG).show();
-                finish();
+                transitionToActivity(null,GlobalPreferencesActivity.class);
                 break;
             default:
                 return super.onOptionsItemSelected(item);

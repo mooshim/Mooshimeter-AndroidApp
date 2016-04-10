@@ -369,6 +369,10 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         super.onResume();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        if(mMeter==null) {
+            onBackPressed();
+        }
+
         View decorView = getWindow().getDecorView();
         int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
         decorView.setSystemUiVisibility(uiOptions);
