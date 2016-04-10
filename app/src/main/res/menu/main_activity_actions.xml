@@ -1,18 +1,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
     <item
-        android:id="@+id/opt_bt"
-        android:showAsAction="ifRoom"
+        android:id="@+id/opt_prefs"
         android:orderInCategory="1"
-        android:icon="@drawable/ic_action_bluetooth"
-        android:title="@string/bt" 
-        />
-    <!-- Remove this option until the Android Disconnect-Reconnect error 133 bug is fixed
-    <item
-        android:id="@+id/opt_fwupdate"
-        android:title="@string/fwupdate"/>-->
-    <item
-        android:id="@+id/opt_exit"
-        android:title="@string/exit"/>
-
-
+        android:showAsAction="always"
+        android:icon="@drawable/ic_action_settings"
+        android:title="@string/prefs"/>
 </menu>

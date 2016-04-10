@@ -36,6 +36,11 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".activities.GlobalPreferencesActivity"
+            android:parentActivityName=".activities.ScanActivity"
+            android:configChanges="orientation|screenSize"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".activities.DeviceActivity"
             android:parentActivityName=".activities.ScanActivity"
             android:configChanges="orientation|screenSize"
