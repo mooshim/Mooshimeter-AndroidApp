@@ -114,8 +114,7 @@ public class BLEDeviceBase {
     public static final class mPreferenceKeys {
         public static final String
                 AUTOCONNECT = "AUTOCONNECT",
-                SKIP_UPGRADE= "SKIP_UPGRADE",
-                USE_FAHRENHEIT= "USE_FAHRENHEIT";
+                SKIP_UPGRADE= "SKIP_UPGRADE";
     }
 
     private String getSharedPreferenceString() {

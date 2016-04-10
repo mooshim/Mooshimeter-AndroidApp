@@ -210,7 +210,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         MeterReading rval;
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
-            if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+            if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
                 rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
                                         (int)Math.log10(Math.pow(2.0, enob)),
                                         Util.TemperatureUnitsHelper.AbsK2F(max),
@@ -361,7 +361,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 float delta_c = (float) ThermocoupleHelper.K.voltsToDegC(volts);
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
-                if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
                     delta_c = Util.TemperatureUnitsHelper.RelK2F(delta_c);
                     rval = new MeterReading(internal_temp+delta_c,5,2000,"F");
                 } else {

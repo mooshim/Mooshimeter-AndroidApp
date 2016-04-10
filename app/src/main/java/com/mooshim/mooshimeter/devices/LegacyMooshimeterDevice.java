@@ -793,7 +793,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 float delta = (float) ThermocoupleHelper.K.voltsToDegC(volts);
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
-                if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+                if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
                     rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.RelK2F(delta),5,2000,"F");
                 } else {
                     rval = new MeterReading(internal_temp+delta,5,1000,"C");
@@ -1390,7 +1390,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         MeterReading rval;
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
-            if(getPreference(mPreferenceKeys.USE_FAHRENHEIT)) {
+            if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
                 if(relative) {
                     rval = new MeterReading(Util.TemperatureUnitsHelper.RelK2F(val),
                                             (int)Math.log10(Math.pow(2.0, enob)),

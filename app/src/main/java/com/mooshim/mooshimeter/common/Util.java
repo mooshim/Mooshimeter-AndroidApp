@@ -23,6 +23,7 @@ import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
@@ -501,5 +502,31 @@ public class Util {
         public static float RelK2F(float C) {
             return (float) ((C)* 1.8000);
         }
+    }
+    //////////////////
+    // Functions for dealing with persistent global preferences
+    //////////////////
+    public static class preference_keys {
+        public static String
+        USE_FAHRENHEIT= "USE_FAHRENHEIT";
+    }
+
+    public static SharedPreferences getSharedPreferences(String name) {
+        return mContext.getSharedPreferences(name,Context.MODE_PRIVATE);
+    }
+    public static SharedPreferences getSharedPreferences() {
+        return getSharedPreferences("mooshimeter-global");
+    }
+    public static boolean hasPreference(String key) {
+        return getSharedPreferences().contains(key);
+    }
+    public static boolean getPreference(String key) {
+        return getSharedPreferences().getBoolean(key, false);
+    }
+    public static void setPreference(String key, boolean val) {
+        SharedPreferences sp = getSharedPreferences();
+        SharedPreferences.Editor e = sp.edit();
+        e.putBoolean(key,val);
+        e.commit();
     }
 }
