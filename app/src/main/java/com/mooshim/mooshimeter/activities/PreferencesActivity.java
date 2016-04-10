@@ -57,7 +57,7 @@ public class PreferencesActivity extends MyActivity {
                 FrameLayout frame = (FrameLayout)v.findViewById(R.id.frame);
                 frame.addView(widget);
             }
-            v.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            v.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             base.addView(v);
         }
     }
@@ -184,22 +184,12 @@ public class PreferencesActivity extends MyActivity {
         // Extra preferences
         builder.add("Autoconnect","Automatically connect to this meter when detected",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT));
         builder.add("Skip upgrade","Suppress offering firmware upgrade",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.SKIP_UPGRADE));
-        builder.add("Use Fahrenheit","Display temperatures in F instead of C",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.USE_FAHRENHEIT));
 	}
 
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
         setResult(RESULT_OK);
-	}
-
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		//this.optionsMenu = menu;
-		// Inflate the menu items for use in the action bar
-		MenuInflater inflater = getMenuInflater();
-		inflater.inflate(R.menu.device_activity_actions, menu);
-		return super.onCreateOptionsMenu(menu);
 	}
 
 	@Override

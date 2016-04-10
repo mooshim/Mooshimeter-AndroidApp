@@ -8,8 +8,8 @@
 
     <LinearLayout
         android:orientation="vertical"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent" android:layout_weight="1">
+        android:layout_width="0dp"
+        android:layout_height="match_parent" android:layout_weight=".7">
         <TextView
             android:id="@+id/pref_title"
             style="@style/prefTitleStyle"
@@ -24,7 +24,8 @@
                   android:text="words words"/>
     </LinearLayout>
     <FrameLayout
-        android:layout_width="100dp"
-        android:layout_height="match_parent" android:id="@+id/frame" android:layout_gravity="right">
+        android:layout_width="0dp"
+        android:layout_height="match_parent" android:id="@+id/frame" android:layout_gravity="right"
+        android:layout_weight=".3">
     </FrameLayout>
 </LinearLayout>
