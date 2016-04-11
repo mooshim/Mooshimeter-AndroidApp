@@ -53,7 +53,7 @@ public class PreferencesActivity extends MyActivity {
             titleview.setText(title);
             descrview.setText(descr);
             if(widget!=null) {
-                widget.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+                widget.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                 FrameLayout frame = (FrameLayout)v.findViewById(R.id.frame);
                 frame.addView(widget);
             }

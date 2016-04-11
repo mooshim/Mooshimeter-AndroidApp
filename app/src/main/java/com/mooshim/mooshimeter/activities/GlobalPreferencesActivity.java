@@ -53,7 +53,7 @@ public class GlobalPreferencesActivity extends MyActivity {
             descrview.setText(descr);
             FrameLayout frame = (FrameLayout)v.findViewById(R.id.frame);
             if(widget!=null) {
-                widget.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT));
+                widget.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
                 frame.addView(widget);
             } else {
                 titleview.setGravity(Gravity.CENTER);
