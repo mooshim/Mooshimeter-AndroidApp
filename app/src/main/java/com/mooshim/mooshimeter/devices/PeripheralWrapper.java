@@ -318,7 +318,7 @@ public class PeripheralWrapper {
             // maintains a phantom connection to the Mooshimeter.  This is bad because the Mooshimeter stops
             // advertising and no longer appears in the scan list and the only way to disconnect
             // is to reboot the mooshimeter or the phone (cycling BLE doesn't help).
-            refreshDeviceCache();
+            //refreshDeviceCache();
         }
         return bleDiscoverCondition.stat;
     }
@@ -393,6 +393,10 @@ public class PeripheralWrapper {
             return -1;
         }
         final BluetoothGattCharacteristic c = getChar(uuid);
+        if(c==null) {
+            Log.e(TAG, "Couldn't find write characteristic for "+uuid.toString());
+            return -1;
+        }
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
