@@ -301,10 +301,7 @@ public class PeripheralWrapper {
         if(bleDiscoverCondition.awaitMilli(10000)) {
         //if(bleDiscoverCondition.await()) {
             // Timed out
-            Log.e(TAG,"Timed out, canceling discovery");
-            if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
-                BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
-            }
+            Log.e(TAG,"Timed out on service discovery");
             return -1;
         }
         // Build a local dictionary of all characteristics and their UUIDs
@@ -328,6 +325,7 @@ public class PeripheralWrapper {
 
     public int disconnect() {
         if(isDisconnected()) {
+            Log.d(TAG, "Disconnect called on peripheral that's already disconnected!");
             return 0;
         }
         return protectedCall(new Interruptable() {
