@@ -53,7 +53,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
 
 	// BLE
-    private MooshimeterDeviceBase mMeter = null;
+    private MooshimeterDeviceBase mMeter;
 
     // GUI
     private final TextView[] value_labels = new TextView[2];
@@ -172,6 +172,10 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // I still don't understand why, but mMeter keeps getting set to null!  WHY ANDROID WHY?!
+        if(mMeter==null) {
+            onBackPressed();
+        }
         if(!(mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH1) || mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH2))) {
             Util.dispatch(new Runnable() {
                 @Override
@@ -209,8 +213,13 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     @Override
     protected void onStart() {
         super.onStart();
+        // For some reason, mMeter ends up null in lifecycle transistions sometimes
+        // Double check here... still haven't figured this bug out.  FIXME
         Intent intent = getIntent();
         mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
+        if(mMeter==null) {
+            onBackPressed();
+        }
     }
 
     @Override

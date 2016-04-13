@@ -610,22 +610,13 @@ public class ScanActivity extends MyActivity {
                     case 1:
                         // Continue without viewing
                         m.setPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE,true);
-                        transitionToActivity(m, whichActivity(m.mBuildTime));
+                        transitionToActivity(m, DeviceActivity.class);
                         break;
                 }
             } else {
-                transitionToActivity(m, whichActivity(m.mBuildTime));
+                transitionToActivity(m, DeviceActivity.class);
             }
         }
-    }
-
-    private static Class whichActivity(int build_time) {
-        return DeviceActivity.class;
-        /*if(build_time > 1454355414) {
-            return DeviceActivity.class;
-        } else {
-            return LegacyDeviceActivity.class;
-        }*/
     }
 
     private void toggleConnectionState(BLEDeviceBase m) {
@@ -670,7 +661,15 @@ public class ScanActivity extends MyActivity {
                 // At this point we are connected and have discovered characteristics for the BLE
                 // device.  We need to figure out exactly what kind it is and start the right
                 // activity for it.
-                m = m.chooseSubclass();
+                BLEDeviceBase tmp_m = m.chooseSubclass();
+                if(tmp_m==null) {
+                    //Couldn't choose a subclass for some reason...
+                    setStatus("I don't recognize this device... aborting");
+                    m.disconnect();
+                    break;
+                } else {
+                    m = tmp_m;
+                }
                 // Replace the copy in the singleton dict
                 mMeterDict.put(m.getAddress(),m);
                 setStatus("Initializing...");
