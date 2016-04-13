@@ -95,12 +95,19 @@ public class PeripheralWrapper {
             @Override
             public void run() {
                 try {
+                    if(bleLock.isLocked() && !bleLock.isHeldByCurrentThread()) {
+                        Log.d(TAG,"WAITING ON bleLock");
+                    }
                     bleLock.lock();
+                    if(conditionLock.isLocked() && !conditionLock.isHeldByCurrentThread()) {
+                        Log.d(TAG,"WAITING ON conditionLock");
+                    }
                     conditionLock.lock();
                     r.call();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } finally {
+                    Log.d(TAG,"RELEASING LOCKS");
                     conditionLock.unlock();
                     bleLock.unlock();
                 }
@@ -312,6 +319,7 @@ public class PeripheralWrapper {
                     mCharacteristics.put(c.getUuid(), c);
                 }
             }
+            Log.d(TAG,"Characteristic map has " + mCharacteristics.size() + " elements");
         } else {
             // This is a shot in the dark trying to fix a longstanding Android BLE bug
             // After a failed discover (reason for failure unknown, code 129), the phone
@@ -319,6 +327,7 @@ public class PeripheralWrapper {
             // advertising and no longer appears in the scan list and the only way to disconnect
             // is to reboot the mooshimeter or the phone (cycling BLE doesn't help).
             //refreshDeviceCache();
+            Log.e(TAG, "Discover status: " + bleDiscoverCondition.stat);
         }
         return bleDiscoverCondition.stat;
     }
@@ -348,6 +357,7 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 if (isConnected()) {
+                    Log.d(TAG, "READRSSI");
                     mBluetoothGatt.readRemoteRssi();
                     if(bleRSSICondition.awaitMilli(500)) {
                         Log.e(TAG, "RSSI read timed out!");
@@ -453,6 +463,9 @@ public class PeripheralWrapper {
                         mRval = -1;
                     } else {
                         mRval = bleDWriteCondition.stat;
+                        if(mRval != 0) {
+                            Log.e(TAG,"DWRITE RVAL "+mRval);
+                        }
                     }
                 } else {
                     mRval = 0;
