@@ -265,7 +265,7 @@ public class PeripheralWrapper {
             return 0;
         }
 
-        protectedCall(new Interruptable() {
+        return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
                 if(BluetoothAdapter.getDefaultAdapter().isDiscovering()) {
@@ -276,26 +276,26 @@ public class PeripheralWrapper {
                 Log.d(TAG,"CONNECTGATT");
                 mBluetoothGatt = mDevice.connectGatt(mContext.getApplicationContext(),false,mGattCallbacks);
                 refreshDeviceCache();
+                while (!isConnected()) {
+                    //If we time out in connection or the connect routine returns an error
+                    if (bleStateCondition.awaitMilli(10000) ) {
+                        if(mBluetoothGatt!=null) {
+                            mBluetoothGatt.close();
+                        }
+                        mRval = -1;
+                        return null;
+                    }
+                    if (bleStateCondition.stat != 0) {
+                        if(mBluetoothGatt!=null) {
+                            mBluetoothGatt.close();
+                        }
+                        mRval = bleStateCondition.stat;
+                        return null;
+                    }
+                }
                 return null;
             }
-        },true);
-
-        while (!isConnected()) {
-            //If we time out in connection or the connect routine returns an error
-            if (bleStateCondition.awaitMilli(10000) ) {
-                if(mBluetoothGatt!=null) {
-                    mBluetoothGatt.close();
-                }
-                return -1;
-            }
-            if (bleStateCondition.stat != 0) {
-                if(mBluetoothGatt!=null) {
-                    mBluetoothGatt.close();
-                }
-                return bleStateCondition.stat;
-            }
-        }
-        return 0;
+        });
     }
 
     public int discover() {
@@ -311,15 +311,15 @@ public class PeripheralWrapper {
                 while(!mBluetoothGatt.discoverServices()) {
                     Log.e(TAG,"DISCOVER FAILED TO START");
                 }
+                if(bleDiscoverCondition.awaitMilli(10000)) {
+                    //if(bleDiscoverCondition.await()) {
+                    // Timed out
+                    Log.e(TAG,"Timed out on service discovery");
+                    mRval = -1;
+                }
                 return null;
             }
-        },true);
-        if(bleDiscoverCondition.awaitMilli(10000)) {
-        //if(bleDiscoverCondition.await()) {
-            // Timed out
-            Log.e(TAG,"Timed out on service discovery");
-            return -1;
-        }
+        });
         // Build a local dictionary of all characteristics and their UUIDs
         if(bleDiscoverCondition.stat == 0) {
             for (BluetoothGattService s : mBluetoothGatt.getServices()) {
