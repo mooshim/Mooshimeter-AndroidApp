@@ -468,7 +468,8 @@ public class PeripheralWrapper {
                     }
                     Log.d(TAG, "DWRITE");
                     mBluetoothGatt.writeDescriptor(clientConfig);
-                    if(bleDWriteCondition.awaitMilli(1000)) {
+                    if(bleDWriteCondition.awaitMilli(3000)) {
+                        Log.e(TAG, "writeDescriptor timed out!");
                         mRval = -1;
                     } else {
                         mRval = bleDWriteCondition.stat;
