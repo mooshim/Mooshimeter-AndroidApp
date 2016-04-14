@@ -46,9 +46,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class PeripheralWrapper {
     private static final String TAG="PeripheralWrapper";
-    private static final Lock bleLock= new ReentrantLock();
-
-    private static final Lock conditionLock= new ReentrantLock();
+    private static final ReentrantLock bleLock= new ReentrantLock(true);
+    private static final ReentrantLock conditionLock= new ReentrantLock(true);
 
     protected Context mContext;
     private BluetoothGatt mBluetoothGatt;

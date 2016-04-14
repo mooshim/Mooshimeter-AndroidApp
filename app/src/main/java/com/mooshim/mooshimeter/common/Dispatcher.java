@@ -19,7 +19,7 @@ public class Dispatcher {
     private final static String TAG="DISPATCH";
     private String thread_name;
     private Thread active_thread;
-    private Lock lock = new ReentrantLock();
+    private Lock lock = new ReentrantLock(true);
 
     public Dispatcher(String name_arg) {
         thread_name = name_arg;
