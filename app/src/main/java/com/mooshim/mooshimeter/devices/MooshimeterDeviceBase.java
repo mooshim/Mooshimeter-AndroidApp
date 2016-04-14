@@ -31,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements MooshimeterControlInterface {
     ////////////////////////////////
@@ -101,11 +102,11 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
 
     // Display control settings
     public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
-    public final Map<Channel,Boolean> range_auto = new HashMap<>();
+    public final Map<Channel,Boolean> range_auto = new ConcurrentHashMap<>();
     public boolean         rate_auto = true;
     public boolean         depth_auto = true;
 
-    public final Map<Channel,Boolean> speech_on = new HashMap<>();
+    public final Map<Channel,Boolean> speech_on = new ConcurrentHashMap<>();
 
     protected static void putInt24(ByteBuffer b, int arg) {
         // Puts the bottom 3 bytes of arg on to b

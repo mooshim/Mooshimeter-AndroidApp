@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.UUID.fromString;
 
@@ -68,7 +69,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         public ConfigTree.ConfigNode shared_node;
     }
 
-    final Map<Channel,Chooser<MooshimeterDeviceBase.InputDescriptor>> input_descriptors = new HashMap<>();
+    final Map<Channel,Chooser<MooshimeterDeviceBase.InputDescriptor>> input_descriptors = new ConcurrentHashMap<>();
 
     ////////////////////////////////
     // Private methods for dealing with config tree

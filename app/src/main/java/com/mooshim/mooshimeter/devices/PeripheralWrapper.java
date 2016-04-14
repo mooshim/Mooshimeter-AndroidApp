@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -56,8 +57,8 @@ public class PeripheralWrapper {
     protected Map<UUID,BluetoothGattService> mServices;
     protected Map<UUID,BluetoothGattCharacteristic> mCharacteristics;
     private Map<UUID,NotifyHandler> mNotifyCB;
-    private final HashMap<Integer, List<Runnable>> mConnectionStateCB;
-    private HashMap<Integer, Runnable> mConnectionStateCBByHandle;
+    private final Map<Integer, List<Runnable>> mConnectionStateCB;
+    private Map<Integer, Runnable> mConnectionStateCBByHandle;
 
     private int connectionStateCBHandle = 0;
 
@@ -139,15 +140,15 @@ public class PeripheralWrapper {
         mDevice = device;
         mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
 
-        mCharacteristics   = new HashMap<>();
-        mServices          = new HashMap<>();
-        mNotifyCB          = new HashMap<>();
-        mConnectionStateCB = new HashMap<>();
+        mCharacteristics   = new ConcurrentHashMap<>();
+        mServices          = new ConcurrentHashMap<>();
+        mNotifyCB          = new ConcurrentHashMap<>();
+        mConnectionStateCB = new ConcurrentHashMap<>();
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTED,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_DISCONNECTING,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTED,new ArrayList<Runnable>());
         mConnectionStateCB.put(BluetoothProfile.STATE_CONNECTING,new ArrayList<Runnable>());
-        mConnectionStateCBByHandle = new HashMap<>();
+        mConnectionStateCBByHandle = new ConcurrentHashMap<>();
 
         bleStateCondition    = new StatLockManager(conditionLock,"STATE");
         bleDiscoverCondition = new StatLockManager(conditionLock,"DISCO");
@@ -452,7 +453,7 @@ public class PeripheralWrapper {
         return (dval == BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
     }
 
-    private HashMap<UUID,Boolean> notification_disable_preempted = new HashMap<UUID, Boolean>();
+    private Map<UUID,Boolean> notification_disable_preempted = new ConcurrentHashMap<UUID, Boolean>();
 
     private int enableNotifyDirect(final UUID uuid, final boolean enable) {
         final BluetoothGattCharacteristic c = getChar(uuid);

@@ -7,8 +7,8 @@ import android.util.Log;
 
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by First on 12/4/2015.
@@ -16,7 +16,7 @@ import java.util.Map;
 public abstract class MyActivity extends Activity {
 
     // This is the master list of all Mooshimeters
-    protected static final Map<String,BLEDeviceBase> mMeterDict = new HashMap<String, BLEDeviceBase>();
+    protected static final Map<String,BLEDeviceBase> mMeterDict = new ConcurrentHashMap<>();
 
     public static BLEDeviceBase getDeviceWithAddress(String addr) {
         return mMeterDict.get(addr);

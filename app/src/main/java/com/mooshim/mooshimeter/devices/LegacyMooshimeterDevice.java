@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static java.util.UUID.fromString;
 
@@ -634,11 +635,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         meter_ch2_buf       = new MeterCH2Buf     (mPwrap);
         meter_time          = new MeterTime       (mPwrap);
 
-        offsets = new HashMap<>();
+        offsets = new ConcurrentHashMap<>();
         offsets.put(Channel.CH1, (float) 0);
         offsets.put(Channel.CH2,(float)0);
 
-        input_descriptors = new HashMap<>();
+        input_descriptors = new ConcurrentHashMap<>();
         input_descriptors.put(Channel.CH1, new Chooser<MooshimeterDeviceBase.InputDescriptor>());
         input_descriptors.put(Channel.CH2,new Chooser<MooshimeterDeviceBase.InputDescriptor>());
         input_descriptors.put(Channel.MATH, new Chooser<MooshimeterDeviceBase.InputDescriptor>());
