@@ -86,9 +86,8 @@ public class StatLockManager {
                 e.printStackTrace();
             }
             rval=true;
-        } finally {
-            return rval;
         }
+        return rval;
     }
     public boolean await() {
         return awaitMilli(0);
