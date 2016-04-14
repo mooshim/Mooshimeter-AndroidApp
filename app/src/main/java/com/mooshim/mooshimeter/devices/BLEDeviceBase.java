@@ -92,13 +92,17 @@ public class BLEDeviceBase {
         }
         BLEDeviceBase rval;
         if(isInOADMode()) {
+            Log.d(TAG,"Wrapping as an OADDevice");
             rval = new OADDevice(mPwrap);
         } else if(mBuildTime < 1454355414) {
+            Log.d(TAG,"Wrapping as a LegacyMooshimeter");
             rval = new LegacyMooshimeterDevice(mPwrap);
         } else if(mBuildTime <= Util.getBundledFirmwareVersion()){
+            Log.d(TAG,"Wrapping as a Mooshimeter");
             rval = new MooshimeterDevice(mPwrap);
         } else {
             // TODO: RAISE SOME KIND OF WARNING TO UPDATE THE APP
+            Log.d(TAG,"Don't recognize the FW... throwing a hail mary and wrapping as MooshimeterDevice");
             rval = new MooshimeterDevice(mPwrap);
         }
         // FIXME: This is hacked up.

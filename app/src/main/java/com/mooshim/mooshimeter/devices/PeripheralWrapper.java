@@ -102,13 +102,23 @@ public class PeripheralWrapper {
                         Log.d(TAG,"WAITING ON conditionLock");
                     }
                     conditionLock.lock();
+                    Log.d(TAG, "MAKING PROTECTED CALL");
                     r.call();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } finally {
-                    Log.d(TAG,"RELEASING LOCKS");
-                    conditionLock.unlock();
-                    bleLock.unlock();
+                    boolean released = false;
+                    if(conditionLock.isHeldByCurrentThread()) {
+                        conditionLock.unlock();
+                        released = true;
+                    }
+                    if(bleLock.isHeldByCurrentThread()) {
+                        bleLock.unlock();
+                        released = true;
+                    }
+                    if(released) {
+                        Log.d(TAG,"RELEASED");
+                    }
                 }
             }
         };
