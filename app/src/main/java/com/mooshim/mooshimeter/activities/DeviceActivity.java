@@ -174,7 +174,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // I still don't understand why, but mMeter keeps getting set to null!  WHY ANDROID WHY?!
         if(mMeter==null) {
-            onBackPressed();
+            Log.e(TAG,"GOT A NULL MMETER IN onPause!");
+            return;
         }
         if(!(mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH1) || mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH2))) {
             Util.dispatch(new Runnable() {
@@ -216,7 +217,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         // For some reason, mMeter ends up null in lifecycle transistions sometimes
         // Double check here... still haven't figured this bug out.  FIXME
         Intent intent = getIntent();
-        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
+        try {
+            mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
+        }catch(ClassCastException e) {
+            Log.e(TAG, "Squirrelly ClassCastException! Diagnose me!");
+            mMeter = null;
+        }
         if(mMeter==null) {
             onBackPressed();
         }
