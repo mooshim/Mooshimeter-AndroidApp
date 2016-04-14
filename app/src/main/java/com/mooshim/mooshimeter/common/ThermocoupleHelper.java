@@ -1,5 +1,7 @@
 package com.mooshim.mooshimeter.common;
 
+import android.util.Log;
+
 /**
  * Created by First on 3/26/2016.
  */
@@ -19,9 +21,15 @@ public class ThermocoupleHelper {
             double uv = v*1e6;
             double out = 0.0;
             int pow = 0;
+            if(coefficients.length != 10) {
+                Log.w("THERMO", "Coefficients vector is too short, result might be inaccurate");
+            }
             for(double c:coefficients) {
                 out += c*Math.pow(uv,pow);
                 pow++;
+            }
+            if(out < low || out > high) {
+                Log.w("THERMO", "Using polynomial fit outside of its recommended range, result might be inaccurate");
             }
             return out;
         }
@@ -33,12 +41,17 @@ public class ThermocoupleHelper {
             1.036969e-11,
             -2.549687e-16
     },0,760);
-    public static final helper K = new helper(new double[]{
+    public static final helper K = new helper(new double[]{ // TODO: REWARD gerischer@helmholtz-berlin.de
             0.0,
             2.508355e-2,
             7.860106e-8,
             -2.503131e-10,
             8.315270e-14,
+            -1.228034e-17,
+            9.804036e-22,
+            -4.413030e-26,
+            1.057734e-30,
+            -1.052755e-35,
     },0,500);
     public static final helper T = new helper(new double[]{
             0.0,
