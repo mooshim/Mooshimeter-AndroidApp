@@ -197,6 +197,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         // When resuming, Android may have destroyed objects we care about
         // Just fall back to the scan screen...
         if(mMeter==null) {
+            Log.e(TAG,"GOT A NULL MMETER IN onResume!");
             onBackPressed();
         }
 
