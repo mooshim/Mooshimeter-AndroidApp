@@ -967,53 +967,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return enob;
     }
 
-    /**
-     * Converted the voltage at the input of the AFE to the voltage at the HV input by examining the
-     * meter settings
-     * @param adc_voltage   Voltage at the AFE [V]
-     * @return  Voltage at the HV input terminal [V]
-     */
-
-    public double adcVoltageToHV(final double adc_voltage) {
-        switch( (meter_settings.adc_settings & ADC_SETTINGS_GPIO_MASK) >> 4 ) {
-            case 0x00:
-                // 1.2V range
-                return adc_voltage;
-            case 0x01:
-                // 60V range
-                return ((10e6+160e3)/(160e3)) * adc_voltage;
-            case 0x02:
-                // 1000V range
-                return ((10e6+11e3)/(11e3)) * adc_voltage;
-            default:
-                Log.w(TAG,"Invalid setting!");
-                return 0.0;
-        }
-    }
-
-    /**
-     * Convert voltage at the input of the AFE to temperature
-     * @param adc_voltage   Voltage at the AFE [V]
-     * @return              Temperature [C]
-     */
-
-    public double adcVoltageToTemp(double adc_voltage) {
-        adc_voltage -= 145.3e-3; // 145.3mV @ 25C
-        adc_voltage /= 490e-6;   // 490uV / C
-        double temp_c = 25.0 + adc_voltage;
-        switch(disp_temp_units) {
-            case CELSIUS:
-                return temp_c;
-            case FAHRENHEIT:
-                return temp_c*1.8 + 32;
-            case KELVIN:
-                return temp_c + 273.15;
-        }
-        // Should never get here
-        new Exception().printStackTrace();
-        return temp_c;
-    }
-
     @Override
     public MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(Channel c) {
         return input_descriptors.get(c).getChosen();

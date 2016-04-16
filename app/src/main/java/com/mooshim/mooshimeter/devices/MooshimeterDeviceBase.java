@@ -64,12 +64,6 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
 
     private static final String TAG="MooshimeterDeviceBase";
 
-    public enum TEMP_UNITS {
-        CELSIUS,
-        FAHRENHEIT,
-        KELVIN
-    }
-
     private static MooshimeterDelegate dummy_delegate = new MooshimeterDelegate() {
         @Override
         public void onInit() {        }
@@ -101,7 +95,6 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     public int disconnect_handle;
 
     // Display control settings
-    public TEMP_UNITS      disp_temp_units = TEMP_UNITS.CELSIUS;
     public final Map<Channel,Boolean> range_auto = new ConcurrentHashMap<>();
     public boolean         rate_auto = true;
     public boolean         depth_auto = true;
