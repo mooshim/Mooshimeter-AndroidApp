@@ -765,7 +765,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public int getLoggingIntervalMS() {
-        return (Integer)getValueAt("LOG:INTERVAL");
+        return 1000*(Integer)getValueAt("LOG:INTERVAL");
     }
     @Override
     public MeterReading getValue(Channel c) {
