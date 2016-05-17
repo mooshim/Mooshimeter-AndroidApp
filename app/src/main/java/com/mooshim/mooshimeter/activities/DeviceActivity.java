@@ -384,8 +384,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         Util.setText(input_set_buttons[c], s);
     }
     private void range_button_refresh(final int c) {
-        String lval = "";
-        lval = mMeter.getRangeLabel(chanEnum(c));
+        String lval = mMeter.getRangeLabel(chanEnum(c));
         autoButtonRefresh(range_buttons[c], lval, mMeter.range_auto.get(chanEnum(c)));
     }
     private void valueLabelRefresh(final int c,final MeterReading val) {

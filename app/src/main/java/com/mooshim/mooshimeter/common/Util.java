@@ -507,7 +507,7 @@ public class Util {
     // Functions for dealing with persistent global preferences
     //////////////////
     public static class preference_keys {
-        public static String
+        public static final String
         USE_FAHRENHEIT= "USE_FAHRENHEIT";
     }
 
