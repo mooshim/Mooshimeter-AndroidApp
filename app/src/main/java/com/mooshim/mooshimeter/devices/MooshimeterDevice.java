@@ -31,6 +31,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     and the METER_ fields are only accessible when connected in meter mode.
      */
     public static class mUUID {
+        private mUUID() {}
         public final static UUID
             METER_SERVICE       = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
             METER_SERIN         = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),

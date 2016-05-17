@@ -55,6 +55,8 @@ import java.util.concurrent.Semaphore;
  */
 public class Util {
 
+    private Util() {}
+
     private final static String TAG = "UTIL";
 
     private static Context mContext = null;
@@ -490,6 +492,7 @@ public class Util {
     }
 
     public static class TemperatureUnitsHelper {
+        private TemperatureUnitsHelper() {}
         public static float AbsK2C(float K) {
             return (float) (K-273.15);
         }
@@ -507,6 +510,7 @@ public class Util {
     // Functions for dealing with persistent global preferences
     //////////////////
     public static class preference_keys {
+        private preference_keys() {}
         public static String
         USE_FAHRENHEIT= "USE_FAHRENHEIT";
     }

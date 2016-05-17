@@ -43,6 +43,7 @@ public class BLEDeviceBase {
      */
 
     public static final class mServiceUUIDs {
+        private mServiceUUIDs() {}
         public final static UUID
         METER_SERVICE      = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
         OAD_SERVICE_UUID   = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4");
@@ -116,6 +117,7 @@ public class BLEDeviceBase {
     ////////////////////////////////
 
     public static final class mPreferenceKeys {
+        private mPreferenceKeys() {}
         public static final String
                 AUTOCONNECT = "AUTOCONNECT",
                 SKIP_UPGRADE= "SKIP_UPGRADE";
