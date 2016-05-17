@@ -106,7 +106,7 @@ public class ConfigTree {
         public String getShortName() {
             return name;
         }
-        private void getLongName(StringBuffer rval, String sep) {
+        private void getLongName(StringBuilder rval, String sep) {
             // This is the recursive call
             if(parent!=null) {
                 parent.getLongName(rval, sep);
@@ -116,7 +116,7 @@ public class ConfigTree {
         }
         public String getLongName(String sep) {
             if(cache_longname==null) {
-                StringBuffer rval = new StringBuffer();
+                StringBuilder rval = new StringBuilder();
                 getLongName(rval, sep);
                 // This will have an extra seperator on the end and beginning
                 rval.deleteCharAt(rval.length() - 1);
