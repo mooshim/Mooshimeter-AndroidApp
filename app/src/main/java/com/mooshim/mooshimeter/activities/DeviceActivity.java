@@ -59,10 +59,10 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private final TextView[] value_labels = new TextView[2];
     private TextView power_label;
 
-    private final Button[] input_set_buttons = {null,null};
-    private final Button[] range_buttons     = {null,null};
-    private final Button[] zero_buttons      = {null,null};
-    private final Button[] sound_buttons     = {null,null};
+    private static final Button[] input_set_buttons = {null,null};
+    private static final Button[] range_buttons     = {null,null};
+    private static final Button[] zero_buttons      = {null,null};
+    private static final Button[] sound_buttons     = {null,null};
 
     private Button rate_button;
     private Button depth_button;
