@@ -68,7 +68,7 @@ public class OADDevice extends BLEDeviceBase {
         public UUID getUUID() { return mUUID.OAD_IMAGE_IDENTIFY; }
 
         @Override
-        public void unpack_inner(byte[] buf) {
+        public void unpackInner(byte[] buf) {
 
         }
 
@@ -135,7 +135,7 @@ public class OADDevice extends BLEDeviceBase {
         }
 
         @Override
-        public void unpack_inner(byte[] in) {
+        public void unpackInner(byte[] in) {
             ByteBuffer b = wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             requestedBlock = b.getShort();

@@ -6,14 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.RelativeSizeSpan;
 import android.util.Log;
 import android.util.TypedValue;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -267,15 +265,15 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                rate_button_refresh();
-                depth_button_refresh();
-                logging_button_refresh();
-                graph_button_refresh();
+                rateButtonRefresh();
+                depthButtonRefresh();
+                loggingButtonRefresh();
+                graphButtonRefresh();
                 for (int c = 0; c < 2; c++) {
-                    input_set_button_refresh(c);
-                    range_button_refresh(c);
-                    sound_button_refresh(c);
-                    zero_button_refresh(c, mMeter.getOffset(chanEnum(c)));
+                    inputSetButtonRefresh(c);
+                    rangeButtonRefresh(c);
+                    soundButtonRefresh(c);
+                    zeroButtonRefresh(c, mMeter.getOffset(chanEnum(c)));
                 }
             }
         });
@@ -345,25 +343,25 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             }
         });
     }
-    private void math_label_refresh(final MeterReading val) {
+    private void mathLabelRefresh(final MeterReading val) {
         Util.setText(power_label,val.toString());
         Util.setText(power_button, mMeter.getSelectedDescriptor(MooshimeterControlInterface.Channel.MATH).name);
     }
-    private void math_button_refresh() {
-        math_label_refresh(mMeter.getValue(MooshimeterControlInterface.Channel.MATH));
+    private void mathButtonRefresh() {
+        mathLabelRefresh(mMeter.getValue(MooshimeterControlInterface.Channel.MATH));
     }
-    private void graph_button_refresh() {}
-    private void rate_button_refresh() {
+    private void graphButtonRefresh() {}
+    private void rateButtonRefresh() {
         int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
         autoButtonRefresh(rate_button, title, mMeter.rate_auto);
     }
-    private void depth_button_refresh() {
+    private void depthButtonRefresh() {
         int depth = mMeter.getBufferDepth();
         String title = String.format("%dsmpl", depth);
         autoButtonRefresh(depth_button, title, mMeter.depth_auto);
     }
-    private void logging_button_refresh() {
+    private void loggingButtonRefresh() {
         int s = mMeter.getLoggingStatus();
         final String title;
         final boolean logging_ok = s==0;
@@ -379,11 +377,11 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             }
         });
     }
-    private void input_set_button_refresh(final int c) {
+    private void inputSetButtonRefresh(final int c) {
         final String s = mMeter.getInputLabel(chanEnum(c));
         Util.setText(input_set_buttons[c], s);
     }
-    private void range_button_refresh(final int c) {
+    private void rangeButtonRefresh(final int c) {
         String lval = "";
         lval = mMeter.getRangeLabel(chanEnum(c));
         autoButtonRefresh(range_buttons[c], lval, mMeter.range_auto.get(chanEnum(c)));
@@ -393,7 +391,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         final String label_text = val.toString();
         Util.setText(v, label_text);
     }
-    private void zero_button_refresh (final int c, MeterReading value) {
+    private void zeroButtonRefresh(final int c, MeterReading value) {
         Log.i(TAG,"zerorefresh");
         final String s;
         if(value.value == 0.0) {
@@ -404,7 +402,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         }
         Util.setText(zero_buttons[c], s);
     }
-    private void sound_button_refresh(final int c) {
+    private void soundButtonRefresh(final int c) {
         Log.i(TAG,"soundrefresh");
         final Button b = sound_buttons[c];
         final String s = "SOUND:"+(mMeter.speech_on.get(chanEnum(c))?"ON":"OFF");
@@ -467,8 +465,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             mMeter.speech_on.put(chanEnum(c == 0 ? 1 : 0), false);
             mMeter.speech_on.put(chanEnum(c),true);
         }
-        sound_button_refresh(0);
-        sound_button_refresh(1);
+        soundButtonRefresh(0);
+        soundButtonRefresh(1);
     }
 
     public void onCh1InputSetClick(View v) {
@@ -567,7 +565,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        math_button_refresh();
+                        mathButtonRefresh();
                     }
                 });
             }
@@ -620,7 +618,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 }
                 break;
             case MATH:
-                math_label_refresh(val);
+                mathLabelRefresh(val);
                 break;
         }
     }
@@ -631,26 +629,26 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     @Override
     public void onSampleRateChanged(int i, int sample_rate_hz) {
-        rate_button_refresh();
+        rateButtonRefresh();
     }
     @Override
     public void onBufferDepthChanged(int i, int buffer_depth) {
-        depth_button_refresh();
+        depthButtonRefresh();
     }
     @Override
     public void onLoggingStatusChanged(boolean on, int new_state, String message) {
-        logging_button_refresh();
+        loggingButtonRefresh();
     }
     @Override
     public void onRangeChange(MooshimeterControlInterface.Channel c, MooshimeterDeviceBase.RangeDescriptor new_range) {
-        range_button_refresh(c.ordinal());
+        rangeButtonRefresh(c.ordinal());
     }
     @Override
     public void onInputChange(MooshimeterControlInterface.Channel c, MooshimeterDeviceBase.InputDescriptor descriptor) {
-        input_set_button_refresh(c.ordinal());
+        inputSetButtonRefresh(c.ordinal());
     }
     @Override
     public void onOffsetChange(MooshimeterControlInterface.Channel c, MeterReading offset) {
-        zero_button_refresh(c.ordinal(),offset);
+        zeroButtonRefresh(c.ordinal(), offset);
     }
 }

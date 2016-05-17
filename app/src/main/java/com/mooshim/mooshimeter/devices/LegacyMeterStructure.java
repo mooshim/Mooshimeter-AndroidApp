@@ -35,7 +35,7 @@ public abstract class LegacyMeterStructure {
             return;
         }
         try {
-            unpack_inner(in);
+            unpackInner(in);
         }
         catch(BufferUnderflowException e){
             Log.e(TAG,"Received incorrect pack length while unpacking!");
@@ -96,7 +96,7 @@ public abstract class LegacyMeterStructure {
      * Interpret a BLE payload and set the instance members
      * @param in A byte[] received as a BLE payload
      */
-    public abstract void unpack_inner(byte[] in);
+    public abstract void unpackInner(byte[] in);
 
     /**
      *
