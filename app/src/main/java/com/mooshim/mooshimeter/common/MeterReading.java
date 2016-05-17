@@ -78,7 +78,7 @@ public class MeterReading {
             return units;
         }
 
-        final String prefixes[] = new String[]{"n","\u03bc","m","","k","M","G"};
+        final String[] prefixes = new String[]{"n","\u03bc","m","","k","M","G"};
         float lval = value;
         if(Math.abs(lval) > 1.2*max) {
             return "OUT OF RANGE";

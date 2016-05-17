@@ -95,7 +95,7 @@ public class Util {
     }
 
     public static byte[] getFileBlock(short bnum) {
-        final byte rval[] = new byte[OAD_BLOCK_SIZE];
+        final byte[] rval = new byte[OAD_BLOCK_SIZE];
         System.arraycopy(mFileBuffer, bnum*OAD_BLOCK_SIZE, rval, 0, OAD_BLOCK_SIZE);
         return rval;
     }

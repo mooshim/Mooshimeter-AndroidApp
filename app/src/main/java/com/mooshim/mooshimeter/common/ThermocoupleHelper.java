@@ -8,9 +8,9 @@ public class ThermocoupleHelper {
     // ITS-90 Thermocouple Direct and Inverse Polynomials
     // https://www.omega.com/temperature/Z/pdf/z198-201.pdf
     public static class helper {
-        final double coefficients[];
+        final double[] coefficients;
         final double low,high;
-        public helper(double c[], double low, double high) {
+        public helper(double[] c, double low, double high) {
             coefficients=c;
             this.low=low;
             this.high=high;

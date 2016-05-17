@@ -17,7 +17,7 @@ public interface MooshimeterDelegate {
 
     void onSampleReceived(final double timestamp_utc, final MooshimeterControlInterface.Channel c, final MeterReading val);
 
-    void onBufferReceived(final double timestamp_utc, final MooshimeterControlInterface.Channel c, final float dt, final float val[]);
+    void onBufferReceived(final double timestamp_utc, final MooshimeterControlInterface.Channel c, final float dt, final float[] val);
 
     void onSampleRateChanged(final int i, final int sample_rate_hz);
 
