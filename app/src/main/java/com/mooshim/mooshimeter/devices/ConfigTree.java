@@ -26,6 +26,7 @@ import java.util.zip.Inflater;
  * Created by First on 2/4/2016.
  */
 public class ConfigTree {
+    public static final String THIS_COMMAND_TAKES_NO_PAYLOAD = "This command takes no payload";
     //////////////////////
     // STATICS
     //////////////////////
@@ -151,12 +152,12 @@ public class ConfigTree {
         public Object parseValueString(String str) {
             switch (ntype) {
                 case NTYPE.PLAIN:
-                    Log.e(TAG, "This command takes no payload");
+                    Log.e(TAG, THIS_COMMAND_TAKES_NO_PAYLOAD);
                     return null;
                 case NTYPE.CHOOSER:
                     return Byte.parseByte(str);
                 case NTYPE.LINK:
-                    Log.e(TAG, "This command takes no payload");
+                    Log.e(TAG, THIS_COMMAND_TAKES_NO_PAYLOAD);
                     return null;
                 case NTYPE.VAL_U8:
                 case NTYPE.VAL_S8:
@@ -187,13 +188,13 @@ public class ConfigTree {
             b.put((byte) opcode);
             switch (ntype) {
                 case NTYPE.PLAIN:
-                    Log.e(TAG, "This command takes no payload");
+                    Log.e(TAG, THIS_COMMAND_TAKES_NO_PAYLOAD);
                     break;
                 case NTYPE.CHOOSER:
                     b.put((Byte)new_value);
                     break;
                 case NTYPE.LINK:
-                    Log.e(TAG, "This command takes no payload");
+                    Log.e(TAG, THIS_COMMAND_TAKES_NO_PAYLOAD);
                     return;
                 case NTYPE.VAL_U8:
                 case NTYPE.VAL_S8:

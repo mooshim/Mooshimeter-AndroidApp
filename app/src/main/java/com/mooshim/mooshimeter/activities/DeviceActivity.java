@@ -43,6 +43,7 @@ import me.grantland.widget.AutofitHelper;
 
 public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final String TAG = "DeviceActivity";
+    public static final String AUTORANGE = "AUTORANGE";
 
     private static int PREF_ACT_REQ = 1;
     private static int GRAPH_ACT_REQ = 2;
@@ -445,7 +446,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void onRangeClick(final int c) {
         List<String> options = mMeter.getRangeList(chanEnum(c));
-        options.add(0, "AUTORANGE");
+        options.add(0, AUTORANGE);
         makePopupMenu(options, range_buttons[c], new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
@@ -490,7 +491,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     public void onRateClick(View v) {
         Log.i(TAG, "onRateClick");
         List<String> options = mMeter.getSampleRateList();
-        options.add(0, "AUTORANGE");
+        options.add(0, AUTORANGE);
         makePopupMenu(options, rate_button, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
@@ -507,7 +508,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     public void onDepthClick(View v) {
         Log.i(TAG, "onDepthClick");
         List<String> options = mMeter.getBufferDepthList();
-        options.add(0, "AUTORANGE");
+        options.add(0, AUTORANGE);
         makePopupMenu(options, depth_button, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
@@ -651,6 +652,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     @Override
     public void onOffsetChange(MooshimeterControlInterface.Channel c, MeterReading offset) {
-        zero_button_refresh(c.ordinal(),offset);
+        zero_button_refresh(c.ordinal(), offset);
     }
 }
