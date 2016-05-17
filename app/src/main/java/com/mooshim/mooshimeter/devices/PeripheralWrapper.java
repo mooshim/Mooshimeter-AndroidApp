@@ -538,8 +538,7 @@ public class PeripheralWrapper {
         try {
             Method localMethod = mBluetoothGatt.getClass().getMethod("refresh");
             if (localMethod != null) {
-                final boolean b = ((Boolean) localMethod.invoke(mBluetoothGatt)).booleanValue();
-                return b;
+                return ((Boolean) localMethod.invoke(mBluetoothGatt));
             } else {
                 Log.e(TAG, "Unable to wipe the GATT Cache");
             }
