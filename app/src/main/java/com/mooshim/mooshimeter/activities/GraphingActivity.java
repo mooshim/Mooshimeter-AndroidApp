@@ -77,7 +77,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     // BEHAVIOR CONTROL
     ///////////////////////
 
-    final int maxNumberOfPoints = 10000;
+    final static int maxNumberOfPoints = 10000;
     int maxNumberOfPointsOnScreen = 32;
     ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
     boolean scrollLockOn = true;
