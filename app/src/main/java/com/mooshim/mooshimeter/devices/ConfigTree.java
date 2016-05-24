@@ -32,6 +32,7 @@ public class ConfigTree {
     private static String TAG = "ConfigTree";
 
     public static class NTYPE {
+        private NTYPE() {}
         public static final byte NOTSET  =-1 ; // May be an informational node, or a choice in a chooser
         public static final byte PLAIN   =0 ; // May be an informational node, or a choice in a chooser
         public static final byte LINK    =1 ; // A link to somewhere else in the tree

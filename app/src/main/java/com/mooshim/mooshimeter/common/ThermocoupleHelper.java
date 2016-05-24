@@ -6,6 +6,9 @@ import android.util.Log;
  * Created by First on 3/26/2016.
  */
 public class ThermocoupleHelper {
+
+    private ThermocoupleHelper() {}
+
     // All coefficients from Omega's datasheet:
     // ITS-90 Thermocouple Direct and Inverse Polynomials
     // https://www.omega.com/temperature/Z/pdf/z198-201.pdf

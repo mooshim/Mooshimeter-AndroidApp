@@ -49,6 +49,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      */
 
     public static class mUUID {
+        private mUUID() {}
         public final static UUID
                 METER_SERVICE      = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
                 METER_INFO         = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),
