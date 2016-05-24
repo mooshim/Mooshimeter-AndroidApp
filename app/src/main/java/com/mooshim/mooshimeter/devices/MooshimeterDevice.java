@@ -315,8 +315,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             }
             @Override
             public MeterReading calculate() {
-                MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
-                return rval;
+                return MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
             }
         };
         l.add(mid);
@@ -780,8 +779,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 if(id.meterSettingsAreValid()) {
                     return id.calculate();
                 } else {
-                    MeterReading rval = new MeterReading(0,0,0,"INVALID INPUTS");
-                    return rval;
+                    return new MeterReading(0,0,0,"INVALID INPUTS");
                 }
         }
         return new MeterReading();
