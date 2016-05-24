@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import static java.util.UUID.fromString;
 
 public class MooshimeterDevice extends MooshimeterDeviceBase{
+    public static final String REAL_PWR = "REAL_PWR";
+    public static final String RANGE_I = ":RANGE_I";
     ////////////////////////////////
     // STATICS
     ////////////////////////////////
@@ -295,7 +297,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             @Override
             public MeterReading calculate() {
                 MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
-                rval.value = (Float)tree.getValueAt("REAL_PWR");
+                rval.value = (Float)tree.getValueAt(REAL_PWR);
                 return rval;
             }
         };
@@ -336,7 +338,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 // We use MeterReading.mult to ensure we get the decimals right
                 MeterReading rval = MeterReading.mult(getValue(Channel.CH1),getValue(Channel.CH2));
                 // Then overload the value
-                rval.value = (Float)tree.getValueAt("REAL_PWR")/rval.value;
+                rval.value = (Float)tree.getValueAt(REAL_PWR)/rval.value;
                 rval.units = "";
                 return rval;
             }
@@ -454,7 +456,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 delegate.onBufferReceived(timestamp_utc, Channel.CH2, dt, samplebuf);
             }
         });
-        attachCallback("REAL_PWR", new NotifyHandler() {
+        attachCallback(REAL_PWR, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 delegate.onSampleReceived(timestamp_utc,Channel.MATH, getValue(Channel.MATH));
@@ -575,7 +577,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public boolean bumpRange(Channel channel, boolean expand) {
         ConfigTree.ConfigNode rnode = getInputNode(channel);
-        int cnum = (Integer)tree.getValueAt(channel.name()+":RANGE_I");
+        int cnum = (Integer)tree.getValueAt(channel.name()+ RANGE_I);
         int n_choices = rnode.children.size();
         // If we're not wrapping and we're against a wall
         if (cnum == 0 && !expand) {
@@ -591,14 +593,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     private float getMinRangeForChannel(Channel c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
-        int cnum = (Integer)tree.getValueAt(c.name()+":RANGE_I");
+        int cnum = (Integer)tree.getValueAt(c.name()+ RANGE_I);
         cnum = cnum>0?cnum-1:cnum;
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)0.9*Float.parseFloat(choice.getShortName());
     }
     private float getMaxRangeForChannel(Channel c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
-        int cnum = (Integer)tree.getValueAt(c.name()+":RANGE_I");
+        int cnum = (Integer)tree.getValueAt(c.name()+ RANGE_I);
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)1.1*Float.parseFloat(choice.getShortName());
     }
@@ -792,7 +794,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public String getRangeLabel(Channel c) {
         InputDescriptor id = (InputDescriptor)getSelectedDescriptor(c);
-        int range_i = (Integer)tree.getValueAt(c.name() + ":RANGE_I");
+        int range_i = (Integer)tree.getValueAt(c.name() + RANGE_I);
         // FIXME: This is borking because our internal descriptor structures are out of sync with the configtree updates
         RangeDescriptor rd =(RangeDescriptor)id.ranges.get(range_i);
         return rd.name;
@@ -830,7 +832,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
                 chooser.choose(cast);
                 // Reset range manually... probably a cleaner way to do this
-                tree.getNode(c.name()+":RANGE_I").setValue(0);
+                tree.getNode(c.name()+ RANGE_I).setValue(0);
 
                 cast.input_node.choose();
                 if(cast.shared_node!=null) {
