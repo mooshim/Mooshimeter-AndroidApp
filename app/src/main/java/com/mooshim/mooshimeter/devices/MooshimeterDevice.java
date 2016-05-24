@@ -83,7 +83,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             return String.format("%s",d);
     }
     private String toRangeLabel(float max){
-        final String prefixes[] = new String[]{"n","?","m","","k","M","G"};
+        final String[] prefixes = new String[]{"n","?","m","","k","M","G"};
         int prefix_i = 3;
         while(max >= 1000.0) {
             max /= 1000;
@@ -665,7 +665,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // For the purposes of figuring out how many digits to display
         // Based on ADS1292 datasheet and some special sauce.
         // And empirical measurement of CH1 (which is super noisy due to chopper)
-        final double base_enob_table[] = {
+        final double[] base_enob_table = {
                 20.10,
                 19.58,
                 19.11,
@@ -750,7 +750,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public String getLoggingStatusMessage() {
-        final String messages[] = {
+        final String[] messages = {
                 "OK",
                 "NO_MEDIA",
                 "MOUNT_FAIL",

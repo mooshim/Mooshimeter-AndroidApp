@@ -292,8 +292,8 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         }
     }
     public class MeterSample      extends LegacyMeterStructure {
-        public final int   reading_lsb[] = new int[2];
-        public final float reading_ms[]  = new float[2];
+        public final int[]   reading_lsb = new int[2];
+        public final float[] reading_ms  = new float[2];
         public MeterSample(PeripheralWrapper p) {super(p);}
         @Override
         public UUID getUUID() { return mUUID.METER_SAMPLE; }
@@ -938,7 +938,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         // For the purposes of figuring out how many digits to display
         // Based on ADS1292 datasheet and some special sauce.
         // And empirical measurement of CH1 (which is super noisy due to chopper)
-        final double base_enob_table[] = {
+        final double[] base_enob_table = {
                 20.10,
                 19.58,
                 19.11,
@@ -946,7 +946,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 17.36,
                 14.91,
                 12.53};
-        final int pga_gain_table[] = {6,1,2,3,4,8,12};
+        final int[] pga_gain_table = {6,1,2,3,4,8,12};
         final int samplerate_setting =meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK;
         final int buffer_depth_log2 = meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2;
         double enob = base_enob_table[ samplerate_setting ];
