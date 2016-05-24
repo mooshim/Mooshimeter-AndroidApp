@@ -142,7 +142,7 @@ public class Util {
         main_dispatcher.dispatch(r);
     }
 
-    public static void dispatch_cb(Runnable r) {
+    public static void dispatchCb(Runnable r) {
         cb_dispatcher.dispatch(r);
     }
     public static boolean onCBThread() {
@@ -493,16 +493,16 @@ public class Util {
 
     public static class TemperatureUnitsHelper {
         private TemperatureUnitsHelper() {}
-        public static float AbsK2C(float K) {
+        public static float absK2C(float K) {
             return (float) (K-273.15);
         }
-        public static float AbsK2F(float K) {
+        public static float absK2F(float K) {
             return (float) ((K - 273.15)* 1.8000 + 32.00);
         }
-        public static float AbsC2F(float C) {
+        public static float absC2F(float C) {
             return (float) ((C)* 1.8000 + 32.00);
         }
-        public static float RelK2F(float C) {
+        public static float aelK2F(float C) {
             return (float) ((C)* 1.8000);
         }
     }

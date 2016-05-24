@@ -10,7 +10,6 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -215,14 +214,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         if(id.units.equals("K")) {
             // Nobody likes Kelvin!  C or F?
             if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
+                rval = new MeterReading(Util.TemperatureUnitsHelper.absK2F(val),
                                         (int)Math.log10(Math.pow(2.0, enob)),
-                                        Util.TemperatureUnitsHelper.AbsK2F(max),
+                                        Util.TemperatureUnitsHelper.absK2F(max),
                                         "F");
             } else {
-                rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2C(val),
+                rval = new MeterReading(Util.TemperatureUnitsHelper.absK2C(val),
                                         (int)Math.log10(Math.pow(2.0, enob)),
-                                        Util.TemperatureUnitsHelper.AbsK2C(max),
+                                        Util.TemperatureUnitsHelper.absK2C(max),
                                         "C");
             }
         } else {
@@ -366,7 +365,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
                 if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                    delta_c = Util.TemperatureUnitsHelper.RelK2F(delta_c);
+                    delta_c = Util.TemperatureUnitsHelper.aelK2F(delta_c);
                     rval = new MeterReading(internal_temp+delta_c,5,2000,"F");
                 } else {
                     rval = new MeterReading(internal_temp+delta_c,5,1000,"C");

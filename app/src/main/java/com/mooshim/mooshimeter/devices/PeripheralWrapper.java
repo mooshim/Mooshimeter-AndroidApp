@@ -36,13 +36,11 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class PeripheralWrapper {
@@ -177,7 +175,7 @@ public class PeripheralWrapper {
                     if (cb != null) {
                         final byte[] payload = val.clone();
                         final double timestamp = Util.getNanoTime();
-                        Util.dispatch_cb(new Runnable() {
+                        Util.dispatchCb(new Runnable() {
                             @Override
                             public void run() {
                                 cb.onReceived(timestamp, payload);
@@ -209,7 +207,7 @@ public class PeripheralWrapper {
                 synchronized (mConnectionStateCB) {
                     List<Runnable> cbs = mConnectionStateCB.get(mConnectionState);
                     for(Runnable cb : cbs) {
-                        Util.dispatch_cb(cb);
+                        Util.dispatchCb(cb);
                     }
                 }
                 bleStateCondition   .sig();

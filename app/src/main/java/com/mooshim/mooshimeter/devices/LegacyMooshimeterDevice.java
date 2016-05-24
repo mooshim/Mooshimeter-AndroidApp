@@ -32,7 +32,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -203,7 +202,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         }
 
         @Override
-        public void unpack_inner(byte[] in) {
+        public void unpackInner(byte[] in) {
             ByteBuffer b = wrap(in);
 
             present_meter_state = b.get();
@@ -247,7 +246,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         }
 
         @Override
-        public void unpack_inner(byte[] in) {
+        public void unpackInner(byte[] in) {
             ByteBuffer b = wrap(in);
 
             sd_present              = b.get();
@@ -282,7 +281,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         }
 
         @Override
-        public void unpack_inner(byte[] in) {
+        public void unpackInner(byte[] in) {
             ByteBuffer b = wrap(in);
             b.order(ByteOrder.LITTLE_ENDIAN);
             pcb_version      = b.get();
@@ -311,7 +310,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         }
 
         @Override
-        public void unpack_inner(byte[] in) {
+        public void unpackInner(byte[] in) {
             ByteBuffer b = wrap(in);
 
             reading_lsb[0] = getInt24(b);
@@ -331,7 +330,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             return name.getBytes();
         }
         @Override
-        public void unpack_inner(final byte[] in) {
+        public void unpackInner(final byte[] in) {
             name = new String(in);
         }
     }
@@ -348,7 +347,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             return b.array();
         }
         @Override
-        public void unpack_inner(final byte[] in) {
+        public void unpackInner(final byte[] in) {
             ByteBuffer b = wrap(in);
             utc_time = b.getInt();
             // Prevent sign extension since Java will assume the int being unpacked is signed
@@ -370,7 +369,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             return null;
         }
         @Override
-        public void unpack_inner(byte[] arg) {
+        public void unpackInner(byte[] arg) {
             // Nasty synchonization hack
             meter_ch2_buf.buf_i = 0;
             final int nBytes = getBufferDepth()*3;
@@ -412,7 +411,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             return null;
         }
         @Override
-        public void unpack_inner(byte[] arg) {
+        public void unpackInner(byte[] arg) {
             // Nasty synchonization hack
             meter_ch1_buf.buf_i = 0;
             final int nBytes = getBufferDepth()*3;
@@ -796,7 +795,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
                 if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                    rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.RelK2F(delta),5,2000,"F");
+                    rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.aelK2F(delta),5,2000,"F");
                 } else {
                     rval = new MeterReading(internal_temp+delta,5,1000,"C");
                 }
@@ -1347,14 +1346,14 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             // Nobody likes Kelvin!  C or F?
             if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
                 if(relative) {
-                    rval = new MeterReading(Util.TemperatureUnitsHelper.RelK2F(val),
+                    rval = new MeterReading(Util.TemperatureUnitsHelper.aelK2F(val),
                                             (int)Math.log10(Math.pow(2.0, enob)),
-                                            Util.TemperatureUnitsHelper.RelK2F(max),
+                                            Util.TemperatureUnitsHelper.aelK2F(max),
                                             "F");
                 } else {
-                    rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2F(val),
+                    rval = new MeterReading(Util.TemperatureUnitsHelper.absK2F(val),
                                             (int) Math.log10(Math.pow(2.0, enob)),
-                                            Util.TemperatureUnitsHelper.AbsK2F(max),
+                                            Util.TemperatureUnitsHelper.absK2F(max),
                                             "F");
                 }
             } else {
@@ -1364,9 +1363,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                                             max,
                                             "C");
                 } else {
-                    rval = new MeterReading(Util.TemperatureUnitsHelper.AbsK2C(val),
+                    rval = new MeterReading(Util.TemperatureUnitsHelper.absK2C(val),
                                             (int)Math.log10(Math.pow(2.0, enob)),
-                                            Util.TemperatureUnitsHelper.AbsK2C(max),
+                                            Util.TemperatureUnitsHelper.absK2C(max),
                                             "C");
                 }
             }
