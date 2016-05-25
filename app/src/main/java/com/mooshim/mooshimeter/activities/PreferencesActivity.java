@@ -34,9 +34,6 @@ public class PreferencesActivity extends MyActivity {
 
     private Context mContext;
 
-    // Callback handles
-    private int disconnect_handle = -1;
-
 	// BLE
     private MooshimeterDeviceBase mMeter = null;
 
@@ -114,7 +111,6 @@ public class PreferencesActivity extends MyActivity {
         builder.add("Name", "Device name, broadcast over BLE.", makeButton("Set", new Runnable() {
             @Override
             public void run() {
-                // ADD SOME A POP UP TEXT FIELD HERE
                 Util.dispatch(new Runnable() {
                     @Override
                     public void run() {

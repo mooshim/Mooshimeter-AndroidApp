@@ -1,17 +1,16 @@
 package com.mooshim.mooshimeter.activities;
 
 import android.app.ActionBar;
-import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.ImageButton;
+import android.widget.PopupWindow;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.interfaces.GraphingActivityInterface;
@@ -19,7 +18,6 @@ import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
@@ -52,7 +50,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             0xFF888800, // R+G
     };
 
-    private enum ChDispModes {
+    public enum ChDispModes {
         OFF,
         LOCKED,
         MANUAL,
@@ -65,10 +63,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     // WIDGETS
     ///////////////////////
 
-    Button[] modeButtons = new Button[]{null,null};
-    Button sampleButton;
-    Button playButton;
-    ImageButton scrollLockButton;
+    public GraphSettingsView mSettingsView;
+    public PopupWindow mSettingsWindow;
+    public Button mConfigButton;
 
     LineChartView mChart;
     Axis xAxis, yAxisLeft, yAxisRight;
@@ -80,10 +77,10 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     final static int maxNumberOfPoints = 10000;
     int maxNumberOfPointsOnScreen = 32;
     ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
-    boolean scrollLockOn = true;
-    boolean xyModeOn = false;
-    boolean bufferModeOn = false;
-    boolean playing = true;
+    protected boolean scrollLockOn = true;
+    protected boolean xyModeOn = false;
+    protected boolean bufferModeOn = false;
+    protected boolean playing = true;
 
     private MooshimeterDeviceBase mMeter;
     private double time_start;
@@ -244,54 +241,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     ///////////////////////
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.menu_activity_graphing, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    private void toggleXYMode() {
-        xyModeOn = !xyModeOn;
-        if(xyModeOn) {
-            setXAxisTitle(mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1));
-            setYAxisTitle(0, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2));
-            setYAxisTitle(1, "NA");
-        } else {
-            setXAxisTitle("Time [s]");
-            setYAxisTitle(0, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1));
-            setYAxisTitle(1, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2));
-        }
-    }
-
-    private void toggleBufferMode() {
-        bufferModeOn = !bufferModeOn;
-        leftAxisValues.clear();
-        rightAxisValues.clear();
-        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH1,bufferModeOn);
-        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,bufferModeOn);
-        refreshSampleButton();
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle presses on the action bar items
-        switch (item.getItemId()) {
-            case R.id.action_buffer_mode_toggle:
-                toggleBufferMode();
-                break;
-            case R.id.action_xy_mode_toggle:
-                toggleXYMode();
-                break;
-            case R.id.action_back:
-                transitionToActivity(mMeter, ScanActivity.class);
-                break;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-        return true;
-    }
-
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_graphing);
@@ -299,20 +248,15 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         mChart.setViewportCalculationEnabled(false);
         mChart.setMaxZoom((float) 1e6);
 
+        mConfigButton = (Button)findViewById(R.id.config_btn);
+
         Intent intent = getIntent();
         mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
 
-        scrollLockButton = (ImageButton)findViewById(R.id.lock_right);
-        modeButtons[0] = (Button) findViewById(R.id.mode0);
-        modeButtons[1] = (Button) findViewById(R.id.mode1);
-        sampleButton = (Button) findViewById(R.id.n_samples);
-        playButton = (Button) findViewById(R.id.play_button);
-
-        refreshModeButton(0);
-        refreshModeButton(1);
-        refreshPlayButton();
-        refreshScrollLockButton();
-        refreshSampleButton();
+        mSettingsView = new GraphSettingsView(this, this);
+        mSettingsWindow = new PopupWindow(this);
+        mSettingsWindow.setContentView(mSettingsView);
+        mSettingsWindow.setOutsideTouchable(false);
 
         mChart.setInteractive(true);
         mChart.setZoomType(ZoomType.VERTICAL);
@@ -356,7 +300,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             @Override
             public void run() {
                 if(bufferModeOn) {
-                    toggleBufferMode();
+                    setBufferModeOn(false);
                 }
                 mMeter.pause();
                 mMeter.removeDelegate();
@@ -386,7 +330,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             public void run() {
                 mMeter.addDelegate(d);
                 if(bufferModeOn) {
-                    toggleBufferMode();
+                    setBufferModeOn(false);
                 }
                 if(playing) {
                     mMeter.stream();
@@ -408,149 +352,74 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     }
 
     /////////////////////////
-    // Widget Handlers+Refreshers
+    // Getters/Setters
     /////////////////////////
 
-    public void refreshModeButton(int i) {
-        final Button b = modeButtons[i];
-        final String s;
-        switch(dispModes[i]) {
-            case OFF:
-                s = "OFF "+Integer.toString(i+1);
-                break;
-            case LOCKED:
-                s = "LOCK "+Integer.toString(i+1);
-                break;
-            case MANUAL:
-                s = "MAN "+Integer.toString(i+1);
-                break;
-            case AUTO:
-                s = "AUTO "+Integer.toString(i+1);
-                break;
-            default:
-                s="WHAT";
-                break;
-        }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                b.setText(s);
-            }
-        });
-    }
-    public void onClickModeButton(int i) {
-        int other = (i+1)%2;
-        switch(dispModes[i]) {
-            case OFF:
-                dispModes[i] = ChDispModes.AUTO;
-                break;
-            case LOCKED:
-                dispModes[i] = ChDispModes.MANUAL;
-                if(dispModes[other]== ChDispModes.MANUAL) {
-                    dispModes[other] = ChDispModes.LOCKED;
-                }
-                break;
-            case MANUAL:
-                dispModes[i] = ChDispModes.OFF;
-                if(dispModes[other]== ChDispModes.LOCKED) {
-                    dispModes[other] = ChDispModes.MANUAL;
-                }
-                break;
-            case AUTO:
-                dispModes[i] = ChDispModes.MANUAL;
-                if(dispModes[other]== ChDispModes.MANUAL) {
-                    dispModes[other] = ChDispModes.LOCKED;
-                }
-                break;
-        }
-        refreshModeButton(0);
-        refreshModeButton(1);
-    }
-    public void onClickMode0Button(View v) { onClickModeButton(0); }
-    public void onClickMode1Button(View v) { onClickModeButton(1); }
-    public void refreshPlayButton() {
-        final String s;
-        if(playing) {
-            s="PAUSE";
+    public void setXyModeOn(boolean on) {
+        this.xyModeOn = on;
+        if(xyModeOn) {
+            setXAxisTitle(mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1));
+            setYAxisTitle(0, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2));
+            setYAxisTitle(1, "NA");
         } else {
-            s="PLAY";
+            setXAxisTitle("Time [s]");
+            setYAxisTitle(0, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH1));
+            setYAxisTitle(1, mMeter.getInputLabel(MooshimeterControlInterface.Channel.CH2));
         }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                playButton.setText(s);
-            }
-        });
     }
-    public void onClickPlayButton(View v) {
-        playing = !playing;
-        if(playing) {
-            mMeter.stream();
-            if(!scrollLockOn && !bufferModeOn) {
-                onClickScrollLockButton(null);
-            }
-        } else {
-            mMeter.pause();
-            if(scrollLockOn && !bufferModeOn) {
-                onClickScrollLockButton(null);
-            }
-        }
-        refreshPlayButton();
+
+    public void setBufferModeOn(boolean on) {
+        this.bufferModeOn = on;
+        leftAxisValues.clear();
+        rightAxisValues.clear();
+        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH1,on);
+        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,on);
     }
-    public void refreshSampleButton() {
-        final String s;
-        s = Integer.toString(maxNumberOfPointsOnScreen)+"pt";
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                sampleButton.setText(s);
-            }
-        });
-    }
-    public void onClickSampleButton(View v) {
-        final List<String> option_strings = new ArrayList<>();
-        final Context context = this;
-        for(int i:sampleOptions) {
-            option_strings.add(Integer.toString(i));
-        }
-        sampleButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Util.generatePopupMenuWithOptions(context, option_strings, sampleButton, new NotifyHandler() {
-                    @Override
-                    public void onReceived(double timestamp_utc, Object payload) {
-                        maxNumberOfPointsOnScreen = sampleOptions[(Integer) payload];
-                        calcViewport();
-                        refresh();
-                        refreshSampleButton();
-                    }
-                }, new Runnable() {
-                    @Override
-                    public void run() {
-                        refreshSampleButton();
-                    }
-                });
-            }
-        });
-    }
-    public void refreshScrollLockButton() {
-        final int alpha = scrollLockOn?50:25;
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                scrollLockButton.setImageAlpha(alpha);
-            }
-        });
-    }
-    public void onClickScrollLockButton(View v) {
-        scrollLockOn = !scrollLockOn;
+
+    public void setScrollLockOn(boolean scrollLockOn) {
+        this.scrollLockOn = scrollLockOn;
         if (!scrollLockOn) {
             axisValueHelpers[0].expandVisibleToAll();
             axisValueHelpers[1].expandVisibleToAll();
             calcViewport();
             refresh();
         }
-        refreshScrollLockButton();
+    }
+
+    public void setPlaying(boolean playing) {
+        this.playing = playing;
+        if(playing) {
+            mMeter.stream();
+            if(!scrollLockOn && !bufferModeOn) {
+                setScrollLockOn(true);
+            }
+        } else {
+            mMeter.pause();
+            if(scrollLockOn && !bufferModeOn) {
+                setScrollLockOn(false);
+            }
+        }
+    }
+
+    /////////////////////////
+    // Widget Handlers+Refreshers
+    /////////////////////////
+
+    public void onConfigButton(View v) {
+        if(mSettingsWindow.isShowing()) {
+            mSettingsWindow.dismiss();
+        } else {
+            View base = this.findViewById(android.R.id.content);
+            mSettingsWindow.setFocusable(true);
+            mSettingsWindow.setWindowLayoutMode(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+            // Clear the default translucent background
+            mSettingsWindow.setBackgroundDrawable(new BitmapDrawable());
+            mSettingsWindow.showAtLocation(base, Gravity.CENTER,0,0);
+            //mSettingsWindow.setWindowLayoutType();
+            //mSettingsWindow.update(0,0,base.getWidth()-400,base.getHeight()-100);
+        }
     }
 
     /////////////////////////
@@ -673,7 +542,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         return maxView;
     }
 
-    private void calcViewport() {
+    protected void calcViewport() {
         Viewport lv;
         Viewport rv;
         if(xyModeOn) {
@@ -743,10 +612,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     /////////////////////////
 
     @Override
-    public void onInit() {
-
-    }
-
+    public void onInit() {}
     @Override
     public void onDisconnect() {
         transitionToActivity(mMeter,ScanActivity.class);
@@ -754,11 +620,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
     @Override
     public void onRssiReceived(int rssi) {}
-
     @Override
-    public void onBatteryVoltageReceived(float voltage) {
-
-    }
+    public void onBatteryVoltageReceived(float voltage) {}
     @Override
     public void onSampleReceived(double timestamp_utc, final MooshimeterControlInterface.Channel c, MeterReading val) {
         if(bufferModeOn || !playing) {
@@ -803,7 +666,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    refreshSampleButton();
                     calcViewport();
                     refresh();
                 }
