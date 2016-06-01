@@ -1,12 +1,9 @@
 package com.mooshim.mooshimeter.activities;
 
 import android.content.Context;
-import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
@@ -110,11 +107,11 @@ public class GraphSettingsView extends LinearLayout {
                     }
         }));
         builder.add("Autoscroll", makeSwitch(
-                mDelegate.scrollLockOn,
+                mDelegate.autoScrollOn,
                 new BooleanRunnable() {
                     @Override
                     public void run() {
-                        mDelegate.setScrollLockOn(arg);
+                        mDelegate.setAutoScrollOn(arg);
                     }
         }));
         builder.add("XY Mode", makeSwitch(
@@ -148,8 +145,6 @@ public class GraphSettingsView extends LinearLayout {
                     @Override
                     public void onReceived(double timestamp_utc, Object payload) {
                         mDelegate.maxNumberOfPointsOnScreen = sampleOptions[(Integer) payload];
-                        mDelegate.calcViewport();
-                        mDelegate.refresh();
                         b.setText(String.format("%d",mDelegate.maxNumberOfPointsOnScreen));
                     }
                 }, new Runnable() {
