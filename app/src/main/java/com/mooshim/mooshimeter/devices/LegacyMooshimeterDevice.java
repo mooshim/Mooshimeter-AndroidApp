@@ -441,6 +441,25 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             Log.i(TAG,s);
         }
     }
+    public class MeterBat         extends LegacyMeterStructure {
+        public float bat_v;
+        public MeterBat(PeripheralWrapper p) {super(p);}
+        @Override
+        public UUID getUUID() { return mUUID.METER_BAT; }
+        @Override
+        public byte[] pack() {
+            // SHOULD NEVER BE CALLED
+            return null;
+        }
+        @Override
+        public void unpackInner(byte[] in) {
+            ByteBuffer b = wrap(in);
+            float lsb = (float)b.getShort();
+            // Compensate for Java not having unsigned...
+            if(lsb<0){ lsb += 0x10000; }
+            bat_v = 3.0f*1.24f*(lsb/(1<<12));
+        }
+    }
 
     public MeterSettings    meter_settings;
     public MeterLogSettings meter_log_settings;
@@ -450,6 +469,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public MeterCH1Buf      meter_ch1_buf;
     public MeterCH2Buf      meter_ch2_buf;
     public MeterTime        meter_time;
+    public MeterBat         meter_bat;
 
     ///////////////////////////
     // Available range and input options
@@ -634,6 +654,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         meter_ch1_buf       = new MeterCH1Buf     (mPwrap);
         meter_ch2_buf       = new MeterCH2Buf     (mPwrap);
         meter_time          = new MeterTime       (mPwrap);
+        meter_bat           = new MeterBat        (mPwrap);
 
         offsets = new ConcurrentHashMap<>();
         offsets.put(Channel.CH1, (float) 0);
@@ -687,6 +708,18 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         };
         h.addRange("350K",350,temperature_converter,PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.IGNORE,ISRC_SETTING.IGNORE);
     }
+
+    private Runnable bat_poller = new Runnable() {
+        @Override
+        public void run() {
+            if(!isConnected()) {
+                return;
+            }
+            meter_bat.update();
+            delegate.onBatteryVoltageReceived(meter_bat.bat_v);
+            Util.postDelayed(bat_poller, 10000);
+        }
+    };
 
     public int initialize() {
         super.initialize();
@@ -805,6 +838,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
         Util.cancelDelayedCB(log_status_checker);
         Util.postDelayed(log_status_checker, 5000);
+
+        Util.cancelDelayedCB(bat_poller);
+        Util.postDelayed(bat_poller,1000);
 
         determineInputDescriptorIndex(Channel.CH1);
         determineInputDescriptorIndex(Channel.CH2);
