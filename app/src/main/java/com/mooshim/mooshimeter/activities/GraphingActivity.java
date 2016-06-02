@@ -1,6 +1,7 @@
 package com.mooshim.mooshimeter.activities;
 
 import android.app.ActionBar;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -15,6 +16,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.PopupWindow;
+import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.CooldownTimer;
@@ -83,8 +85,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     ///////////////////////
 
     final static int maxNumberOfPoints = 10000;
-    int maxNumberOfPointsOnScreen = 32;
-    ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
+    int maxNumberOfPointsOnScreen = 50;
+    protected ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
     protected boolean autoScrollOn = true;
     protected boolean xyModeOn = false;
     protected boolean bufferModeOn = false;
@@ -165,9 +167,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             mChart[i].setMaxZoom((float) 1e6);
             mChart[i].setInteractive(true);
             mChart[i].setZoomType(ZoomType.VERTICAL);
-            mChart[i].setContainerScrollEnabled(true, ContainerScrollType.HORIZONTAL);
         }
-        //mChart[1].setBackgroundColor(0x40FF0000);
 
         mConfigButton = (Button)findViewById(R.id.config_btn);
 
@@ -312,8 +312,27 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,on);
     }
 
+    boolean has_displayed_panzoom_message=false;
+
+    public void setDispModes(int channel, ChDispModes new_mode) {
+        mChart[channel].setZoomEnabled(new_mode != ChDispModes.AUTO);
+        if(!has_displayed_panzoom_message && new_mode != ChDispModes.AUTO) {
+            has_displayed_panzoom_message = true;
+            final Context c = this;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(c, "Scroll and pinch the left side of the graph to adjust CH1 and the right side for CH2", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+        dispModes[channel]=new_mode;
+    }
+
     public void setAutoScrollOn(boolean autoScrollOn) {
         this.autoScrollOn = autoScrollOn;
+        mChart[0].setContainerScrollEnabled(!autoScrollOn, ContainerScrollType.HORIZONTAL);
+        mChart[1].setContainerScrollEnabled(!autoScrollOn, ContainerScrollType.HORIZONTAL);
     }
 
     public void setPlaying(boolean playing) {
@@ -335,26 +354,62 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     // Touch Dispatching
     /////////////////////////
 
+    MotionEvent move_start=null;
+
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
-        //If it's on the left half of the screen, dispatch it to the left chart
-        float xpos = event.getX();
+        // Get window size
         Display display = getWindowManager().getDefaultDisplay();
         Point size = new Point();
         display.getSize(size);
-        if(xpos < size.x/2) {
+
+        MotionEvent pass_to_other    = MotionEvent.obtain(event);
+
+        switch(event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                move_start = MotionEvent.obtain(event);
+                break;
+            case MotionEvent.ACTION_POINTER_DOWN:
+            case MotionEvent.ACTION_POINTER_UP:
+                // Don't pass zooming!
+                pass_to_other = null;
+                break;
+            default:
+                Log.d(TAG,"What dis is?");
+            case MotionEvent.ACTION_MOVE:
+            case MotionEvent.ACTION_UP:
+                // Kill any Y motion component in pass_to_other
+                // This is to allow smooth horizontal scrolling
+                pass_to_other.setLocation(pass_to_other.getX(),move_start.getY());
+                break;
+        }
+
+        if(event.getPointerCount()>1) {
+            //Don't pass multi-touches!
+            pass_to_other = null;
+        }
+
+        if(event.getActionIndex()!=0) {
+            Log.d(TAG,"What dis is 2?");
+        }
+
+        //If it's on the left half of the screen, dispatch it to the left chart
+        if(move_start.getX() < size.x/2) {
             // LEFT SIDE TOUCH
-            // Consume the touch (return true) and send it to mChart[0], which is behind mChart[1]
             mChart[0].dispatchTouchEvent(event);
-            return true;
+            if(pass_to_other!=null) {
+                return super.dispatchTouchEvent(pass_to_other);
+            } else {
+                return true;
+            }
         } else {
             // RIGHT SIDE TOUCH
             // Don't consume the touch, let it be dispatched as normal.
-            //mChart[1].dispatchTouchEvent(event);
+            if(pass_to_other!=null) {
+                mChart[0].dispatchTouchEvent(pass_to_other);
+            }
             return super.dispatchTouchEvent(event);
         }
-        //requestDisallowInterceptTouchEvent(mSomeViewGroup, true);
-        //return super.dispatchTouchEvent(event);
     }
 
     /////////////////////////
@@ -418,7 +473,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 } else {
                     Viewport time_base_vp = new Viewport();
                     time_base_vp.right = axisValueHelpers[0].backing.get(axisValueHelpers[0].backing.size()-1).getX();
-                    time_base_vp.left = time_base_vp.right - (((float)maxNumberOfPointsOnScreen*mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
+                    if(bufferModeOn) {
+                        time_base_vp.left = time_base_vp.right - (((float)mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
+                    } else {
+                        time_base_vp.left = time_base_vp.right - (((float)maxNumberOfPointsOnScreen*mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
+                    }
                     for(int i = 0; i < 2; i++) {
                         Viewport present_vp = mChart[i].getCurrentViewport();
                         if(autoScrollOn) {
@@ -436,6 +495,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                         setLineValues(i,onscreen.backing);
 
                         Viewport fitsTheData = onscreen.getBoundingViewport();
+                        fitsTheData.left  = present_vp.left;
+                        fitsTheData.right = present_vp.right;
                         switch(dispModes[i]) {
                             case AUTO:
                                 present_vp.bottom = fitsTheData.bottom;
@@ -449,32 +510,23 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                         }
 
                         float range = fitsTheData.top-fitsTheData.bottom;
+                        fitsTheData.left = 0;
+                        fitsTheData.right *= 2;
                         fitsTheData.bottom  -= 10*range;
                         fitsTheData.top     += 10*range;
                         mChart[i].setMaximumViewport(fitsTheData);
                         mChart[i].setCurrentViewport(present_vp);
                     }
                 }
-                // Here we inset the content rects between the two overlapping graphs, otherwise
-                // they will overlap eachother's axes
                 Display display = getWindowManager().getDefaultDisplay();
                 Point size = new Point();
                 display.getSize(size);
-                //Rect content_rect = new Rect(120,0,size.x-120,size.y-120);
-                //maxContentRect.set(paddingLeft, paddingTop, width - paddingRight, height - paddingBottom);
-                //mChart[0].getChartComputator().setContentRect(w,h,l,t,r,b);
-                //mChart[0].getChartComputator().setContentRect(size.x,size.y,120,0,120,120);
-                //mChart[1].getChartComputator().setContentRect(size.x,size.y,120,0,120,120);
-                //mChart[0].getChartComputator().setContentRect(mChart[0].getWidth(),);
-                // Left chart needs inset on right
-                // The negative signs below were worked out empirically... can't figure out why some seem to be reversed and others not
-                //lcc.insetContentRect(0,0,-rcc.getContentRectMinusAxesMargins().right,0);
-                //rcc.insetContentRect(lcc.getContentRectMinusAxesMargins().left,0,0,-lcc.getContentRectMinusAxesMargins().bottom);
-
                 //Force chart to draw current data again
                 mChart[0].setLineChartData(mChart[0].getLineChartData());
                 mChart[1].setLineChartData(mChart[1].getLineChartData());
-                
+
+                // Here we inset the content rects between the two overlapping graphs, otherwise
+                // they will overlap eachother's axes
                 mChart[0].getChartComputator().insetContentRect(0,0,120,0);
                 mChart[1].getChartComputator().insetContentRect(120,0,0,120);
             }

@@ -95,7 +95,7 @@ public class GraphSettingsView extends LinearLayout {
                 new BooleanRunnable() {
             @Override
             public void run() {
-                mDelegate.dispModes[0] = arg? GraphingActivity.ChDispModes.AUTO: GraphingActivity.ChDispModes.MANUAL;
+                        mDelegate.setDispModes(0,arg? GraphingActivity.ChDispModes.AUTO: GraphingActivity.ChDispModes.MANUAL);
             }
         }));
         builder.add("CH2 Autorange", makeSwitch(
@@ -103,7 +103,7 @@ public class GraphSettingsView extends LinearLayout {
                 new BooleanRunnable() {
                     @Override
                     public void run() {
-                        mDelegate.dispModes[1] = arg? GraphingActivity.ChDispModes.AUTO: GraphingActivity.ChDispModes.MANUAL;
+                        mDelegate.setDispModes(1,arg? GraphingActivity.ChDispModes.AUTO: GraphingActivity.ChDispModes.MANUAL);
                     }
         }));
         builder.add("Autoscroll", makeSwitch(
