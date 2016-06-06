@@ -22,6 +22,7 @@ package com.mooshim.mooshimeter.devices;
 
 import android.util.Log;
 
+import com.mooshim.mooshimeter.common.Beeper;
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
@@ -696,7 +697,21 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 Log.e(TAG,"UNSUPPORTED:Unrecognized pcb version!");
         }
         h=addInputDescriptor(channel,"DIODE DROP",INPUT_MODE.DIODE,false,"V");
-        h.addRange("1.7V",(float)1.7,1,PGA_GAIN.PGA_GAIN_1,ISRC_SETTING.ISRC_HIGH);
+        Lsb2NativeConverter beepy_converter = new Lsb2NativeConverter() {
+            @Override
+            public float convert(int lsb) {
+                float volts = lsb2PGAVoltage(lsb);
+                // PGA gain is 1, so PGA voltage=ADC voltage
+                if(volts < 0.1) {
+                    Beeper.beep();
+                } else {
+                    Beeper.stopBeeping();
+                }
+                return volts;
+            }
+        };
+        h.addRange("1.7V",1.7f,beepy_converter,PGA_GAIN.PGA_GAIN_1,GPIO_SETTING.IGNORE,ISRC_SETTING.ISRC_HIGH);
+
         h=addInputDescriptor(channel,"INTERNAL TEMP",INPUT_MODE.TEMP,false,"K");
         Lsb2NativeConverter temperature_converter = new Lsb2NativeConverter() {
             @Override

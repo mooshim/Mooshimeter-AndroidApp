@@ -2,6 +2,7 @@ package com.mooshim.mooshimeter.devices;
 
 import android.util.Log;
 
+import com.mooshim.mooshimeter.common.Beeper;
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
@@ -54,8 +55,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     // MEMBERS FOR TRACKING AVAILABLE INPUTS AND RANGES
     ////////////////////////////////
 
+    protected abstract static class CallWithValue {
+        public abstract void execute(float value);
+    }
+
     public static class RangeDescriptor extends MooshimeterDeviceBase.RangeDescriptor {
         public ConfigTree.ConfigNode node;
+        public CallWithValue cb;
     }
 
     public static abstract class MathInputDescriptor extends MooshimeterDeviceBase.InputDescriptor {
@@ -233,6 +239,15 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
 
+    void handleSampleReceived(Channel c, double timestamp_utc, float val) {
+        MeterReading reading = wrapMeterReading(c,val);
+        RangeDescriptor rd = getRangeDescriptorForChannel(c);
+        if(rd.cb!=null) {
+            rd.cb.execute(val);
+        }
+        delegate.onSampleReceived(timestamp_utc, c,reading);
+    }
+
     ////////////////////////////////
     // BLEDeviceBase methods
     ////////////////////////////////
@@ -263,7 +278,19 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         l.add(auxv_id);
         l.add(makeInputDescriptor(c, "AUXILIARY VOLTAGE AC", "AUX_V", "RMS", "V", true));
         l.add(makeInputDescriptor(c, "RESISTANCE", "RESISTANCE", "MEAN", "\u03A9", true));
-        l.add(makeInputDescriptor(c, "DIODE DROP", "DIODE", "MEAN", "V", true));
+        InputDescriptor tmp = makeInputDescriptor(c, "DIODE DROP", "DIODE", "MEAN", "V", true);
+        // Hacking in a beeper when diode drop reads below 100mV
+        ((RangeDescriptor)tmp.ranges.get(0)).cb = new CallWithValue() {
+            @Override
+            public void execute(float value) {
+                if(value < 0.1) {
+                    Beeper.beep();
+                } else {
+                    Beeper.stopBeeping();
+                }
+            }
+        };
+        l.add(tmp);
 
         c = Channel.CH2;
         l = input_descriptors.get(c);
@@ -276,7 +303,19 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         l.add(makeInputDescriptor(c, "AUXILIARY VOLTAGE DC", "AUX_V", "MEAN", "V", true));
         l.add(makeInputDescriptor(c, "AUXILIARY VOLTAGE AC", "AUX_V", "RMS", "V", true));
         l.add(makeInputDescriptor(c, "RESISTANCE", "RESISTANCE", "MEAN", "\u03a9", true));
-        l.add(makeInputDescriptor(c, "DIODE DROP", "DIODE", "MEAN", "V", true));
+        tmp = makeInputDescriptor(c, "DIODE DROP", "DIODE", "MEAN", "V", true);
+        // Hacking in a beeper when diode drop reads below 100mV
+        ((RangeDescriptor)tmp.ranges.get(0)).cb = new CallWithValue() {
+            @Override
+            public void execute(float value) {
+                if(value < 0.1) {
+                    Beeper.beep();
+                } else {
+                    Beeper.stopBeeping();
+                }
+            }
+        };
+        l.add(tmp);
 
         c = Channel.MATH;
         l = input_descriptors.get(c);
@@ -411,8 +450,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH1:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                MeterReading val = wrapMeterReading(Channel.CH1,(Float)payload);
-                delegate.onSampleReceived(timestamp_utc, Channel.CH1, val);
+                handleSampleReceived(Channel.CH1,timestamp_utc,(Float)payload);
             }
         });
         attachCallback("CH1:OFFSET",new NotifyHandler() {
@@ -424,8 +462,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH2:VALUE",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                MeterReading val = wrapMeterReading(Channel.CH2, (Float) payload);
-                delegate.onSampleReceived(timestamp_utc, Channel.CH2, val);
+                handleSampleReceived(Channel.CH2,timestamp_utc,(Float)payload);
         }
         });
         attachCallback("CH2:OFFSET",new NotifyHandler() {
@@ -852,5 +889,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(final Channel channel) {
         return input_descriptors.get(channel).getChosen();
+    }
+    private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
+        return (RangeDescriptor) getSelectedDescriptor(c).ranges.getChosen();
     }
 }
