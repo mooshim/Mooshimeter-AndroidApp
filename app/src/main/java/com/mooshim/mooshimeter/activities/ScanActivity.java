@@ -266,7 +266,7 @@ public class ScanActivity extends MyActivity {
         for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
             View v = mDeviceScrollView.getChildAt(i);
             BLEDeviceBase test = (BLEDeviceBase) v.getTag();
-            if(test==m) {
+            if(test.getAddress().equals(m.getAddress())) {
                 return v;
             }
         }
