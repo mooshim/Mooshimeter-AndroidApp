@@ -4,7 +4,6 @@ import android.app.ActionBar;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.util.Log;
@@ -19,7 +18,6 @@ import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.CooldownTimer;
 import com.mooshim.mooshimeter.interfaces.GraphingActivityInterface;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
@@ -32,7 +30,6 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import lecho.lib.hellocharts.computator.ChartComputator;
 import lecho.lib.hellocharts.gesture.ContainerScrollType;
 import lecho.lib.hellocharts.gesture.ZoomType;
 import lecho.lib.hellocharts.model.Axis;
@@ -40,8 +37,6 @@ import lecho.lib.hellocharts.model.Line;
 import lecho.lib.hellocharts.model.LineChartData;
 import lecho.lib.hellocharts.model.PointValue;
 import lecho.lib.hellocharts.model.Viewport;
-import lecho.lib.hellocharts.renderer.AxesRenderer;
-import lecho.lib.hellocharts.renderer.ChartRenderer;
 import lecho.lib.hellocharts.view.LineChartView;
 
 public class GraphingActivity extends MyActivity implements GraphingActivityInterface, MooshimeterDelegate {
@@ -74,6 +69,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     public GraphSettingsView mSettingsView;
     public PopupWindow mSettingsWindow;
     public Button mConfigButton;
+    public Button mRefreshButton;
 
     LineChartView[] mChart={null,null};
     Axis xAxis, yAxisLeft, yAxisRight;
@@ -170,6 +166,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         }
 
         mConfigButton = (Button)findViewById(R.id.config_btn);
+        mRefreshButton = (Button)findViewById(R.id.refresh_btn);
+        mRefreshButton.setVisibility(View.GONE);
 
         Intent intent = getIntent();
         mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
@@ -310,6 +308,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         axisValueHelpers[1].backing.clear();
         mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH1,on);
         mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,on);
+        mRefreshButton.setVisibility(on?View.VISIBLE:View.GONE);
     }
 
     boolean has_displayed_panzoom_message=false;
@@ -428,9 +427,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             // Clear the default translucent background
             mSettingsWindow.setBackgroundDrawable(new BitmapDrawable());
             mSettingsWindow.showAtLocation(base, Gravity.CENTER,0,0);
-            //mSettingsWindow.setWindowLayoutType();
-            //mSettingsWindow.update(0,0,base.getWidth()-400,base.getHeight()-100);
         }
+    }
+
+    boolean jump_to_end_flag = false;
+
+    public void onRefreshButton(View v) {
+        jump_to_end_flag = true;
     }
 
     /////////////////////////
@@ -471,19 +474,19 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                     mChart[0].setMaximumViewport(fitsTheData);
                     mChart[0].setCurrentViewport(fitsTheData);
                 } else {
-                    Viewport time_base_vp = new Viewport();
-                    time_base_vp.right = axisValueHelpers[0].backing.get(axisValueHelpers[0].backing.size()-1).getX();
+                    float latest_t = axisValueHelpers[0].backing.get(axisValueHelpers[0].backing.size()-1).getX();
+                    float window_width_t;
                     if(bufferModeOn) {
-                        time_base_vp.left = time_base_vp.right - (((float)mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
+                        window_width_t = (((float)mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
                     } else {
-                        time_base_vp.left = time_base_vp.right - (((float)maxNumberOfPointsOnScreen*mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
+                        window_width_t = (((float)maxNumberOfPointsOnScreen*mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
                     }
                     for(int i = 0; i < 2; i++) {
                         Viewport present_vp = mChart[i].getCurrentViewport();
-                        if(autoScrollOn) {
-                            present_vp.left  = time_base_vp.left;
-                            present_vp.right = time_base_vp.right;
+                        if(autoScrollOn||jump_to_end_flag) {
+                            present_vp.right = latest_t;
                         }
+                        present_vp.left = present_vp.right - window_width_t;
                         PointArrayWrapper onscreen;
                         if(dispModes[i]==ChDispModes.OFF) {
                             // Feed in empty dataset if we don't want to display
@@ -508,7 +511,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                                 break;
 
                         }
-
                         float range = fitsTheData.top-fitsTheData.bottom;
                         fitsTheData.left = 0;
                         fitsTheData.right *= 2;
@@ -517,6 +519,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                         mChart[i].setMaximumViewport(fitsTheData);
                         mChart[i].setCurrentViewport(present_vp);
                     }
+                    jump_to_end_flag = false;
                 }
                 Display display = getWindowManager().getDefaultDisplay();
                 Point size = new Point();
