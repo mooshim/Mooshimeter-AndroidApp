@@ -446,14 +446,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
     @Override
     public void refresh() {
-        if(axisValueHelpers[0].backing.size()==0) {
-            // There's no data, just return.
-            return;
-        }
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-
+                if(axisValueHelpers[0].backing.size()==0) {
+                    // There's no data, just return.
+                    return;
+                }
                 // If autoscroll is on, time drives the xrange
                 // xrange drives what data is onscreen
                 // if autorange is on, the data drives the Y bounds
