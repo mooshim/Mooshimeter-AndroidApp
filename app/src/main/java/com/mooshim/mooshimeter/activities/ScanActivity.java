@@ -516,9 +516,6 @@ public class ScanActivity extends MyActivity {
 
     public synchronized void startScan() {
         if(mScanCb != null){return;}
-
-        mBtnScan.setEnabled(false);
-        updateScanningButton(false);
         // Prune disconnected meters
         List<BLEDeviceBase> remove = new ArrayList<BLEDeviceBase>();
         for(BLEDeviceBase m : mMeterDict.values()) {
@@ -545,13 +542,17 @@ public class ScanActivity extends MyActivity {
             // Starting the scan failed!
             Log.e(TAG,"Failed to start BLE Scan");
             setError("Failed to start scan");
+            stopScan();
+        } else {
+            mBtnScan.setEnabled(false);
+            updateScanningButton(false);
+            Util.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    stopScan();
+                }
+            }, 5000);
         }
-        Util.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                stopScan();
-            }
-        }, 5000);
     }
 
     public void stopScan() {
