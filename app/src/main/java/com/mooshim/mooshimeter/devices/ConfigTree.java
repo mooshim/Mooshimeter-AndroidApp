@@ -303,7 +303,7 @@ public class ConfigTree {
     UUID serin_uuid  = null;
     UUID serout_uuid = null;
     private int send_seq_n = 0;
-    private int recv_seq_n = 0;
+    private int recv_seq_n = -1;
     private List<Byte> recv_buf = new ArrayList<Byte>();
     private Map<Integer,ConfigTree.ConfigNode> code_list = null;
     private Lock lock = new ReentrantLock(true);
@@ -393,6 +393,22 @@ public class ConfigTree {
     }
 
     private NotifyHandler serout_callback = new NotifyHandler() {
+        private Map<Integer,byte[]> pbuf = new HashMap<>();
+        private void serviceBufferList(double timestamp_utc) {
+            int next_expected_seqn = (recv_seq_n+1)%0x100;
+            while(pbuf.containsKey(next_expected_seqn)) {
+                byte[] bytes = pbuf.remove(next_expected_seqn);
+                // Append to aggregate buffer
+                for(int i = 1; i < bytes.length; i++) {
+                    recv_buf.add(bytes[i]);
+                }
+                interpretAggregate(timestamp_utc);
+                // Advance the last received sequence number
+                Log.d(TAG, "RECV: " + next_expected_seqn + " " + bytes.length + " bytes");
+                recv_seq_n = (recv_seq_n+1)%0x100;
+                next_expected_seqn = (recv_seq_n+1)%0x100;
+            }
+        }
         @Override
         public void onReceived(double timestamp_utc, Object payload) {
             byte[] bytes = (byte[])payload;
@@ -401,19 +417,22 @@ public class ConfigTree {
                 // Because java is stupid
                 seq_n+=0x100;
             }
-            if(seq_n != (recv_seq_n+1)%0x100) {
-                Log.e(TAG,"OUT OF ORDER PACKET");
-                Log.e(TAG,"EXPECTED: "+((recv_seq_n+1)%0x100));
-                Log.e(TAG,"GOT:      "+(seq_n));
+            if(recv_seq_n==-1) {
+                // Firstrun, set up so we're expecting whatever packet number just arrived
+                recv_seq_n = seq_n-1;
+                if(recv_seq_n<0){
+                    recv_seq_n+=0x100;
+                }
+            }
+            if(pbuf.containsKey(seq_n)) {
+                Log.e(TAG, "REPEATED PACKET: " + seq_n);
+                Log.e(TAG, "DISCARDING");
+                return;
             } else {
-                Log.d(TAG, "RECV: " + seq_n + " " + bytes.length + " bytes");
+                pbuf.put(seq_n,bytes);
             }
-            recv_seq_n = seq_n;
-            // Append to aggregate buffer
-            for(int i = 1; i < bytes.length; i++) {
-                recv_buf.add(bytes[i]);
-            }
-            interpretAggregate(timestamp_utc);
+            // Evaluate whether we have what we need in pbuf to process the next packet
+            serviceBufferList(timestamp_utc);
         }
     };
 
@@ -421,15 +440,22 @@ public class ConfigTree {
     // Methods for interacting with remote device
     //////////////////////
 
-    public void attach(PeripheralWrapper p, UUID serin, UUID serout) {
+    public int attach(PeripheralWrapper p, UUID serin, UUID serout) {
         pwrap=p;
         serin_uuid=serin;
         serout_uuid = serout;
-        pwrap.enableNotify(serout, true, serout_callback);
-
+        if(0!=pwrap.enableNotify(serout, true, serout_callback)){
+            return -1;
+        }
         // Load the tree from the remote device
         command("ADMIN:TREE");
-        command("ADMIN:CRC32 "+Integer.toString((Integer) getNode("ADMIN:CRC32").getValue()));
+        int crcval = (Integer) getNode("ADMIN:CRC32").getValue();
+        if(crcval==0) {
+            Log.e(TAG,"Something went wrong downloading the tree!");
+            return -1;
+        }
+        command("ADMIN:CRC32 "+Integer.toString(crcval));
+        return 0;
     }
 
     private void sendBytes(byte[] payload) {
@@ -469,6 +495,9 @@ public class ConfigTree {
                 try {
                     // This will replace all the internal members of the tree!
                     unpack((byte[]) payload);
+                    // After unpacking, we must ensure this notify handler is re-attached
+                    ConfigNode tree_bin = getNode("ADMIN:TREE");
+                    tree_bin.addNotifyHandler(this);
                     code_list = getShortCodeMap();
                     enumerate();
                     CRC32 crc = new CRC32();
@@ -513,7 +542,7 @@ public class ConfigTree {
         b.get(namebytes);
         String name = new String(namebytes);
         int n_children = b.get();
-        List<ConfigNode> clist = new ArrayList<ConfigNode>();
+        List<ConfigNode> clist = new ArrayList<>();
         for(int i = 0; i < n_children; i++) {
             clist.add(unpack(b));
         }
