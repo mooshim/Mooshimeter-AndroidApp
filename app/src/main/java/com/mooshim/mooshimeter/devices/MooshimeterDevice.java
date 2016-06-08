@@ -260,7 +260,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         if(mPwrap.getChar(mUUID.METER_SERIN)==null||mPwrap.getChar(mUUID.METER_SEROUT)==null) {
             return -1;
         }
-        tree.attach(mPwrap, mUUID.METER_SERIN, mUUID.METER_SEROUT);
+        if(0!=tree.attach(mPwrap, mUUID.METER_SERIN, mUUID.METER_SEROUT)) {
+            Log.e(TAG,"Failed to attach to tree");
+            return -1;
+        }
 
         // At this point the tree is loaded.  Refresh all values in the tree.
         tree.refreshAll();
