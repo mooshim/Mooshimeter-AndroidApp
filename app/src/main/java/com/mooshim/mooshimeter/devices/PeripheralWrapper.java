@@ -193,6 +193,7 @@ public class PeripheralWrapper {
                 switch(newState) {
                     case BluetoothProfile.STATE_DISCONNECTED:
                         Log.d(TAG,"New state: Disconnected");
+                        mBluetoothGatt.close();
                         break;
                     case BluetoothProfile.STATE_CONNECTING:
                         Log.d(TAG,"New state: Connecting");
@@ -307,8 +308,18 @@ public class PeripheralWrapper {
             public Void call() throws InterruptedException {
                 // Discover services
                 Log.d(TAG,"DISCOVER");
-                while(!mBluetoothGatt.discoverServices()) {
-                    Log.e(TAG,"DISCOVER FAILED TO START");
+                boolean success = false;
+                for(int i = 0; i < 20; i++) {
+                    if(mBluetoothGatt.discoverServices()) {
+                        success = true;
+                        break;
+                    } else {
+                        Log.e(TAG, "Discover failed to start");
+                    }
+                }
+                if(!success) {
+                    mRval = -2;
+                    return null;
                 }
                 if(bleDiscoverCondition.awaitMilli(10000)) {
                     //if(bleDiscoverCondition.await()) {
