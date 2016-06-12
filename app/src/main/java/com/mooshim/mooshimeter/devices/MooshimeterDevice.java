@@ -471,7 +471,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH2:OFFSET",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onOffsetChange(Channel.CH1, wrapMeterReading(Channel.CH2, (Float) payload));
+                delegate.onOffsetChange(Channel.CH2, wrapMeterReading(Channel.CH2, (Float) payload));
             }
         });
         attachCallback("CH1:BUF", new NotifyHandler() {
