@@ -511,6 +511,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
                         }
                         float range = fitsTheData.top-fitsTheData.bottom;
+                        if(range<1){range=1;} // Range of zero causes meltdown
                         fitsTheData.left = 0;
                         fitsTheData.right *= 2;
                         fitsTheData.bottom  -= 10*range;
