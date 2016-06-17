@@ -106,7 +106,7 @@ public class BLEDeviceBase {
             Log.d(TAG,"Don't recognize the FW... throwing a hail mary and wrapping as MooshimeterDevice");
             rval = new MooshimeterDevice(mPwrap);
         }
-        // FIXME: This is hacked up.
+        // FIXME: This is hacked up.  I shouldn't have to copy over individual members... indication that I should put some more thought in to architecture
         rval.mBuildTime = mBuildTime;
         rval.mOADMode = mOADMode;
         return rval;

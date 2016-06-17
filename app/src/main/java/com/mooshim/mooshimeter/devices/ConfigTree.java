@@ -381,8 +381,7 @@ public class ConfigTree {
                     return;
                 }
             } catch(BufferUnderflowException e){
-                Log.e(TAG,"Underflow caught");
-                new Exception().printStackTrace();
+                Log.d(TAG,"Underflow caught");
                 return;
             }
             // Advance recv_buf
