@@ -538,8 +538,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
                 // Here we inset the content rects between the two overlapping graphs, otherwise
                 // they will overlap eachother's axes
-                mChart[0].getChartComputator().insetContentRect(0,0,120,0);
-                mChart[1].getChartComputator().insetContentRect(120,0,0,120);
+                int inset = mChart[0].getChartComputator().getContentRectMinusAxesMargins().left;
+                mChart[0].getChartComputator().insetContentRect(0,0,inset,0);
+                mChart[1].getChartComputator().insetContentRect(inset,0,0,inset);
             }
         });
     }
