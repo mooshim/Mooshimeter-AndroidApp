@@ -153,6 +153,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     private Object getValueAt(String p) {
         Object rval = tree.getValueAt(p);
         if(rval==null) {
+            Log.w(TAG,"SOMEONE REQUESTED VALUE OF AN UNINITIALIZED NODE");
             // FIXME: hack
             return 0;
         }
@@ -180,19 +181,22 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         addRangeDescriptors(i, i.input_node);
         return i;
     }
-    private void determineInputDescriptorIndex(Channel c) {
+    private boolean determineInputDescriptorIndex(Channel c) {
+        // Returns true if the input descriptor was determined
         if(c==Channel.MATH) {
             // Math input can be set arbitrarily
-            return;
+            return true;
         }
         Chooser<MooshimeterDeviceBase.InputDescriptor> chooser = input_descriptors.get(c);
         for(InputDescriptor d:(List<InputDescriptor>)(List<?>)chooser.getChoices()) {
             if(getInputNode(c) == d.input_node) {
                 if(d.analysis_node == tree.getNode(c.name()+":ANALYSIS").getChosen()) {
                     chooser.choose(d);
+                    return true;
                 }
             }
         }
+        return false;
     }
     private float[] interpretSampleBuffer(Channel c, byte[] payload) {
         ByteBuffer b = ByteBuffer.wrap(payload);
@@ -417,8 +421,14 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         l.add(mid);
 
         // Figure out which input we're presently reading based on the tree state
-        determineInputDescriptorIndex(Channel.CH1);
-        determineInputDescriptorIndex(Channel.CH2);
+        if(!determineInputDescriptorIndex(Channel.CH1)) {
+            // Failed to figure out what CH1 is mapped to.  Set to default.
+            setInput(Channel.CH1,input_descriptors.get(Channel.CH1).get(0));
+        }
+        if(!determineInputDescriptorIndex(Channel.CH2)) {
+            // Failed to figure out what CH2 is mapped to.  Set to default.
+            setInput(Channel.CH2,input_descriptors.get(Channel.CH2).get(0));
+        }
 
         // Stitch together updates on nodes of the config tree with calls to the delegate
 
@@ -832,7 +842,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public String getRangeLabel(Channel c) {
         InputDescriptor id = (InputDescriptor)getSelectedDescriptor(c);
         int range_i = (Integer)tree.getValueAt(c.name() + RANGE_I);
-        // FIXME: This is borking because our internal descriptor structures are out of sync with the configtree updates
         RangeDescriptor rd =(RangeDescriptor)id.ranges.get(range_i);
         return rd.name;
     }
@@ -850,8 +859,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public int setInput(Channel c, MooshimeterDeviceBase.InputDescriptor descriptor) {
         Chooser<MooshimeterDeviceBase.InputDescriptor> chooser = input_descriptors.get(c);
         if(chooser.isChosen(descriptor)) {
-            // No action required
-            return 0;
+            Log.w(TAG,"Redundant input setting...");
         }
         switch(c) {
             case CH1:
