@@ -163,6 +163,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             mChart[i].setMaxZoom((float) 1e6);
             mChart[i].setInteractive(true);
             mChart[i].setZoomType(ZoomType.VERTICAL);
+            mChart[i].setZoomEnabled(false);
         }
 
         mConfigButton = (Button)findViewById(R.id.config_btn);
@@ -498,8 +499,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                         setLineValues(i,onscreen.backing);
 
                         Viewport fitsTheData = onscreen.getBoundingViewport();
-                        fitsTheData.left  = present_vp.left;
-                        fitsTheData.right = present_vp.right;
+                        Viewport maxViewport = new Viewport();
+                        maxViewport.bottom = fitsTheData.bottom;
+                        maxViewport.top = fitsTheData.top;
+                        float range = fitsTheData.top-fitsTheData.bottom;
+                        if(range<1){range=1;} // Range of zero causes meltdown
                         switch(dispModes[i]) {
                             case AUTO:
                                 present_vp.bottom = fitsTheData.bottom;
@@ -507,17 +511,20 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                                 break;
                             case MANUAL:
                             case OFF:
+                                maxViewport.bottom -= 10*range;
+                                maxViewport.top    += 10*range;
+                                break;
                             default:
                                 break;
-
                         }
-                        float range = fitsTheData.top-fitsTheData.bottom;
-                        if(range<1){range=1;} // Range of zero causes meltdown
-                        fitsTheData.left = 0;
-                        fitsTheData.right *= 2;
-                        fitsTheData.bottom  -= 10*range;
-                        fitsTheData.top     += 10*range;
-                        mChart[i].setMaximumViewport(fitsTheData);
+                        if(autoScrollOn) {
+                            maxViewport.left = present_vp.left;
+                            maxViewport.right = present_vp.right;
+                        } else {
+                            maxViewport.left = 0;
+                            maxViewport.right = latest_t;
+                        }
+                        mChart[i].setMaximumViewport(maxViewport);
                         mChart[i].setCurrentViewport(present_vp);
                     }
                     jump_to_end_flag = false;
