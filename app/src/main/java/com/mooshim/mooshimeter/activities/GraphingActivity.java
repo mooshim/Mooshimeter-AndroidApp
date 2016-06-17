@@ -449,7 +449,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if(axisValueHelpers[0].backing.size()==0) {
+                if(axisValueHelpers[1].backing.size()==0) {
                     // There's no data, just return.
                     return;
                 }
@@ -473,7 +473,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                     mChart[0].setMaximumViewport(fitsTheData);
                     mChart[0].setCurrentViewport(fitsTheData);
                 } else {
-                    float latest_t = axisValueHelpers[0].backing.get(axisValueHelpers[0].backing.size()-1).getX();
+                    // Key time off of CH2 to alleviate buffer mode "flashing" problem
+                    float latest_t = axisValueHelpers[1].backing.get(axisValueHelpers[1].backing.size()-1).getX();
                     float window_width_t;
                     if(bufferModeOn) {
                         window_width_t = (((float)mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
