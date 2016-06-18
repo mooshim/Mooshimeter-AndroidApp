@@ -488,17 +488,17 @@ public class ScanActivity extends MyActivity {
                     refreshMeterTile((ViewGroup) findTileForMeter(m));
                 }
             });
-            boolean should_automatically_connect_for_firmware_upload =
-                    m.isInOADMode() && (m.mBuildTime < Util.getBundledFirmwareVersion());
+            /*boolean should_automatically_connect_for_firmware_upload =
+                    m.isInOADMode() && (m.mBuildTime < Util.getBundledFirmwareVersion());*/
             if(   m.getPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)
-               || should_automatically_connect_for_firmware_upload ) {
+               /*|| should_automatically_connect_for_firmware_upload*/ ) {
                 // We've found a meter with the autoconnect feature enabled, or it's in OAD mode
                 // which almost certainly means the user wants to do a firmware update
                 // Connect to it!
                 setStatus("Autoconnecting...");
-                if(should_automatically_connect_for_firmware_upload) {
+                /*if(should_automatically_connect_for_firmware_upload) {
                     Toast.makeText(mInstance, "Found an out of date meter in bootloader mode, connecting", Toast.LENGTH_LONG).show();
-                }
+                }*/
                 stopScan();
                 // Why the crazy nesting?
                 // At this point there might be a few runnables on the main queue that need to run
