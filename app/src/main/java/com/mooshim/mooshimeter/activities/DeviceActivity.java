@@ -238,7 +238,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         super.onActivityResult(requestCode, resultCode, data);
         switch (requestCode) {
             default:
-                setError("Unknown request code");
+                //setError("Unknown request code");
                 break;
         }
     }
