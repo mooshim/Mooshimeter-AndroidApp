@@ -3,8 +3,11 @@ package com.mooshim.mooshimeter.common;
 import android.util.Log;
 
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.DuplicateFormatFlagsException;
+import java.util.Locale;
 
 /**
  * Created by First on 3/26/2016.
@@ -62,7 +65,7 @@ public class MeterReading {
         for(int i = 0; i < n_digits-high; i++) {
             fstring.append("0");
         }
-        format = new DecimalFormat(fstring.toString());
+        format = new DecimalFormat(fstring.toString(), new DecimalFormatSymbols(Locale.US));
     }
 
     ////////////////////////////////
