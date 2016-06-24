@@ -568,7 +568,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public void enterShippingMode() {
-        tree.command("HIBERNATE 1");
+        tree.command("REBOOT 1");
     }
     @Override
     public int getPCBVersion() {
