@@ -842,7 +842,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
                 if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                    rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.aelK2F(delta),5,2000,"F");
+                    rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.relK2F(delta), 5, 2000, "F");
                 } else {
                     rval = new MeterReading(internal_temp+delta,5,1000,"C");
                 }
@@ -982,23 +982,23 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
      * @return Effective number of bits
      */
 
-    private double getEnob(final Channel channel) {
+    protected float getEnob(final Channel channel) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
         // Based on ADS1292 datasheet and some special sauce.
         // And empirical measurement of CH1 (which is super noisy due to chopper)
-        final double[] base_enob_table = {
-                20.10,
-                19.58,
-                19.11,
-                18.49,
-                17.36,
-                14.91,
-                12.53};
+        final float[] base_enob_table = {
+                20.10f,
+                19.58f,
+                19.11f,
+                18.49f,
+                17.36f,
+                14.91f,
+                12.53f};
         final int[] pga_gain_table = {6,1,2,3,4,8,12};
         final int samplerate_setting =meter_settings.adc_settings & ADC_SETTINGS_SAMPLERATE_MASK;
         final int buffer_depth_log2 = meter_settings.calc_settings & METER_CALC_SETTINGS_DEPTH_LOG2;
-        double enob = base_enob_table[ samplerate_setting ];
+        float enob = base_enob_table[ samplerate_setting ];
         int pga_setting = meter_settings.chset[channel.ordinal()];
         pga_setting &= METER_CH_SETTINGS_PGA_MASK;
         pga_setting >>= 4;
@@ -1135,7 +1135,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     private float getMinRangeForChannel(Channel c) {
         return (float)0.9 * getSelectedDescriptor(c).ranges.getChoiceBelow().max;
     }
-    private float getMaxRangeForChannel(Channel c) {
+    protected float getMaxRangeForChannel(Channel c) {
         return (float)1.1*getRangeDescriptorForChannel(c).max;
     }
     private boolean applyAutorange(Channel c) {
@@ -1386,49 +1386,6 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     @Override
     public int getLoggingIntervalMS() {
         return meter_log_settings.logging_period_ms;
-    }
-    private MeterReading wrapMeterReading(Channel c,float val, boolean relative) {
-        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
-        final double enob = getEnob(c);
-        float max = getMaxRangeForChannel(c);
-        MeterReading rval;
-        if(id.units.equals("K")) {
-            // Nobody likes Kelvin!  C or F?
-            if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                if(relative) {
-                    rval = new MeterReading(Util.TemperatureUnitsHelper.aelK2F(val),
-                                            (int)Math.log10(Math.pow(2.0, enob)),
-                                            Util.TemperatureUnitsHelper.aelK2F(max),
-                                            "F");
-                } else {
-                    rval = new MeterReading(Util.TemperatureUnitsHelper.absK2F(val),
-                                            (int) Math.log10(Math.pow(2.0, enob)),
-                                            Util.TemperatureUnitsHelper.absK2F(max),
-                                            "F");
-                }
-            } else {
-                if(relative) {
-                    rval = new MeterReading(val,
-                                            (int)Math.log10(Math.pow(2.0, enob)),
-                                            max,
-                                            "C");
-                } else {
-                    rval = new MeterReading(Util.TemperatureUnitsHelper.absK2C(val),
-                                            (int)Math.log10(Math.pow(2.0, enob)),
-                                            Util.TemperatureUnitsHelper.absK2C(max),
-                                            "C");
-                }
-            }
-        } else {
-            rval = new MeterReading(val,
-                                    (int)Math.log10(Math.pow(2.0, enob)),
-                                    max,
-                                    id.units);
-        }
-        return rval;
-    }
-    private MeterReading wrapMeterReading(Channel c,float val) {
-        return wrapMeterReading(c,val,false);
     }
 
     private static MeterReading invalid_inputs = new MeterReading(0,0,0,"INVALID INPUTS");

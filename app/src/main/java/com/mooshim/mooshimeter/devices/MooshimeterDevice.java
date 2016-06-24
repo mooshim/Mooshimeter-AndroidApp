@@ -216,33 +216,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return rval;
     }
 
-    private MeterReading wrapMeterReading(Channel c,float val) {
-        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
-        final double enob = getEnob(c);
-        float max = getMaxRangeForChannel(c);
-        MeterReading rval;
-        if(id.units.equals("K")) {
-            // Nobody likes Kelvin!  C or F?
-            if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                rval = new MeterReading(Util.TemperatureUnitsHelper.absK2F(val),
-                                        (int)Math.log10(Math.pow(2.0, enob)),
-                                        Util.TemperatureUnitsHelper.absK2F(max),
-                                        "F");
-            } else {
-                rval = new MeterReading(Util.TemperatureUnitsHelper.absK2C(val),
-                                        (int)Math.log10(Math.pow(2.0, enob)),
-                                        Util.TemperatureUnitsHelper.absK2C(max),
-                                        "C");
-            }
-        } else {
-            rval = new MeterReading(val,
-                                    (int)Math.log10(Math.pow(2.0, enob)),
-                                    max,
-                                    id.units);
-        }
-        return rval;
-    }
-
     void handleSampleReceived(Channel c, double timestamp_utc, float val) {
         MeterReading reading = wrapMeterReading(c,val);
         RangeDescriptor rd = getRangeDescriptorForChannel(c);
@@ -410,7 +383,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
                 if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
-                    delta_c = Util.TemperatureUnitsHelper.aelK2F(delta_c);
+                    delta_c = Util.TemperatureUnitsHelper.relK2F(delta_c);
                     rval = new MeterReading(internal_temp+delta_c,5,2000,"F");
                 } else {
                     rval = new MeterReading(internal_temp+delta_c,5,1000,"C");
@@ -469,7 +442,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH1:OFFSET",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onOffsetChange(Channel.CH1, wrapMeterReading(Channel.CH1,(Float)payload));
+                delegate.onOffsetChange(Channel.CH1, wrapMeterReading(Channel.CH1,(Float)payload, true));
             }
         });
         attachCallback("CH2:VALUE",new NotifyHandler() {
@@ -481,7 +454,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("CH2:OFFSET",new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                delegate.onOffsetChange(Channel.CH2, wrapMeterReading(Channel.CH2, (Float) payload));
+                delegate.onOffsetChange(Channel.CH2, wrapMeterReading(Channel.CH2, (Float)payload, true));
             }
         });
         attachCallback("CH1:BUF", new NotifyHandler() {
@@ -616,7 +589,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public MeterReading getOffset(Channel c) {
-        return wrapMeterReading(c,(Float)tree.getValueAt(c.name()+":OFFSET"));
+        return wrapMeterReading(c,(Float)tree.getValueAt(c.name()+":OFFSET"),true);
     }
     @Override
     public void setOffset(Channel c, float offset) {
@@ -646,7 +619,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
         return (float)0.9*Float.parseFloat(choice.getShortName());
     }
-    private float getMaxRangeForChannel(Channel c) {
+    protected float getMaxRangeForChannel(Channel c) {
         ConfigTree.ConfigNode rnode = getInputNode(c);
         int cnum = (Integer)tree.getValueAt(c.name()+ RANGE_I);
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
@@ -710,22 +683,22 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return (String)tree.getValueAt("NAME");
     }
 
-    private double getEnob(final Channel c) {
+    protected float getEnob(final Channel c) {
         // Return a rough appoximation of the ENOB of the channel
         // For the purposes of figuring out how many digits to display
         // Based on ADS1292 datasheet and some special sauce.
         // And empirical measurement of CH1 (which is super noisy due to chopper)
-        final double[] base_enob_table = {
-                20.10,
-                19.58,
-                19.11,
-                18.49,
-                17.36,
-                14.91,
-                12.53};
+        final float[] base_enob_table = {
+                20.10f,
+                19.58f,
+                19.11f,
+                18.49f,
+                17.36f,
+                14.91f,
+                12.53f};
         final int samplerate_setting = getSampleRateIndex();
         final double buffer_depth_log4 = Math.log(getBufferDepth())/Math.log(4);
-        double enob = base_enob_table[ samplerate_setting ];
+        float enob = base_enob_table[ samplerate_setting ];
         // Oversampling adds 1 ENOB per factor of 4
         enob += (buffer_depth_log4);
 

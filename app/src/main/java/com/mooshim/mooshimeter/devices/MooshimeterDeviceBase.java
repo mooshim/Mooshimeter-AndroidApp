@@ -24,6 +24,7 @@ import android.bluetooth.BluetoothGatt;
 
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 
@@ -162,6 +163,74 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
             }
         });
         return 0;
+    }
+
+    abstract float getEnob(Channel c);
+    abstract float getMaxRangeForChannel(Channel c);
+
+    protected MeterReading wrapMeterReading(Channel c,float val,boolean relative) {
+        MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
+        final float enob = getEnob(c);
+        float max = getMaxRangeForChannel(c);
+        MeterReading rval;
+        if(id.units.equals("K")) {
+            // Nobody likes Kelvin!  C or F?
+            abstract class Converter {
+                abstract float convert(float val);
+            }
+            Converter converter;
+            String units;
+
+            if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
+                units = "F";
+                if(relative) {
+                    converter = new Converter() {
+                        @Override
+                        float convert(float val) {
+                            return Util.TemperatureUnitsHelper.relK2F(val);
+                        }
+                    };
+                } else {
+                    converter = new Converter() {
+                        @Override
+                        float convert(float val) {
+                            return Util.TemperatureUnitsHelper.absK2F(val);
+                        }
+                    };
+                }
+            } else {
+                units = "C";
+                if(relative) {
+                    converter = new Converter() {
+                        @Override
+                        float convert(float val) {
+                            return Util.TemperatureUnitsHelper.relK2C(val);
+                        }
+                    };
+                } else {
+                    converter = new Converter() {
+                        @Override
+                        float convert(float val) {
+                            return Util.TemperatureUnitsHelper.absK2C(val);
+                        }
+                    };
+                }
+            }
+            rval = new MeterReading(converter.convert(val),
+                                    (int)Math.log10(Math.pow(2.0, enob)),
+                                    converter.convert(max),
+                                    units);
+        } else {
+            rval = new MeterReading(val,
+                                    (int)Math.log10(Math.pow(2.0, enob)),
+                                    max,
+                                    id.units);
+        }
+        return rval;
+    }
+
+    protected MeterReading wrapMeterReading(Channel c,float val) {
+        return wrapMeterReading(c,val,false);
     }
 
     //////////////////////////////////////

@@ -496,13 +496,16 @@ public class Util {
         public static float absK2C(float K) {
             return (float) (K-273.15);
         }
+        public static float relK2C(float K) {
+            return K;
+        }
         public static float absK2F(float K) {
             return (float) ((K - 273.15)* 1.8000 + 32.00);
         }
         public static float absC2F(float C) {
             return (float) ((C)* 1.8000 + 32.00);
         }
-        public static float aelK2F(float C) {
+        public static float relK2F(float C) {
             return (float) ((C)* 1.8000);
         }
     }
