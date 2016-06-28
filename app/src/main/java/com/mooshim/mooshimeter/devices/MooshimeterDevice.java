@@ -37,12 +37,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         public final static UUID
             METER_SERVICE       = fromString("1BC5FFA0-0200-62AB-E411-F254E005DBD4"),
             METER_SERIN         = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),
-            METER_SEROUT        = fromString("1BC5FFA2-0200-62AB-E411-F254E005DBD4"),
-
-            OAD_SERVICE_UUID    = fromString("1BC5FFC0-0200-62AB-E411-F254E005DBD4"),
-            OAD_IMAGE_IDENTIFY  = fromString("1BC5FFC1-0200-62AB-E411-F254E005DBD4"),
-            OAD_IMAGE_BLOCK     = fromString("1BC5FFC2-0200-62AB-E411-F254E005DBD4"),
-            OAD_REBOOT          = fromString("1BC5FFC3-0200-62AB-E411-F254E005DBD4");
+            METER_SEROUT        = fromString("1BC5FFA2-0200-62AB-E411-F254E005DBD4");
     }
 
     ////////////////////////////////
@@ -565,6 +560,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public void stream() {
         tree.command("SAMPLING:TRIGGER 2");
+    }
+    @Override
+    public void reboot() {
+        tree.command("REBOOT 0");
     }
     @Override
     public void enterShippingMode() {

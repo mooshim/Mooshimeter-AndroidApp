@@ -1235,6 +1235,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
+    public void reboot() {
+        meter_settings.target_meter_state = METER_SHUTDOWN;
+        meter_settings.send();
+    }
+    @Override
     public void enterShippingMode() {
         meter_settings.target_meter_state = METER_HIBERNATE;
         meter_settings.send();

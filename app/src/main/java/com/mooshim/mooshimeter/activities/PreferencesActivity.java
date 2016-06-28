@@ -180,6 +180,15 @@ public class PreferencesActivity extends MyActivity {
         // Extra preferences
         builder.add("Autoconnect","Automatically connect to this meter when detected",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.AUTOCONNECT));
         builder.add("Skip upgrade","Suppress offering firmware upgrade",makeSwitchForMeterPreference(MooshimeterDevice.mPreferenceKeys.SKIP_UPGRADE));
+        // Shipping mode
+        builder.add("Reboot now",
+                    "Reboots the meter and drops back to scanning screen.",
+                    makeButton("Set", new Runnable() {
+                        @Override
+                        public void run() {
+                            mMeter.reboot();
+                        }
+                    }));
 	}
 
 	@Override

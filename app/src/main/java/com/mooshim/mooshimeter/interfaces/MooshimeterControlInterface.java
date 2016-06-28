@@ -44,6 +44,7 @@ public interface MooshimeterControlInterface {
     void oneShot();
     void stream();
 
+    public void reboot();
     void enterShippingMode();
 
     int getPCBVersion();
