@@ -58,5 +58,8 @@
             android:name=".activities.PreferencesActivity"
             android:parentActivityName=".activities.DeviceActivity"
             android:screenOrientation="portrait" />
+        <meta-data
+            android:name="io.fabric.ApiKey"
+            android:value="c6f4868d73a7c8ad3d1fe30f0408e19b65cdc775" />
     </application>
 </manifest>
