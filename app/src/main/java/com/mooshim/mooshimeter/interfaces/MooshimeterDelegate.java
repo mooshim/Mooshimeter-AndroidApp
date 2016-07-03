@@ -7,8 +7,6 @@ import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
  * Created by First on 2/26/2016.
  */
 public interface MooshimeterDelegate {
-    void onInit();
-
     void onDisconnect();
 
     void onRssiReceived(int rssi);

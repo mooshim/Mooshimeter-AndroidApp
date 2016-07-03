@@ -63,8 +63,6 @@ public class Util {
     private static Handler mHandler = null;
     private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
     private static TextToSpeech speaker;
-    private static Timer speech_timer = new Timer();
-    private static TimerTask speech_timertask;
 
     public static void init(Context context) {
         mContext = context;

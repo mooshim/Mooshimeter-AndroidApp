@@ -578,9 +578,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     //////////////////////////
 
     @Override
-    public void onInit() {    }
-
-    @Override
     public void onDisconnect() {
         transitionToActivity(mMeter, ScanActivity.class);
     }

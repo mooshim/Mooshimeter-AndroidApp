@@ -67,8 +67,6 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
 
     private static MooshimeterDelegate dummy_delegate = new MooshimeterDelegate() {
         @Override
-        public void onInit() {        }
-        @Override
         public void onDisconnect() {        }
         @Override
         public void onRssiReceived(int rssi) {}

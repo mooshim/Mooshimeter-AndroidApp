@@ -588,9 +588,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     /////////////////////////
     // MooshimeterDelegate methods
     /////////////////////////
-
-    @Override
-    public void onInit() {}
     @Override
     public void onDisconnect() {
         transitionToActivity(mMeter,ScanActivity.class);
