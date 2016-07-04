@@ -18,8 +18,14 @@ public abstract class MyActivity extends Activity {
     // This is the master list of all Mooshimeters
     protected static final Map<String,BLEDeviceBase> mMeterDict = new ConcurrentHashMap<>();
 
+    public static void clearDeviceCache() {
+        mMeterDict.clear();
+    }
     public static BLEDeviceBase getDeviceWithAddress(String addr) {
         return mMeterDict.get(addr);
+    }
+    public static void putDevice(BLEDeviceBase device) {
+        mMeterDict.put(device.getAddress(),device);
     }
 
     protected void transitionToActivity(BLEDeviceBase d, Class activity_class) {
