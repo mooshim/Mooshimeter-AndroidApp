@@ -60,8 +60,11 @@ public class StatLockManager {
         lock.unlock();
     }
     public void sig() {
+        boolean holding = Thread.holdsLock(lock);
+        if(!holding) {l();}
         dbg("SIG");
         con.signalAll();
+        if(!holding) {ul();}
     }
     // returns whether it was interrupted or not
     public boolean awaitMilli(int ms) {
