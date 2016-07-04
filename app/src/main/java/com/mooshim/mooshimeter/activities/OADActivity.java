@@ -54,15 +54,16 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.activities;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
 import android.text.Html;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
@@ -71,11 +72,16 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.FilteredScanCallback;
+import com.mooshim.mooshimeter.common.StatLockManager;
+import com.mooshim.mooshimeter.devices.BLEDeviceBase;
+import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.devices.OADDevice;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class OADActivity extends MyActivity {
     // Activity
@@ -91,11 +97,24 @@ public class OADActivity extends MyActivity {
     private Button mBtnStart;
     private CheckBox mLegacyMode;
     // BLE
-    private OADDevice mMeter;
+    private BLEDeviceBase mMeter;
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
 
+    private class MainScanCallback extends FilteredScanCallback {
+        public BLEDeviceBase to_match;
+        public BLEDeviceBase matched;
+        public StatLockManager mylock;
+        public void FilteredCallback(final BLEDeviceBase m) {
+            if(m.getAddress().equals(to_match.getAddress())
+                    && matched==null
+                    && m.isInOADMode()) {
+                matched=m;
+                mylock.sig();
+            }
+        }
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -103,7 +122,7 @@ public class OADActivity extends MyActivity {
 
         // Sorry about the casting games
         Intent intent = getIntent();
-        mMeter = (OADDevice)getDeviceWithAddress(intent.getStringExtra("addr"));
+        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
 
         // GUI init
         setContentView(R.layout.activity_oad);
@@ -137,15 +156,8 @@ public class OADActivity extends MyActivity {
                 }
             });
         }
-
         updateStartButton();
-
         unpackFirmwareFileBuffer();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
     }
 
     @Override
@@ -175,23 +187,11 @@ public class OADActivity extends MyActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        /*mBLEUtil.setDisconnectCB(new Runnable() {
-            @Override
-            public void run() {
-                stopProgramming();
-                finish();
-            }
-        });*/
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-
     }
 
     Semaphore blockPacer;
@@ -202,6 +202,117 @@ public class OADActivity extends MyActivity {
     // State transitions
     ////////////////////////////////
 
+    private int reconnectInOADMode() {
+        final StatLockManager mylock = new StatLockManager(new ReentrantLock(), "Reconnector");
+        int rval = -1;
+        BLEDeviceBase m = mMeter;
+        int cb_handle = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+            @Override
+            public void run() {
+                mylock.sig();
+            }
+        });
+
+        addToLog("Rebooting meter...\n");
+        ((MooshimeterDeviceBase)m).reboot();
+        mylock.awaitMilli(500); // Give time for the command to get out
+        m.disconnect();
+        if(m.isConnected() && mylock.awaitMilli(10000)) {
+            // Our wait timed out (disconnection failed)
+            addToLog("Reboot failed\n");
+            return -1;
+        } else {
+            //Our wait was interrupted
+            addToLog("Reboot successful\n");
+        }
+
+        mMeter.mPwrap.cancelConnectionStateCB(cb_handle);
+
+        if(mMeter.isConnected()) {
+            addToLog("Disconnect failed!\n");
+            return -1;
+        }
+
+        // WE NEED TO SCAN FOR THE METER AND CONNECT TO THE NEW SCANNED DEVICE, TRYING TO CONNECT TO THE OLD ONE FAILS
+
+        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        MainScanCallback scan_cb = new MainScanCallback();
+        scan_cb.to_match = m;
+        scan_cb.mylock = mylock;
+
+        MyActivity.clearDeviceCache();
+
+        if( !bluetoothAdapter.startLeScan(scan_cb) ) {
+            // Starting the scan failed!
+            addToLog("Failed to start scan\n");
+            bluetoothAdapter.stopLeScan(scan_cb);
+            return -1;
+        } else {
+            addToLog("Scanning for meter in OAD mode...\n");
+        }
+
+        if(mylock.awaitMilli(10000)) {
+            // Timeout
+            addToLog("Did not see rebooted peripheral in scan!\n");
+            bluetoothAdapter.stopLeScan(scan_cb);
+            return -1;
+        } else {
+            // We were interrupted
+            addToLog("Detected meter!\n");
+        }
+
+        bluetoothAdapter.stopLeScan(scan_cb);
+        m = scan_cb.matched;
+
+        // TODO: Refactor: This is repeated code from ScanActivity
+
+        int attempts = 0;
+        while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
+            addToLog("Connecting... Attempt "+attempts+"\n");
+            rval = m.connect();
+        }
+        if (BluetoothGatt.GATT_SUCCESS != rval) {
+            addToLog("Connection failed.  Status: "+rval+"\n");
+            return -1;
+        }
+        addToLog("Discovering Services...\n");
+        rval = m.discover();
+        if (BluetoothGatt.GATT_SUCCESS != rval) {
+            // We may have failed because
+            addToLog("Discovery failed.  Status: "+rval+"\n");
+            m.disconnect();
+            return -1;
+        }
+        // At this point we are connected and have discovered characteristics for the BLE
+        // device.  We need to figure out exactly what kind it is and start the right
+        // activity for it.
+        BLEDeviceBase tmp_m = m.chooseSubclass();
+        if(tmp_m==null) {
+            //Couldn't choose a subclass for some reason...
+            addToLog("I don't recognize this device... aborting\n");
+            m.disconnect();
+            return -1;
+        } else {
+            m = tmp_m;
+        }
+        // Replace the copy in the singleton dict
+        mMeterDict.put(m.getAddress(),m);
+        addToLog("Initializing...\n");
+        rval = m.initialize();
+        if(rval != 0) {
+            addToLog("Initialization failed.  Status: "+rval+"\n");
+            m.disconnect();
+            return -1;
+        }
+        if(!(m instanceof OADDevice)) {
+            addToLog("Connected, but not in OAD mode...\n");
+            return -1;
+        }
+        addToLog("Connected!\n");
+        mMeter = m;
+        return 0;
+    }
+
     private void startProgramming() {
         final boolean legacy_mode = mLegacyMode.isChecked();
 
@@ -210,16 +321,21 @@ public class OADActivity extends MyActivity {
             return;
         }
 
-        if(mMeter.oad_identity.build_time > Util.getBundledFirmwareVersion()) {
-            if(!Util.offerYesNoDialog(this,"Downgrading","You are about to upload a version of firmware older than the firmware on the Mooshimeter.  Are you sure you want to proceed?")) {
-                // User chose to abort, do nothing.
-                return;
-            }
+        // On meter builds later than 1466xxx there is a delayed reset command that allows us to reboot the meter
+        // and reconnect in OAD mode.
+        if(  !mMeter.isInOADMode()
+           && 0!=reconnectInOADMode()) {
+            addToLog("Failed to enter OAD mode!\n");
+            return;
         }
 
+        final OADDevice m = (OADDevice)mMeter;
+        m.oad_identity.unpackFromFile(Util.getFileBuffer());
+
         in_recovery = false;
-        mLog.append("Programming started\n");
+        addToLog("Programming started\n");
         mProgramming = true;
+
         nextBlock = 0;
         updateStartButton();
 
@@ -229,13 +345,11 @@ public class OADActivity extends MyActivity {
         // Update connection parameters
         //mMeter.setConnectionInterval((short) 20, (short) 1000);
 
-        final Handler delayed_poster = new Handler();
-
         // Send image notification
-        mMeter.oad_block.enableNotify(true, new NotifyHandler() {
+        m.oad_block.enableNotify(true, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
-                mProgInfo.requestedBlock = mMeter.oad_block.requestedBlock;
+                mProgInfo.requestedBlock = m.oad_block.requestedBlock;
                 final short rb = mProgInfo.requestedBlock;
                 Log.d(TAG, "Meter requested block " + rb);
                 if (legacy_mode) {
@@ -251,7 +365,7 @@ public class OADActivity extends MyActivity {
                     }
                     if (in_recovery) {
                         // Give a 500ms delay for the BLE stack to catch up and clear
-                        delayed_poster.postDelayed(new Runnable() {
+                        Util.postDelayed(new Runnable() {
                             @Override
                             public void run() {
                                 blockPacer.release();
@@ -273,7 +387,7 @@ public class OADActivity extends MyActivity {
                 }
             }
         });
-        mMeter.oad_identity.enableNotify(true, new NotifyHandler() {
+        m.oad_identity.enableNotify(true, new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 Log.d(TAG, "OAD Image identify notification!");
@@ -281,10 +395,9 @@ public class OADActivity extends MyActivity {
         });
 
         // The meter will request block zero if the identity is received.
-        mMeter.oad_identity.send();
+        m.oad_identity.send();
         // Initialize stats
         mProgInfo.reset();
-        final Handler delay_handler = new Handler();
         final int[] cb_handle = new int[1];
         cb_handle[0] = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
@@ -293,10 +406,10 @@ public class OADActivity extends MyActivity {
                     @Override
                     public void run() {
                         stopProgramming();
-                        mLog.append("Meter disconnected.  Exiting...\n");
+                        addToLog("Meter disconnected.  Exiting...\n");
                     }
                 });
-                delay_handler.postDelayed(new Runnable() {
+                Util.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         mMeter.mPwrap.cancelConnectionStateCB(cb_handle[0]);
@@ -339,9 +452,9 @@ public class OADActivity extends MyActivity {
         // receive confirmation notifications on the last 4-5 blocks, otherwise I would just check
         // mProgInfo.requestedBlock here instead of nextBlock
         if ( nextBlock >= mProgInfo.nBlocks - 1 ) {
-            mLog.append("Programming complete!\n");
+            addToLog("Programming complete!\n");
         } else {
-            mLog.append("Programming cancelled\n");
+            addToLog("Programming cancelled\n");
         }
     }
 
@@ -350,11 +463,16 @@ public class OADActivity extends MyActivity {
     /////////////////////////////////
 
     public void onStart(View v) {
-        if (mProgramming) {
-            stopProgramming();
-        } else {
-            startProgramming();
-        }
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                if (mProgramming) {
+                    stopProgramming();
+                } else {
+                    startProgramming();
+                }
+            }
+        });
     }
 
     ////////////////////////////
@@ -362,15 +480,20 @@ public class OADActivity extends MyActivity {
     ////////////////////////////
 
     private void updateStartButton() {
-        if (mProgramming) {
-            mBtnStart.setText(R.string.cancel);
-            mProgressInfo.setText("Programming...");
-        } else {
-            mProgressBar.setProgress(0);
-            mBtnStart.setText(R.string.start_prog);
-            mProgressInfo.setText("Idle");
-        }
-        mLegacyMode.setEnabled(!mProgramming);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (mProgramming) {
+                    mBtnStart.setText(R.string.cancel);
+                    mProgressInfo.setText("Programming...");
+                } else {
+                    mProgressBar.setProgress(0);
+                    mBtnStart.setText(R.string.start_prog);
+                    mProgressInfo.setText("Idle");
+                }
+                mLegacyMode.setEnabled(!mProgramming);
+            }
+        });
     }
 
     private void displayImageInfo(TextView v) {
@@ -379,6 +502,10 @@ public class OADActivity extends MyActivity {
     }
 
     private void displayStats() {
+        if(!(mMeter instanceof OADDevice)) {
+            return;
+        }
+        OADDevice m = (OADDevice)mMeter;
         String txt;
         final int iBytes = mProgInfo.requestedBlock*Util.OAD_BLOCK_SIZE;
         final double byteRate;
@@ -388,7 +515,7 @@ public class OADActivity extends MyActivity {
         } else {
             byteRate = 0;
         }
-        final double timeEstimate = ((double) (mMeter.oad_identity.len * 4) / (double) iBytes) * elapsed;
+        final double timeEstimate = ((double) (m.oad_identity.len * 4) / (double) iBytes) * elapsed;
 
         txt = String.format("Time: %d / %d sec", (int) elapsed, (int) timeEstimate);
         txt += String.format("    Bytes: %d (%d/sec)", iBytes, (int) byteRate);
@@ -405,9 +532,17 @@ public class OADActivity extends MyActivity {
     // Utility
     /////////////////////////////
 
+    private void addToLog(final String s) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mLog.append(s);
+            }
+        });
+    }
+
     private void unpackFirmwareFileBuffer() {
         // Show image info
-        mMeter.oad_identity.unpackFromFile(Util.getFileBuffer());
         displayImageInfo(mFileImage);
 
         // Verify image types
@@ -422,23 +557,27 @@ public class OADActivity extends MyActivity {
 
         // Log
         mLog.setText("Image Loaded.\n");
-        mLog.append("Ready to program device!\n");
+        addToLog("Ready to program device!\n");
 
         updateStartButton();
     }
 
     private synchronized void programBlock(final short bnum){
+        if(!(mMeter instanceof OADDevice)) {
+            return;
+        }
+        OADDevice m = (OADDevice)mMeter;
         if (!mProgramming)
             return;
 
         // Prepare block
-        mMeter.oad_block.blockNum = bnum;
-        mMeter.oad_block.bytes = Util.getFileBlock(bnum);
+        m.oad_block.blockNum = bnum;
+        m.oad_block.bytes = Util.getFileBlock(bnum);
 
         Log.d(TAG, "Sending block " + bnum);
         int rval;
         do {
-            rval = mMeter.oad_block.send();
+            rval = m.oad_block.send();
             if(rval!=0) {
                 Log.e("","SEND ERROR OCCURRED:" + rval);
             }
@@ -455,8 +594,12 @@ public class OADActivity extends MyActivity {
         double timeStart = Util.getUTCTime();
 
         void reset() {
+            if(!(mMeter instanceof OADDevice)) {
+                return;
+            }
+            OADDevice m = (OADDevice)mMeter;
             timeStart = Util.getUTCTime();
-            nBlocks = (short) (mMeter.oad_identity.len / (Util.OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
+            nBlocks = (short) (m.oad_identity.len / (Util.OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }
 
