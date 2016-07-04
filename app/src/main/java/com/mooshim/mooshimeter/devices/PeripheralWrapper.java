@@ -262,6 +262,7 @@ public class PeripheralWrapper {
 
     public int connect() {
         if( isConnected() || isConnecting()) {
+            Log.e(TAG,"Tried to connect a device that's already connecting/connected");
             return 0;
         }
 

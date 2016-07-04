@@ -98,12 +98,8 @@ public class BLEDeviceBase {
         } else if(mBuildTime < 1454355414) {
             Log.d(TAG,"Wrapping as a LegacyMooshimeter");
             rval = new LegacyMooshimeterDevice(mPwrap);
-        } else if(mBuildTime <= Util.getBundledFirmwareVersion()){
-            Log.d(TAG,"Wrapping as a Mooshimeter");
-            rval = new MooshimeterDevice(mPwrap);
         } else {
-            // TODO: RAISE SOME KIND OF WARNING TO UPDATE THE APP
-            Log.d(TAG,"Don't recognize the FW... throwing a hail mary and wrapping as MooshimeterDevice");
+            Log.d(TAG,"Wrapping as a Mooshimeter");
             rval = new MooshimeterDevice(mPwrap);
         }
         // FIXME: This is hacked up.  I shouldn't have to copy over individual members... indication that I should put some more thought in to architecture
