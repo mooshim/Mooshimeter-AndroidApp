@@ -60,10 +60,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Html;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
@@ -73,9 +73,11 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.FilteredScanCallback;
+import com.mooshim.mooshimeter.common.FirmwareFile;
 import com.mooshim.mooshimeter.common.StatLockManager;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.devices.OADDevice;
 import com.mooshim.mooshimeter.common.Util;
@@ -101,6 +103,7 @@ public class OADActivity extends MyActivity {
     private ProgInfo mProgInfo = new ProgInfo();
     // Housekeeping
     private boolean mProgramming = false;
+    private FirmwareFile mFirmwareFile;
 
     private class MainScanCallback extends FilteredScanCallback {
         public BLEDeviceBase to_match;
@@ -142,6 +145,8 @@ public class OADActivity extends MyActivity {
         mBtnStart     = (Button)      findViewById(R.id.btn_start);
         mLegacyMode   = (CheckBox)    findViewById(R.id.legacy_mode_checkbox);
 
+        mLog.setMovementMethod(new ScrollingMovementMethod());
+
         mBtnStart.setEnabled(false);
         // If we're on an older version of Android, enable the checkbox by default
         mLegacyMode.setChecked(android.os.Build.VERSION.SDK_INT < 21);
@@ -156,18 +161,30 @@ public class OADActivity extends MyActivity {
                 }
             });
         }
+        mFirmwareFile = Util.getLatestFirmware();
         updateStartButton();
         unpackFirmwareFileBuffer();
+
+        // TODO: This is repeated code
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
+                if(tmp.getVersion()>Util.newest_fw.getVersion()) {
+                    Log.d(TAG,"Successfully downloaded newer firmware file! Replacing reference");
+                    Util.newest_fw = tmp;
+                }
+            }
+        });
     }
 
     @Override
     public void onBackPressed() {
         Log.d(TAG, "onBackPressed");
         if (mProgramming) {
-            Toast.makeText(this, R.string.prog_ogoing, Toast.LENGTH_LONG).show();
-        } else {
-            transitionToActivity(mMeter,ScanActivity.class);
+            stopProgramming();
         }
+        transitionToActivity(mMeter,ScanActivity.class);
     }
 
     @Override
@@ -209,21 +226,53 @@ public class OADActivity extends MyActivity {
         int cb_handle = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
             public void run() {
+                addToLog("Received disconnect event, poking lock...\n");
                 mylock.sig();
             }
         });
 
         addToLog("Rebooting meter...\n");
         ((MooshimeterDeviceBase)m).reboot();
-        mylock.awaitMilli(500); // Give time for the command to get out
-        m.disconnect();
+        Util.delay(500); // Give time for the command to get out
+/*
+                                 .       .
+                                / `.   .' \
+                        .---.  <    > <    >  .---.
+                        |    \  \ - ~ ~ - /  /    |
+                         ~-..-~             ~-..-~
+                     \~~~\.'                    `./~~~/
+           .-~~^-.    \__/                        \__/
+         .'  O    \     /               /       \  \
+        (_____,    `._.'               |         }  \/~~~/
+         `----.          /       }     |        /    \__/
+               `-.      |       /      |       /      `. ,~~|
+                   ~-.__|      /_ - ~ ^|      /- _      `..-'   f: f:
+                        |     /        |     /     ~-.     `-. _||_||_
+                        |_____|        |_____|         ~ - . _ _ _ _ _>
+
+        HERE BE DRAGONS: With older versions of firmware (144xxx and earlier), the reboot command
+        immediately reboots the meter.  Android is very stupid and gets confused internally - it won't
+        register the disconnection internally for many seconds, long enough that the meter falls out of bootloader mode.
+
+        If you try to scan for the meter, find the scan record, and try to connect to the new meter,
+        Android gets even more confused.  It will fail to connect for many seconds.
+
+        If you try to disconnect() after calling reboot(), it doesn't seem to help.  Android still won't
+        pass the connection state change.
+
+        You have wasted too many hours here.  Don't bother coming back here until Android 7, at least.
+*/
+
+        if(!m.isDisconnected()) {
+            m.disconnect();
+        }
         if(m.isConnected() && mylock.awaitMilli(10000)) {
             // Our wait timed out (disconnection failed)
             addToLog("Reboot failed\n");
             return -1;
         } else {
             //Our wait was interrupted
-            addToLog("Reboot successful\n");
+            addToLog("Disconnect successful\n");
         }
 
         mMeter.mPwrap.cancelConnectionStateCB(cb_handle);
@@ -265,6 +314,7 @@ public class OADActivity extends MyActivity {
         m = scan_cb.matched;
 
         // TODO: Refactor: This is repeated code from ScanActivity
+        Util.delay(500);
 
         int attempts = 0;
         while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
@@ -330,7 +380,7 @@ public class OADActivity extends MyActivity {
         }
 
         final OADDevice m = (OADDevice)mMeter;
-        m.oad_identity.unpackFromFile(Util.getFileBuffer());
+        m.oad_identity.unpackFromFile(mFirmwareFile.getFileBuffer());
 
         in_recovery = false;
         addToLog("Programming started\n");
@@ -497,7 +547,7 @@ public class OADActivity extends MyActivity {
     }
 
     private void displayImageInfo(TextView v) {
-        String s = String.format("Old Build: %d<br/>New Build: %d", mMeter.mBuildTime, Util.getBundledFirmwareVersion());
+        String s = String.format("Old Build: %d<br/>New Build: %d", mMeter.mBuildTime, mFirmwareFile.getVersion());
         v.setText(Html.fromHtml(s));
     }
 
@@ -507,7 +557,7 @@ public class OADActivity extends MyActivity {
         }
         OADDevice m = (OADDevice)mMeter;
         String txt;
-        final int iBytes = mProgInfo.requestedBlock*Util.OAD_BLOCK_SIZE;
+        final int iBytes = mProgInfo.requestedBlock*FirmwareFile.OAD_BLOCK_SIZE;
         final double byteRate;
         final double elapsed = (Util.getUTCTime() - mProgInfo.timeStart);
         if (elapsed > 0) {
@@ -533,10 +583,15 @@ public class OADActivity extends MyActivity {
     /////////////////////////////
 
     private void addToLog(final String s) {
+        Log.v(TAG,s);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 mLog.append(s);
+                int scrolltarget = mLog.getBottom()-mLog.getHeight();
+                if(scrolltarget>0) {
+                    mLog.scrollTo(0, mLog.getBottom() - mLog.getHeight());
+                }
             }
         });
     }
@@ -572,7 +627,7 @@ public class OADActivity extends MyActivity {
 
         // Prepare block
         m.oad_block.blockNum = bnum;
-        m.oad_block.bytes = Util.getFileBlock(bnum);
+        m.oad_block.bytes = mFirmwareFile.getFileBlock(bnum);
 
         Log.d(TAG, "Sending block " + bnum);
         int rval;
@@ -599,7 +654,7 @@ public class OADActivity extends MyActivity {
             }
             OADDevice m = (OADDevice)mMeter;
             timeStart = Util.getUTCTime();
-            nBlocks = (short) (m.oad_identity.len / (Util.OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
+            nBlocks = (short) (m.oad_identity.len / (FirmwareFile.OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE));
         }
     }
 

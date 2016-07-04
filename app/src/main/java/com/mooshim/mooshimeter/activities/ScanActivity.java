@@ -48,6 +48,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.FirmwareFile;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 import com.mooshim.mooshimeter.devices.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
@@ -336,11 +337,12 @@ public class ScanActivity extends MyActivity {
         if(d.mBuildTime == 0) {
             build.append("Invalid firmware");
         } else {
+            FirmwareFile f = Util.getLatestFirmware();
             build.append("Build: ");
             int color = 0xFF000000;
             if(d.mBuildTime<1454355414) {
                 color = 0xFFFF0000;
-            } else if(d.mBuildTime<Util.getBundledFirmwareVersion()) {
+            } else if(d.mBuildTime<f.getVersion()) {
                 color = 0xFFFF8000;
             }
             SpannableString bt= new SpannableString(Integer.toString(d.mBuildTime));

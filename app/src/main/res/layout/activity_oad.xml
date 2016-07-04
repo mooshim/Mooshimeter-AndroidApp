@@ -19,6 +19,7 @@
             android:layout_height="fill_parent"
             android:layout_gravity="left|center_vertical"
             android:layout_weight="1"
+            android:scrollbars = "vertical"
             android:text="Image Info:" />
 
         <TextView

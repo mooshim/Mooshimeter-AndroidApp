@@ -36,18 +36,12 @@ import android.widget.TextView;
 
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -63,10 +57,10 @@ public class Util {
     private static Handler mHandler = null;
     private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
     private static TextToSpeech speaker;
+    public static FirmwareFile newest_fw;
 
     public static void init(Context context) {
         mContext = context;
-        loadFile();
         mHandler = new Handler(mContext.getMainLooper());
         TextToSpeech.OnInitListener speaker_init_listener = new TextToSpeech.OnInitListener() {
             @Override
@@ -77,48 +71,21 @@ public class Util {
             }
         };
         speaker = new TextToSpeech(context,speaker_init_listener);
+        newest_fw = FirmwareFile.FirmwareFileFromPath("Mooshimeter.bin");
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
+                if(tmp.getVersion()>newest_fw.getVersion()) {
+                    Log.d(TAG,"Successfully downloaded newer firmware file! Replacing reference");
+                    newest_fw = tmp;
+                }
+            }
+        });
     }
 
-    // Singleton resources for accessing the bundled firmware image
-    private static final int FILE_BUFFER_SIZE = 0x40000;
-    public static final int OAD_BLOCK_SIZE = 16;
-    public static final int OAD_BUFFER_SIZE = 2 + OAD_BLOCK_SIZE;
-    private static final byte[] mFileBuffer = new byte[FILE_BUFFER_SIZE];
-    private static int mFirmwareVersion;
-
-    public static int getBundledFirmwareVersion() {
-        return mFirmwareVersion;
-    }
-
-    public static byte[] getFileBuffer() {
-        return mFileBuffer;
-    }
-
-    public static byte[] getFileBlock(short bnum) {
-        final byte[] rval = new byte[OAD_BLOCK_SIZE];
-        System.arraycopy(mFileBuffer, bnum*OAD_BLOCK_SIZE, rval, 0, OAD_BLOCK_SIZE);
-        return rval;
-    }
-
-    private static void loadFile() {
-        InputStream stream;
-        try {
-            // Read the file raw into a buffer
-            stream = mContext.getAssets().open("Mooshimeter.bin");
-            stream.read(mFileBuffer, 0, mFileBuffer.length);
-            stream.close();
-
-            ByteBuffer b = ByteBuffer.wrap(mFileBuffer);
-            b.order(ByteOrder.LITTLE_ENDIAN);
-            b.getShort(); // Skip crc0
-            b.getShort(); // Skip crc1
-            b.getShort(); // Skip user version (unused)
-            b.getShort(); // Skip len
-            mFirmwareVersion = b.getInt();
-        } catch (IOException e) {
-            // Handle exceptions here
-            Log.e(TAG, "Failed to unpack the firmware asset");
-        }
+    public static FirmwareFile getLatestFirmware() {
+        return newest_fw;
     }
 
     static boolean inMainThread() {
@@ -133,11 +100,11 @@ public class Util {
         }
     }
 
-    private static Dispatcher main_dispatcher = new Dispatcher("bg_thread");
-    private static Dispatcher cb_dispatcher = new Dispatcher("cb_thread");
+    private static Dispatcher bg_dispatcher = new Dispatcher("bg_thread"); // bg=Background
+    private static Dispatcher cb_dispatcher = new Dispatcher("cb_thread"); // cb=Callback
 
     public static void dispatch(Runnable r) {
-        main_dispatcher.dispatch(r);
+        bg_dispatcher.dispatch(r);
     }
 
     public static void dispatchCb(Runnable r) {
