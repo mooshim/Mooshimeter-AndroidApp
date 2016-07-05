@@ -58,6 +58,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
@@ -69,7 +70,6 @@ import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.FilteredScanCallback;
@@ -77,7 +77,6 @@ import com.mooshim.mooshimeter.common.FirmwareFile;
 import com.mooshim.mooshimeter.common.StatLockManager;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.devices.OADDevice;
 import com.mooshim.mooshimeter.common.Util;
@@ -95,6 +94,7 @@ public class OADActivity extends MyActivity {
     private TextView mFileImage;
     private TextView mProgressInfo;
     private TextView mLog;
+    private ScrollingMovementMethod mLogScroller;
     private ProgressBar mProgressBar;
     private Button mBtnStart;
     private CheckBox mLegacyMode;
@@ -145,7 +145,8 @@ public class OADActivity extends MyActivity {
         mBtnStart     = (Button)      findViewById(R.id.btn_start);
         mLegacyMode   = (CheckBox)    findViewById(R.id.legacy_mode_checkbox);
 
-        mLog.setMovementMethod(new ScrollingMovementMethod());
+        mLogScroller = new ScrollingMovementMethod();
+        mLog.setMovementMethod(mLogScroller);
 
         mBtnStart.setEnabled(false);
         // If we're on an older version of Android, enable the checkbox by default
@@ -170,10 +171,8 @@ public class OADActivity extends MyActivity {
             @Override
             public void run() {
                 FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-                if(tmp.getVersion()>Util.newest_fw.getVersion()) {
-                    Log.d(TAG,"Successfully downloaded newer firmware file! Replacing reference");
-                    Util.newest_fw = tmp;
-                }
+                Log.d(TAG,"Successfully downloaded newer firmware file!");
+                Util.download_fw = tmp;
             }
         });
     }
@@ -215,13 +214,9 @@ public class OADActivity extends MyActivity {
     static short nextBlock = 0;
     static boolean in_recovery;
 
-    ////////////////////////////////
-    // State transitions
-    ////////////////////////////////
-
-    private int reconnectInOADMode() {
-        final StatLockManager mylock = new StatLockManager(new ReentrantLock(), "Reconnector");
-        int rval = -1;
+    private int synchronousDisconnect() {
+        final StatLockManager mylock = new StatLockManager(new ReentrantLock(), "Disconnector");
+        int rval = 0;
         BLEDeviceBase m = mMeter;
         int cb_handle = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
@@ -230,7 +225,141 @@ public class OADActivity extends MyActivity {
                 mylock.sig();
             }
         });
+        m.disconnect();
+        if(m.isConnected() && mylock.awaitMilli(10000)) {
+            // Our wait timed out (disconnection failed)
+            addToLog("Disconnect failed\n");
+            rval = -1;
+        } else {
+            //Our wait was interrupted
+            addToLog("Disconnect successful\n");
+            rval = 0;
+        }
+        mMeter.mPwrap.cancelConnectionStateCB(cb_handle);
+        return rval;
+    }
 
+    private BLEDeviceBase synchronousScan(BLEDeviceBase m) {
+        final StatLockManager mylock = new StatLockManager(new ReentrantLock(), "SyncScan");
+        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        MainScanCallback scan_cb = new MainScanCallback();
+        scan_cb.to_match = m;
+        scan_cb.mylock = mylock;
+
+        MyActivity.clearDeviceCache();
+
+        if( !bluetoothAdapter.startLeScan(scan_cb) ) {
+            // Starting the scan failed!
+            addToLog("Failed to start scan\n");
+            bluetoothAdapter.stopLeScan(scan_cb);
+            return null;
+        } else {
+            addToLog("Scanning for meter in OAD mode...\n");
+        }
+
+        if(mylock.awaitMilli(10000)) {
+            // Timeout
+            addToLog("Did not see rebooted peripheral in scan!\n");
+            bluetoothAdapter.stopLeScan(scan_cb);
+            return null;
+        } else {
+            // We were interrupted, that means we found it!
+            addToLog("Detected meter!\n");
+        }
+        return scan_cb.matched;
+    }
+
+    private BLEDeviceBase connectAndDiscover(BLEDeviceBase m) {
+        int rval = BluetoothGatt.GATT_FAILURE;
+        int attempts = 0;
+        while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
+            addToLog("Connecting... Attempt "+attempts+"\n");
+            rval = m.connect();
+        }
+        if (BluetoothGatt.GATT_SUCCESS != rval) {
+            addToLog("Connection failed.  Status: "+rval+"\n");
+            return null;
+        }
+        addToLog("Discovering Services...\n");
+        rval = m.discover();
+        if (BluetoothGatt.GATT_SUCCESS != rval) {
+            // We may have failed because
+            addToLog("Discovery failed.  Status: "+rval+"\n");
+            m.disconnect();
+            return null;
+        }
+        // At this point we are connected and have discovered characteristics for the BLE
+        // device.  We need to figure out exactly what kind it is and start the right
+        // activity for it.
+        BLEDeviceBase tmp_m = m.chooseSubclass();
+        if(tmp_m==null) {
+            //Couldn't choose a subclass for some reason...
+            addToLog("I don't recognize this device... aborting\n");
+            m.disconnect();
+            return null;
+        } else {
+            m = tmp_m;
+        }
+        // Replace the copy in the singleton dict
+        mMeterDict.put(m.getAddress(),m);
+        addToLog("Initializing...\n");
+        rval = m.initialize();
+        if(rval != 0) {
+            addToLog("Initialization failed.  Status: "+rval+"\n");
+            m.disconnect();
+            return null;
+        }
+        addToLog("Connected!\n");
+        return m;
+    }
+
+    private BLEDeviceBase walkThroughManualReconnectInOADMode(BLEDeviceBase m) {
+        int rval;
+        String[] choices = {"Continue","See video"};
+        int choice = Util.offerChoiceDialog(this,"Manual Reboot Required",
+                                            "The version of firmware on the Mooshimeter is incapable of automatically rebooting from Android.  You must manually reset the meter by pressing the button on the side of the meter.",
+                                            choices);
+        switch (choice) {
+            case 0:
+                Log.d(TAG,"User elected to continue");
+            break;
+            case 1:
+                {Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
+                startActivity(browserIntent);
+                return null;}
+        }
+        if(0!=(rval=synchronousDisconnect())) {
+            return null;
+        }
+
+        addToLog("PRESS THE RESET BUTTON NOW\n");
+
+        Util.delay(500);  // VOODOO BULLSHIT
+
+        if(null==(m=synchronousScan(m))) {
+            return null;
+        }
+
+        Util.delay(500);  // VOODOO BULLSHIT
+
+        if(null==(m=connectAndDiscover(m))) {
+            return null;
+        }
+
+        if(!(m instanceof OADDevice)) {
+            addToLog("Connected, but not in OAD mode...\n");
+            m.disconnect();
+            return null;
+        }
+
+        return m;
+    }
+
+    ////////////////////////////////
+    // State transitions
+    ////////////////////////////////
+
+    private BLEDeviceBase autoReconnectInOADMode(BLEDeviceBase m) {
         addToLog("Rebooting meter...\n");
         ((MooshimeterDeviceBase)m).reboot();
         Util.delay(500); // Give time for the command to get out
@@ -262,121 +391,51 @@ public class OADActivity extends MyActivity {
 
         You have wasted too many hours here.  Don't bother coming back here until Android 7, at least.
 */
-
-        if(!m.isDisconnected()) {
-            m.disconnect();
-        }
-        if(m.isConnected() && mylock.awaitMilli(10000)) {
-            // Our wait timed out (disconnection failed)
-            addToLog("Reboot failed\n");
-            return -1;
-        } else {
-            //Our wait was interrupted
-            addToLog("Disconnect successful\n");
-        }
-
-        mMeter.mPwrap.cancelConnectionStateCB(cb_handle);
-
-        if(mMeter.isConnected()) {
-            addToLog("Disconnect failed!\n");
-            return -1;
+        if(0!=synchronousDisconnect()) {
+            return null;
         }
 
         // WE NEED TO SCAN FOR THE METER AND CONNECT TO THE NEW SCANNED DEVICE, TRYING TO CONNECT TO THE OLD ONE FAILS
 
-        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        MainScanCallback scan_cb = new MainScanCallback();
-        scan_cb.to_match = m;
-        scan_cb.mylock = mylock;
-
-        MyActivity.clearDeviceCache();
-
-        if( !bluetoothAdapter.startLeScan(scan_cb) ) {
-            // Starting the scan failed!
-            addToLog("Failed to start scan\n");
-            bluetoothAdapter.stopLeScan(scan_cb);
-            return -1;
-        } else {
-            addToLog("Scanning for meter in OAD mode...\n");
+        if(null==(m=synchronousScan(m))) {
+            return null;
         }
 
-        if(mylock.awaitMilli(10000)) {
-            // Timeout
-            addToLog("Did not see rebooted peripheral in scan!\n");
-            bluetoothAdapter.stopLeScan(scan_cb);
-            return -1;
-        } else {
-            // We were interrupted
-            addToLog("Detected meter!\n");
+        if(null==(m=connectAndDiscover(m))) {
+            return null;
         }
 
-        bluetoothAdapter.stopLeScan(scan_cb);
-        m = scan_cb.matched;
-
-        // TODO: Refactor: This is repeated code from ScanActivity
-        Util.delay(500);
-
-        int attempts = 0;
-        while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
-            addToLog("Connecting... Attempt "+attempts+"\n");
-            rval = m.connect();
-        }
-        if (BluetoothGatt.GATT_SUCCESS != rval) {
-            addToLog("Connection failed.  Status: "+rval+"\n");
-            return -1;
-        }
-        addToLog("Discovering Services...\n");
-        rval = m.discover();
-        if (BluetoothGatt.GATT_SUCCESS != rval) {
-            // We may have failed because
-            addToLog("Discovery failed.  Status: "+rval+"\n");
-            m.disconnect();
-            return -1;
-        }
-        // At this point we are connected and have discovered characteristics for the BLE
-        // device.  We need to figure out exactly what kind it is and start the right
-        // activity for it.
-        BLEDeviceBase tmp_m = m.chooseSubclass();
-        if(tmp_m==null) {
-            //Couldn't choose a subclass for some reason...
-            addToLog("I don't recognize this device... aborting\n");
-            m.disconnect();
-            return -1;
-        } else {
-            m = tmp_m;
-        }
-        // Replace the copy in the singleton dict
-        mMeterDict.put(m.getAddress(),m);
-        addToLog("Initializing...\n");
-        rval = m.initialize();
-        if(rval != 0) {
-            addToLog("Initialization failed.  Status: "+rval+"\n");
-            m.disconnect();
-            return -1;
-        }
         if(!(m instanceof OADDevice)) {
             addToLog("Connected, but not in OAD mode...\n");
-            return -1;
+            m.disconnect();
+            return null;
         }
-        addToLog("Connected!\n");
-        mMeter = m;
-        return 0;
+
+        return m;
     }
 
     private void startProgramming() {
         final boolean legacy_mode = mLegacyMode.isChecked();
+        BLEDeviceBase rval_meter=null;
 
         if(mProgramming) {
             Log.e(TAG, "startProgramming called, but programming already underway!");
             return;
         }
 
-        // On meter builds later than 1466xxx there is a delayed reset command that allows us to reboot the meter
+        // On meter builds later than 1454xxx there is a delayed reset command that allows us to reboot the meter
         // and reconnect in OAD mode.
-        if(  !mMeter.isInOADMode()
-           && 0!=reconnectInOADMode()) {
-            addToLog("Failed to enter OAD mode!\n");
-            return;
+        if(  !mMeter.isInOADMode() ) {
+            if(mMeter.mBuildTime<1454355414) {
+                rval_meter=walkThroughManualReconnectInOADMode(mMeter);
+            } else {
+                rval_meter=autoReconnectInOADMode(mMeter);
+            }
+            if(rval_meter==null) {
+                addToLog("Failed to enter OAD mode!\n");
+                return;
+            }
+            mMeter = rval_meter;
         }
 
         final OADDevice m = (OADDevice)mMeter;
@@ -588,10 +647,16 @@ public class OADActivity extends MyActivity {
             @Override
             public void run() {
                 mLog.append(s);
-                int scrolltarget = mLog.getBottom()-mLog.getHeight();
-                if(scrolltarget>0) {
-                    mLog.scrollTo(0, mLog.getBottom() - mLog.getHeight());
-                }
+                // HERE BE DRAGONS:  Android textview scrolling doesn't seem to work correctly programmatically
+                // mLog.getBottom returns a very large value even when there's no text in the log... as a result
+                // trying to scroll to the bottom always scrolls way past where it should and shows a blank log.
+                // I can't figure out how to get the bottom of the text and this is wasting time.
+                //int bottom = mLog.getBottom();
+                //int height = mLog.getHeight();
+                //int scroll_target = bottom-height;
+                //if(scroll_target>0) {
+                //    mLog.scrollTo(0, scroll_target);
+                //}
             }
         });
     }
