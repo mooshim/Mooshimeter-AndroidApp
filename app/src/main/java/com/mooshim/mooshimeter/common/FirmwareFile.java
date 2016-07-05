@@ -97,7 +97,7 @@ public class FirmwareFile {
 
     public static FirmwareFile FirmwareFileFromURL(String url) {
         FirmwareFile rval = new FirmwareFile();
-        //rval.downloadFromURL(url);
+        rval.downloadFromURL(url);
         return rval;
     }
     public static FirmwareFile FirmwareFileFromPath(String path) {

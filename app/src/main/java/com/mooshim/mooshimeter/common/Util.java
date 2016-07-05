@@ -57,7 +57,8 @@ public class Util {
     private static Handler mHandler = null;
     private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
     private static TextToSpeech speaker;
-    public static FirmwareFile newest_fw;
+    public static FirmwareFile download_fw;
+    public static FirmwareFile bundled_fw;
 
     public static void init(Context context) {
         mContext = context;
@@ -71,21 +72,32 @@ public class Util {
             }
         };
         speaker = new TextToSpeech(context,speaker_init_listener);
-        newest_fw = FirmwareFile.FirmwareFileFromPath("Mooshimeter.bin");
+        bundled_fw = FirmwareFile.FirmwareFileFromPath("Mooshimeter.bin");
         Util.dispatch(new Runnable() {
             @Override
             public void run() {
                 FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-                if(tmp.getVersion()>newest_fw.getVersion()) {
+                if(tmp.getVersion()> download_fw.getVersion()) {
                     Log.d(TAG,"Successfully downloaded newer firmware file! Replacing reference");
-                    newest_fw = tmp;
+                    download_fw = tmp;
                 }
             }
         });
     }
 
+    public static FirmwareFile getBundledFW() {
+        return bundled_fw;
+    }
+
+    public static FirmwareFile getDownloadFW() {
+        return download_fw;
+    }
+
     public static FirmwareFile getLatestFirmware() {
-        return newest_fw;
+        if(download_fw!=null && download_fw.getVersion()>bundled_fw.getVersion()) {
+            return download_fw;
+        }
+        return bundled_fw;
     }
 
     static boolean inMainThread() {

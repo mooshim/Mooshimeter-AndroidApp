@@ -521,8 +521,7 @@ public class ScanActivity extends MyActivity {
         } else {
             startDeviceActivity(m);
         }*/
-            //if (!m.getPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE) && m.mBuildTime < Util.getBundledFirmwareVersion()) {
-            if(true) {
+            if (!m.getPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE) && m.mBuildTime < Util.getLatestFirmware().getVersion()) {
                 String[] choices = {"Update now", "Continue without updating"};
                 int choice = Util.offerChoiceDialog(this, "Firmware update available", "A newer firmware version is available for this Mooshimeter, upgrading is recommended.", choices);
                 switch (choice) {

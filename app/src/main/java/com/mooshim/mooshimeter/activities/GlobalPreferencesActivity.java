@@ -121,7 +121,10 @@ public class GlobalPreferencesActivity extends MyActivity {
         }
         String version = pInfo.versionName;
         builder.add("Android App","Version "+version,null);
-        builder.add("Bundled Firmware","Version code: "+Util.getBundledFirmwareVersion(),null);
+        builder.add("Bundled Firmware","Version code: "+Util.getBundledFW().getVersion(),null);
+        if(Util.getDownloadFW()!=null) {
+            builder.add("Downloaded Firmware","Version code: "+Util.getDownloadFW().getVersion(),null);
+        }
         builder.add("Use Fahrenheit","Display temperatures in F instead of C",makeSwitchForPreference(Util.preference_keys.USE_FAHRENHEIT));
         builder.add("Help","Visit help website",makeButton("Help", new Runnable() {
             @Override
