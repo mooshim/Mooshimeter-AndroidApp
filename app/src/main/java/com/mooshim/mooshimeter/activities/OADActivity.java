@@ -183,7 +183,7 @@ public class OADActivity extends MyActivity {
         if (mProgramming) {
             stopProgramming();
         }
-        transitionToActivity(mMeter,ScanActivity.class);
+        finish();
     }
 
     @Override
@@ -522,7 +522,7 @@ public class OADActivity extends MyActivity {
                     @Override
                     public void run() {
                         mMeter.mPwrap.cancelConnectionStateCB(cb_handle[0]);
-                        transitionToActivity(mMeter, ScanActivity.class);
+                        finish();
                     }
                 }, 3000);
             }

@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by First on 12/4/2015.
  */
 public abstract class MyActivity extends Activity {
-
     // This is the master list of all Mooshimeters
     protected static final Map<String,BLEDeviceBase> mMeterDict = new ConcurrentHashMap<>();
 
@@ -28,48 +27,56 @@ public abstract class MyActivity extends Activity {
         mMeterDict.put(device.getAddress(),device);
     }
 
-    protected void transitionToActivity(BLEDeviceBase d, Class activity_class) {
+    protected void pushActivityToStack(BLEDeviceBase d, Class activity_class) {
         Intent intent = new Intent(this, activity_class);
         if(d!=null) {
             intent.putExtra("addr", d.getAddress());
         }
-        finish();
         startActivityForResult(intent, 0);
+    }
+
+    protected String cname() {
+        return this.getClass().getName();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(cname(),"What do I do with this?");
     }
 
     @Override
     protected void onCreate(Bundle bundle) {
-        Log.d(this.getClass().getName(), "onCreate");
+        Log.d(cname(), "onCreate");
         super.onCreate(bundle);
     }
 
     @Override
     protected void onStart() {
-        Log.d(this.getClass().getName(), "onStart");
+        Log.d(cname(), "onStart");
         super.onStart();
     }
 
     @Override
     protected void onResume() {
-        Log.d(this.getClass().getName(), "onResume");
+        Log.d(cname(), "onResume");
         super.onResume();
     }
 
     @Override
     protected void onPause() {
-        Log.d(this.getClass().getName(), "onPause");
+        Log.d(cname(), "onPause");
         super.onPause();
     }
 
     @Override
     protected void onStop() {
-        Log.d(this.getClass().getName(), "onStop");
+        Log.d(cname(), "onStop");
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        Log.d(this.getClass().getName(), "onDestroy");
+        Log.d(cname(), "onDestroy");
         super.onDestroy();
     }
 }

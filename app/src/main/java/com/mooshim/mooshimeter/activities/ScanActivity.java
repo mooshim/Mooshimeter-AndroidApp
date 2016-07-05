@@ -200,7 +200,7 @@ public class ScanActivity extends MyActivity {
         // Handle presses on the action bar items
         switch (item.getItemId()) {
             case R.id.opt_prefs:
-                transitionToActivity(null,GlobalPreferencesActivity.class);
+                pushActivityToStack(null,GlobalPreferencesActivity.class);
                 break;
             default:
                 return super.onOptionsItemSelected(item);
@@ -502,7 +502,7 @@ public class ScanActivity extends MyActivity {
 
     private void startSingleMeterActivity(BLEDeviceBase m) {
         if (m.isInOADMode()) {
-            transitionToActivity(m, OADActivity.class);
+            pushActivityToStack(m, OADActivity.class);
         } else {
             // Check the firmware version against our bundled version
         /*if(     m.meter_info.build_time < Util.getBundledFirmwareVersion()
@@ -527,7 +527,7 @@ public class ScanActivity extends MyActivity {
                 switch (choice) {
                     case 0:
                         // Update now
-                        transitionToActivity(m, OADActivity.class);
+                        pushActivityToStack(m, OADActivity.class);
                         // View the instructions
                         //Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
                         //startActivity(browserIntent);
@@ -536,11 +536,11 @@ public class ScanActivity extends MyActivity {
                     case 1:
                         // Continue without viewing
                         m.setPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE,true);
-                        transitionToActivity(m, DeviceActivity.class);
+                        pushActivityToStack(m, DeviceActivity.class);
                         break;
                 }
             } else {
-                transitionToActivity(m, DeviceActivity.class);
+                pushActivityToStack(m, DeviceActivity.class);
             }
         }
     }

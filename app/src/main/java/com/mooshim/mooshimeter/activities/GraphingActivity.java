@@ -242,7 +242,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         super.onResume();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        if(mMeter==null) {
+        if(mMeter==null || !mMeter.isConnected()) {
             onBackPressed();
         }
 
@@ -278,12 +278,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     @Override
     protected void onDestroy() {
         super.onDestroy();
-    }
-
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        transitionToActivity(mMeter, DeviceActivity.class);
     }
 
     /////////////////////////
@@ -590,7 +584,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     /////////////////////////
     @Override
     public void onDisconnect() {
-        transitionToActivity(mMeter,ScanActivity.class);
+        finish();
     }
     @Override
     public void onRssiReceived(int rssi) {}

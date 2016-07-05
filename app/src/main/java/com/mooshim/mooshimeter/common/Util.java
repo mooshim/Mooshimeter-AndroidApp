@@ -77,7 +77,8 @@ public class Util {
             @Override
             public void run() {
                 FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-                if(tmp.getVersion()> download_fw.getVersion()) {
+                if(tmp != null &&
+                   tmp.getVersion()> download_fw.getVersion()) {
                     Log.d(TAG,"Successfully downloaded newer firmware file! Replacing reference");
                     download_fw = tmp;
                 }
@@ -274,7 +275,7 @@ public class Util {
             }
         };
 
-        mHandler.post(r);
+        postToMain(r);
 
         // block until the dialog to be dismissed
         try {

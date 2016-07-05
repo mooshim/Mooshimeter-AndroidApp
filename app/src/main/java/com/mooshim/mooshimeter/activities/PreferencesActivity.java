@@ -194,15 +194,9 @@ public class PreferencesActivity extends MyActivity {
                     makeButton("Set", new Runnable() {
                         @Override
                         public void run() {
-                            transitionToActivity(mMeter,OADActivity.class);
+                            pushActivityToStack(mMeter,OADActivity.class);
                         }
                     }));
-	}
-
-	@Override
-	public void onDestroy() {
-		super.onDestroy();
-        setResult(RESULT_OK);
 	}
 
 	@Override
@@ -210,20 +204,17 @@ public class PreferencesActivity extends MyActivity {
 		// Handle presses on the action bar items
 		switch (item.getItemId()) {
 		default:
-            transitionToActivity(mMeter, DeviceActivity.class);
+            finish();
 		}
 		return true;
     }
 
     @Override
-    public void onBackPressed() {
-        Log.e(TAG, "Back pressed");
-        transitionToActivity(mMeter, DeviceActivity.class);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
+    protected void onResume() {
+        super.onResume();
+        if(   mMeter==null ||!mMeter.isConnected()) {
+            onBackPressed();
+        }
     }
 
     @Override
@@ -241,30 +232,9 @@ public class PreferencesActivity extends MyActivity {
         }
     }
 
-	@Override
-	protected void onResume() {
-		super.onResume();
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-    }
-
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        switch (requestCode) {
-            default:
-                setError("Unknown request code");
-                break;
-        }
     }
 
 	private void setError(final String txt) {

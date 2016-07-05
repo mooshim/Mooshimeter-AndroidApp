@@ -145,7 +145,8 @@ public class GlobalPreferencesActivity extends MyActivity {
     @Override
     public void onBackPressed() {
         Log.e(TAG, "Back pressed");
-        transitionToActivity(null, ScanActivity.class);
+        finish();
+        //transitionToActivity(null, ScanActivity.class);
     }
 
     @Override
@@ -177,16 +178,6 @@ public class GlobalPreferencesActivity extends MyActivity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        switch (requestCode) {
-            default:
-                setError("Unknown request code");
-                break;
-        }
     }
 
 	private void setError(final String txt) {

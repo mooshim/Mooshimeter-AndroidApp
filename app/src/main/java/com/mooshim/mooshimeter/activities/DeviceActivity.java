@@ -150,22 +150,11 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 			startPreferenceActivity();
 			break;
 		default:
-            transitionToActivity(mMeter,ScanActivity.class);
+            finish();
             return true;
 		}
 		return true;
 	}
-
-    @Override
-    public void onBackPressed() {
-        Log.e(TAG, "Back pressed");
-        transitionToActivity(mMeter, ScanActivity.class);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-    }
 
     @Override
     protected void onPause() {
@@ -195,9 +184,10 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
         // When resuming, Android may have destroyed objects we care about
         // Just fall back to the scan screen...
-        if(mMeter==null) {
-            Log.e(TAG,"GOT A NULL MMETER IN onResume!");
+        if(   mMeter==null
+           ||!mMeter.isConnected()) {
             onBackPressed();
+            return;
         }
 
         Util.dispatch(new Runnable() {
@@ -231,16 +221,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        switch (requestCode) {
-            default:
-                //setError("Unknown request code");
-                break;
-        }
     }
 
 	private void startPreferenceActivity() {
@@ -522,7 +502,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     public void onGraphClick(View v) {
         Log.i(TAG, "onGraphClick");
-        transitionToActivity(mMeter, GraphingActivity.class);
+        pushActivityToStack(mMeter, GraphingActivity.class);
     }
     public void onLoggingClick(View v) {
         Log.i(TAG, "onLoggingClick");
@@ -579,7 +559,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onDisconnect() {
-        transitionToActivity(mMeter, ScanActivity.class);
+        //transitionToActivity(mMeter, ScanActivity.class);
+        finish();
     }
 
     @Override
