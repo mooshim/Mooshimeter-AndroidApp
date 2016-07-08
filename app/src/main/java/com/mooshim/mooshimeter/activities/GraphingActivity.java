@@ -374,7 +374,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             case MotionEvent.ACTION_UP:
                 // Kill any Y motion component in pass_to_other
                 // This is to allow smooth horizontal scrolling
-                pass_to_other.setLocation(pass_to_other.getX(),move_start.getY());
+                if(move_start!=null) {
+                    pass_to_other.setLocation(pass_to_other.getX(), move_start.getY());
+                }
                 break;
         }
 
