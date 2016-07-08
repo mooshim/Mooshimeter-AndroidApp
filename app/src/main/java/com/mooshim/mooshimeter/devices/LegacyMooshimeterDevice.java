@@ -31,8 +31,11 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -328,7 +331,17 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
         @Override
         public byte[] pack() {
-            return name.getBytes();
+            byte[] rval = new byte[18];
+            byte[] name_bytes = name.getBytes();
+            for(int i = 0; i < 17; i++) {
+                if(i < name_bytes.length) {
+                    rval[i] = name_bytes[i];
+                } else {
+                    rval[i] = 0;
+                }
+            }
+            rval[17] = 0;
+            return rval;
         }
         @Override
         public void unpackInner(final byte[] in) {
@@ -1101,7 +1114,22 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
     @Override
     public List<MooshimeterDeviceBase.InputDescriptor> getInputList(Channel c) {
-        return (List<MooshimeterDeviceBase.InputDescriptor>)(List<?>)input_descriptors.get(c).getChoices();
+        if(c==Channel.MATH) {
+            return input_descriptors.get(c).getChoices();
+        }
+        Channel other = c==Channel.CH1?Channel.CH2:Channel.CH1;
+        InputDescriptor other_id = (InputDescriptor)getSelectedDescriptor(other);
+        if( isSharedInput(other_id)) {
+            ArrayList<InputDescriptor> rval = new ArrayList(input_descriptors.get(c).getChoices());
+            for (Iterator<InputDescriptor> iterator = rval.iterator(); iterator.hasNext();) {
+                InputDescriptor descriptor = iterator.next();
+                if(isSharedInput(descriptor)) {
+                    iterator.remove();
+                }
+            }
+            return (List<MooshimeterDeviceBase.InputDescriptor>)(List<?>)rval;
+        }
+        return input_descriptors.get(c).getChoices();
     }
 
     ////////////////////////

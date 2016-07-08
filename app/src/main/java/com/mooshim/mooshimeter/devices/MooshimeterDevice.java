@@ -11,6 +11,7 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -867,6 +868,21 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public List<MooshimeterDeviceBase.InputDescriptor> getInputList(Channel c) {
+        if(c==Channel.MATH) {
+            return input_descriptors.get(c).getChoices();
+        }
+        Channel other = c==Channel.CH1?Channel.CH2:Channel.CH1;
+        InputDescriptor other_id = (InputDescriptor)getSelectedDescriptor(other);
+        ArrayList<InputDescriptor> rval = new ArrayList(input_descriptors.get(c).getChoices());
+        if(other_id.shared_node!=null) {
+            for (Iterator<InputDescriptor> iterator = rval.iterator(); iterator.hasNext();) {
+                InputDescriptor descriptor = iterator.next();
+                if(descriptor.shared_node!=null) {
+                    iterator.remove();
+                }
+            }
+            return (List<MooshimeterDeviceBase.InputDescriptor>)(List<?>)rval;
+        }
         return input_descriptors.get(c).getChoices();
     }
     @Override

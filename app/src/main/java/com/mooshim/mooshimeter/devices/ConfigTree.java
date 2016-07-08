@@ -215,6 +215,7 @@ public class ConfigTree {
                     for(char c:cast.toCharArray()) {
                         b.put((byte)c);
                     }
+                    b.put((byte)0);
                     break;
                 case NTYPE.VAL_BIN:
                     Log.d(TAG, "Not implemented yet");
