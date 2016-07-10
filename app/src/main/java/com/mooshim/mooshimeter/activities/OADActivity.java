@@ -105,6 +105,8 @@ public class OADActivity extends MyActivity {
     private boolean mProgramming = false;
     private FirmwareFile mFirmwareFile;
 
+    private int mOADDelayMs;
+
     private class MainScanCallback extends FilteredScanCallback {
         public BLEDeviceBase to_match;
         public BLEDeviceBase matched;
@@ -337,13 +339,15 @@ public class OADActivity extends MyActivity {
         addToLog("PRESS THE RESET BUTTON NOW\n");
 
         Util.delay(500);  // VOODOO BULLSHIT
-
+        /*
         if(null==(m=synchronousScan(m))) {
             return null;
         }
 
         Util.delay(500);  // VOODOO BULLSHIT
-
+        */
+        addToLog("Waiting for device to reboot...");
+        Util.delay(mOADDelayMs);
         if(null==(m=connectAndDiscover(m))) {
             return null;
         }
@@ -398,10 +402,12 @@ public class OADActivity extends MyActivity {
         }
 
         // WE NEED TO SCAN FOR THE METER AND CONNECT TO THE NEW SCANNED DEVICE, TRYING TO CONNECT TO THE OLD ONE FAILS
-
+        /*
         if(null==(m=synchronousScan(m))) {
             return null;
-        }
+        }*/
+        addToLog("Waiting for device to reboot...");
+        Util.delay(mOADDelayMs);
 
         if(null==(m=connectAndDiscover(m))) {
             return null;
@@ -429,8 +435,10 @@ public class OADActivity extends MyActivity {
         // and reconnect in OAD mode.
         if(  !mMeter.isInOADMode() ) {
             if(mMeter.mBuildTime<1454355414) {
+                mOADDelayMs = 0;
                 rval_meter=walkThroughManualReconnectInOADMode(mMeter);
             } else {
+                mOADDelayMs = 5000;
                 rval_meter=autoReconnectInOADMode(mMeter);
             }
             if(rval_meter==null) {

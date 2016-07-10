@@ -386,6 +386,9 @@ public class Util {
         return rval;
     }
     public static void delay(int ms) {
+        if(ms==0) {
+            return;
+        }
         final Semaphore s = new Semaphore(0);
         postDelayed(new Runnable() {
             @Override

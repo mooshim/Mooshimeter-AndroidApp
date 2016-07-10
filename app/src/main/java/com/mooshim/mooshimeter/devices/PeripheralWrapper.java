@@ -316,6 +316,7 @@ public class PeripheralWrapper {
                         break;
                     } else {
                         Log.e(TAG, "Discover failed to start");
+                        Util.delay(10);
                     }
                 }
                 if(!success) {
