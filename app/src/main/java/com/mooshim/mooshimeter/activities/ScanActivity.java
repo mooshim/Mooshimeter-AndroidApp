@@ -63,7 +63,6 @@ public class ScanActivity extends MyActivity {
     private static final int REQ_ENABLE_BT = 0;
 
     // GUI Widgets
-    private TextView mEmptyMsg;
     private TextView mStatus;
     private Button mBtnScan = null;
     private LinearLayout mDeviceScrollView = null;
@@ -101,7 +100,6 @@ public class ScanActivity extends MyActivity {
         mStatus           = (TextView)     findViewById(R.id.status);
         mBtnScan          = (Button)       findViewById(R.id.btn_scan);
         mDeviceScrollView = (LinearLayout) findViewById(R.id.device_list);
-        mEmptyMsg         = (TextView)     findViewById(R.id.no_device);
 
         mDeviceScrollView.setClickable(true);
 
@@ -221,20 +219,15 @@ public class ScanActivity extends MyActivity {
             mBtnScan.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_action_cancel, 0);
             mStatus.setTextAppearance(this, R.style.statusStyle_Busy);
             mStatus.setText("Scanning...");
-            mEmptyMsg.setText(R.string.nodevice);
         } else {
             // Indicate that scanning has stopped
             mStatus.setTextAppearance(this, R.style.statusStyle_Success);
             mBtnScan.setText("Scan");
             mBtnScan.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_action_refresh, 0);
-            mEmptyMsg.setText(R.string.scan_advice);
             refreshAllMeterTiles();
         }
         if(mMeterDict.size() == 0) {
-            mEmptyMsg.setVisibility(View.VISIBLE);
             mStatus.setText("No devices found");
-        } else {
-            mEmptyMsg.setVisibility(View.GONE);
         }
     }
 
@@ -273,8 +266,6 @@ public class ScanActivity extends MyActivity {
     }
 
     private void addDeviceToTileList(final BLEDeviceBase d) {
-        mEmptyMsg.setVisibility(View.GONE);
-
         if(findTileForMeter(d) != null) {
             // The meter as already been added
             Log.e(TAG, "Tried to add the same meter twice");
@@ -468,7 +459,7 @@ public class ScanActivity extends MyActivity {
             stopScan();
         } else {
             mBtnScan.setEnabled(false);
-            updateScanningButton(false);
+            updateScanningButton(true);
             Util.postDelayed(new Runnable() {
                 @Override
                 public void run() {
