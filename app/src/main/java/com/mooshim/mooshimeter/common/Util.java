@@ -39,8 +39,10 @@ import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 
@@ -52,17 +54,15 @@ public class Util {
     private Util() {}
 
     private final static String TAG = "UTIL";
+    private static Map<Looper,Handler> mHandlerMap = new HashMap<>();
 
-    private static Context mContext = null;
-    private static Handler mHandler = null;
-    private static ProgressDialog[] mProgressDialogContainer = new ProgressDialog[1];
+    private static Context mRootContext;
     private static TextToSpeech speaker;
     public static FirmwareFile download_fw;
     public static FirmwareFile bundled_fw;
 
     public static void init(Context context) {
-        mContext = context;
-        mHandler = new Handler(mContext.getMainLooper());
+        mRootContext = context;
         TextToSpeech.OnInitListener speaker_init_listener = new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int i) {
@@ -77,9 +77,8 @@ public class Util {
             @Override
             public void run() {
                 FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-                if(tmp != null &&
-                   tmp.getVersion()> download_fw.getVersion()) {
-                    Log.d(TAG,"Successfully downloaded newer firmware file! Replacing reference");
+                if(tmp != null) {
+                    Log.d(TAG,"Successfully downloaded newer firmware file!");
                     download_fw = tmp;
                 }
             }
@@ -127,14 +126,22 @@ public class Util {
         return cb_dispatcher.isCallingThread();
     }
 
+    private static Handler getHandlerForPresentActivity() {
+        Handler rval = mHandlerMap.get(Looper.getMainLooper());
+        if(rval == null) {
+            rval = new Handler(Looper.getMainLooper());
+        }
+        return rval;
+    }
+
     public static void postToMain(Runnable r) {
-        mHandler.post(r);
+        getHandlerForPresentActivity().post(r);
     }
     public static void postDelayed(Runnable r, int ms) {
-        mHandler.postDelayed(r, ms);
+        getHandlerForPresentActivity().postDelayed(r,ms);
     }
     public static void cancelDelayedCB(Runnable r) {
-        mHandler.removeCallbacks(r);
+        getHandlerForPresentActivity().removeCallbacks(r);
     }
 
     public static void setText(final TextView v,final CharSequence s) {
@@ -148,68 +155,6 @@ public class Util {
                 }
             });
         }
-    }
-
-    public static void displayProgressBar(final Context context, final String title, final String message ) {
-        if(mProgressDialogContainer[0] != null) {
-            Log.e(TAG,"Trying to display a progress bar with one already up!");
-            mProgressDialogContainer[0].dismiss();
-        }
-        Runnable r = new Runnable() {
-            @Override
-            public void run() {
-                mProgressDialogContainer[0] = new ProgressDialog(context);
-                mProgressDialogContainer[0].setTitle(title);
-                mProgressDialogContainer[0].setMessage(message);
-                mProgressDialogContainer[0].setIndeterminate(false);
-                mProgressDialogContainer[0].setMax(100);
-                mProgressDialogContainer[0].show();
-            }
-        };
-        if(inMainThread()) {
-            r.run();
-        } else {
-            mHandler.post(r);
-        }
-    }
-
-    public static void setProgress(final int percent) {
-        if(mProgressDialogContainer[0] == null) {
-            Log.e(TAG, "Trying to set progress on a nonexistant bar!");
-            return;
-        }
-        Runnable r = new Runnable() {
-            @Override
-            public void run() {
-                mProgressDialogContainer[0].setProgress(percent);
-            }
-        };
-        if(inMainThread()) {
-            r.run();
-        } else {
-            mHandler.post(r);
-        }
-        return;
-    }
-
-    public static void dismissProgress() {
-        if(mProgressDialogContainer[0] == null) {
-            Log.e(TAG, "Trying to set progress on a nonexistant bar!");
-            return;
-        }
-        Runnable r = new Runnable() {
-            @Override
-            public void run() {
-                mProgressDialogContainer[0].dismiss();
-                mProgressDialogContainer[0] = null;
-            }
-        };
-        if(inMainThread()) {
-            r.run();
-        } else {
-            mHandler.post(r);
-        }
-        return;
     }
 
     public static void blockOnAlertBox(final Context context, final String title, final String message) {
@@ -233,7 +178,7 @@ public class Util {
             }
         };
 
-        mHandler.post(r);
+        postToMain(r);
 
         // block until the dialog to be dismissed
         try {
@@ -316,7 +261,7 @@ public class Util {
                 builder.show();
             }
         };
-        mHandler.post(r);
+        postToMain(r);
 
         // block until the dialog to be dismissed
         try {
@@ -338,7 +283,7 @@ public class Util {
             r.run();
         } else {
             final Semaphore sem = new Semaphore(0);
-            mHandler.post(new Runnable() {
+            postToMain(new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -405,7 +350,7 @@ public class Util {
     }
 
     public static Context getRootContext() {
-        return mContext;
+        return mRootContext;
     }
 
     public static PopupMenu generatePopupMenuWithOptions(final Context context, final List<String> options,final View anchor,final NotifyHandler cb,final Runnable on_dismiss) {
@@ -497,7 +442,7 @@ public class Util {
     }
 
     public static SharedPreferences getSharedPreferences(String name) {
-        return mContext.getSharedPreferences(name,Context.MODE_PRIVATE);
+        return mRootContext.getSharedPreferences(name,Context.MODE_PRIVATE);
     }
     public static SharedPreferences getSharedPreferences() {
         return getSharedPreferences("mooshimeter-global");
