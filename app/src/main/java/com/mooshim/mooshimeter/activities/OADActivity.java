@@ -221,7 +221,7 @@ public class OADActivity extends MyActivity {
         int cb_handle = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
             @Override
             public void run() {
-                addToLog("Received disconnect event, poking lock...\n");
+                addToLog("Received disconnect event.\n");
                 mylock.sig();
             }
         });
@@ -245,28 +245,31 @@ public class OADActivity extends MyActivity {
         MainScanCallback scan_cb = new MainScanCallback();
         scan_cb.to_match = m;
         scan_cb.mylock = mylock;
+        BLEDeviceBase rval = null;
 
         MyActivity.clearDeviceCache();
 
-        if( !bluetoothAdapter.startLeScan(scan_cb) ) {
-            // Starting the scan failed!
-            addToLog("Failed to start scan\n");
-            bluetoothAdapter.stopLeScan(scan_cb);
-            return null;
-        } else {
-            addToLog("Scanning for meter in OAD mode...\n");
-        }
+        do {
+            if (!bluetoothAdapter.startLeScan(scan_cb)) {
+                // Starting the scan failed!
+                addToLog("Failed to start scan\n");
+                break;
+            } else {
+                addToLog("Scanning for meter in OAD mode...\n");
+            }
 
-        if(mylock.awaitMilli(10000)) {
-            // Timeout
-            addToLog("Did not see rebooted peripheral in scan!\n");
-            bluetoothAdapter.stopLeScan(scan_cb);
-            return null;
-        } else {
-            // We were interrupted, that means we found it!
-            addToLog("Detected meter!\n");
-        }
-        return scan_cb.matched;
+            if (mylock.awaitMilli(20000)) {
+                // Timeout
+                addToLog("Did not see rebooted peripheral in scan!\n");
+                break;
+            } else {
+                // We were interrupted, that means we found it!
+                addToLog("Detected meter!\n");
+                rval = scan_cb.matched;
+            }
+        } while(false);
+        bluetoothAdapter.stopLeScan(scan_cb);
+        return rval;
     }
 
     private BLEDeviceBase connectAndDiscover(BLEDeviceBase m) {
@@ -314,7 +317,6 @@ public class OADActivity extends MyActivity {
     }
 
     private BLEDeviceBase walkThroughManualReconnectInOADMode(BLEDeviceBase m) {
-        int rval;
         String[] choices = {"Continue","See video"};
         int choice = Util.offerChoiceDialog(this,"Manual Reboot Required",
                                             "The version of firmware on the Mooshimeter is incapable of automatically rebooting from Android.  You must manually reset the meter by pressing the button on the side of the meter.",
@@ -328,7 +330,7 @@ public class OADActivity extends MyActivity {
                 startActivity(browserIntent);
                 return null;}
         }
-        if(0!=(rval=synchronousDisconnect())) {
+        if(0!=synchronousDisconnect()) {
             return null;
         }
 
@@ -432,6 +434,7 @@ public class OADActivity extends MyActivity {
                 rval_meter=autoReconnectInOADMode(mMeter);
             }
             if(rval_meter==null) {
+                Util.blockOnAlertBox(this,"Reconnect failed","The reconnection failed.  Please go back to the scan screen, reboot the meter, and connect from there.");
                 addToLog("Failed to enter OAD mode!\n");
                 return;
             }
@@ -449,7 +452,7 @@ public class OADActivity extends MyActivity {
         updateStartButton();
 
         // If uploading in legacy mode, scale back on the speed substantially.
-        blockPacer = new Semaphore(legacy_mode ? 1:8);
+        blockPacer = new Semaphore(legacy_mode ? 0:8);
 
         // Update connection parameters
         //mMeter.setConnectionInterval((short) 20, (short) 1000);
@@ -552,8 +555,13 @@ public class OADActivity extends MyActivity {
             return;
         }
         mProgramming = false;
-        mProgressInfo.setText("");
-        mProgressBar.setProgress(0);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mProgressInfo.setText("");
+                mProgressBar.setProgress(0);
+            }
+        });
         updateStartButton();
 
         // NOTE: This is not an entirely accurate completion criteria because the meter disconnects
