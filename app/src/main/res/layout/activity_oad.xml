@@ -87,7 +87,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:layout_weight="0"
-        android:onClick="onStart"
+        android:onClick="onStartButton"
         android:text="@string/start_prog" />
 
 </LinearLayout>

@@ -593,6 +593,19 @@ public class OADActivity extends MyActivity {
     // GUI Callbacks
     /////////////////////////////////
 
+    public void onStartButton(View v) {
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                if (mProgramming) {
+                    stopProgramming();
+                } else {
+                    startProgramming();
+                }
+            }
+        });
+    }
+
     ////////////////////////////
     // GUI Refreshers
     ////////////////////////////
