@@ -135,7 +135,7 @@ public class ScanActivity extends MyActivity {
     public void onStart() {
         super.onStart();
         // Find if we have any connected meters, if so make sure they resume streaming
-        for(BLEDeviceBase m : mMeterDict.values()) {
+        for(BLEDeviceBase m : getDevices()) {
             if(m.isConnected()) {
                 addDeviceToTileList(m);
             }
@@ -226,7 +226,7 @@ public class ScanActivity extends MyActivity {
             mBtnScan.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_action_refresh, 0);
             refreshAllMeterTiles();
         }
-        if(mMeterDict.size() == 0) {
+        if(getNDevices() == 0) {
             mStatus.setText("No devices found");
         }
     }
@@ -300,8 +300,8 @@ public class ScanActivity extends MyActivity {
         mDeviceScrollView.addView(wrapper);
         refreshMeterTile(wrapper);
 
-        if (mMeterDict.size() > 1)
-            setStatus(mMeterDict.size() + " devices");
+        if (getNDevices() > 1)
+            setStatus(getNDevices() + " devices");
         else
             setStatus("1 device");
     }
@@ -431,21 +431,17 @@ public class ScanActivity extends MyActivity {
     public synchronized void startScan() {
         if(mScanCb != null){return;}
         // Prune disconnected meters
-        List<BLEDeviceBase> remove = new ArrayList<BLEDeviceBase>();
-        for(BLEDeviceBase m : mMeterDict.values()) {
+        for(BLEDeviceBase m : getDevices()) {
             if( m.isDisconnected() ) {
-                remove.add(m);
-            }
-        }
-        for(BLEDeviceBase m : remove) {
-            for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
-                ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
-                if(vg.getTag() == m) {
-                    mDeviceScrollView.removeView(vg);
-                    break;
+                for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
+                    ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
+                    if (vg.getTag() == m) {
+                        mDeviceScrollView.removeView(vg);
+                        break;
+                    }
                 }
+                removeDevice(m);
             }
-            mMeterDict.remove(m.getAddress());
         }
         refreshAllMeterTiles();
 
@@ -588,7 +584,7 @@ public class ScanActivity extends MyActivity {
                     m = tmp_m;
                 }
                 // Replace the copy in the singleton dict
-                mMeterDict.put(m.getAddress(),m);
+                putDevice(m);
                 setStatus("Initializing...");
                 rval = m.initialize();
                 if(rval != 0) {

@@ -7,6 +7,8 @@ import android.util.Log;
 
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,16 +17,37 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class MyActivity extends Activity {
     // This is the master list of all Mooshimeters
-    protected static final Map<String,BLEDeviceBase> mMeterDict = new ConcurrentHashMap<>();
+    private static final Map<String,BLEDeviceBase> mMeterDict = new ConcurrentHashMap<>();
 
+    public static int getNDevices() {
+        synchronized (mMeterDict) {
+            return mMeterDict.size();
+        }
+    }
+    public static Collection<BLEDeviceBase> getDevices() {
+        synchronized (mMeterDict) {
+            return mMeterDict.values();
+        }
+    }
     public static void clearDeviceCache() {
-        mMeterDict.clear();
+        synchronized (mMeterDict) {
+            mMeterDict.clear();
+        }
     }
     public static BLEDeviceBase getDeviceWithAddress(String addr) {
-        return mMeterDict.get(addr);
+        synchronized (mMeterDict) {
+            return mMeterDict.get(addr);
+        }
     }
     public static void putDevice(BLEDeviceBase device) {
-        mMeterDict.put(device.getAddress(),device);
+        synchronized (mMeterDict) {
+            mMeterDict.put(device.getAddress(),device);
+        }
+    }
+    public static void removeDevice(BLEDeviceBase device) {
+        synchronized (mMeterDict) {
+            mMeterDict.remove(device.getAddress());
+        }
     }
 
     protected void pushActivityToStack(BLEDeviceBase d, Class activity_class) {

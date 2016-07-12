@@ -191,7 +191,7 @@ public class PreferencesActivity extends MyActivity {
                     }));
         builder.add("Start Firmware Uploader",
                     "Checks if new firmware is available for this meter",
-                    makeButton("Set", new Runnable() {
+                    makeButton("Go", new Runnable() {
                         @Override
                         public void run() {
                             pushActivityToStack(mMeter,OADActivity.class);

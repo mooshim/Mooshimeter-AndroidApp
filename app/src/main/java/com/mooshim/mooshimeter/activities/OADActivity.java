@@ -312,7 +312,7 @@ public class OADActivity extends MyActivity {
             m = tmp_m;
         }
         // Replace the copy in the singleton dict
-        mMeterDict.put(m.getAddress(),m);
+        putDevice(m);
         addToLog("Initializing...\n");
         rval = m.initialize();
         if(rval != 0) {
