@@ -400,8 +400,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         if(popupMenu!=null) {
             return;
         }
-        popupMenu = new PopupMenu(getApplicationContext(),anchor);
-        popupMenu = Util.generatePopupMenuWithOptions(getApplicationContext(), options, anchor, on_choice, new Runnable() {
+        popupMenu = new PopupMenu(this,anchor);
+        popupMenu = Util.generatePopupMenuWithOptions(this, options, anchor, on_choice, new Runnable() {
             @Override
             public void run() {
                 popupMenu = null;
