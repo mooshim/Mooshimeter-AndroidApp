@@ -2,6 +2,7 @@ package com.mooshim.mooshimeter.devices;
 
 import android.util.Log;
 
+import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.StatLockManager;
 
@@ -440,6 +441,10 @@ public class ConfigTree {
     // Methods for interacting with remote device
     //////////////////////
 
+    private static String crcToPrefKey(int crc) {
+        return "TREE-CRC-"+Integer.toHexString(crc);
+    }
+
     public int attach(PeripheralWrapper p, UUID serin, UUID serout) {
         pwrap=p;
         serin_uuid=serin;
@@ -447,14 +452,28 @@ public class ConfigTree {
         if(0!=pwrap.enableNotify(serout, true, serout_callback)){
             return -1;
         }
-        // Load the tree from the remote device
-        command("ADMIN:TREE");
-        int crcval = (Integer) getNode("ADMIN:CRC32").getValue();
-        if(crcval==0) {
-            Log.e(TAG,"Something went wrong downloading the tree!");
-            return -1;
+        // Grab the tree's CRC
+        command("ADMIN:CRC32");
+        int crcval = (Integer)getValueAt("ADMIN:CRC32");
+
+        // See if we have a stashed tree with that CRC
+        byte[] tree_bytes = Util.getPreferenceByteArray(crcToPrefKey(crcval));
+        if(tree_bytes==null) {
+            // Load the tree from the remote device
+            // This will also automatically calculate and populate ADMIN:CRC32 on our end
+            command("ADMIN:TREE");
+            crcval = (Integer) getNode("ADMIN:CRC32").getValue();
+            if(crcval==0) {
+                Log.e(TAG,"Something went wrong downloading the tree!");
+                return -1;
+            }
+        } else {
+            // We already have a stash of this tree!
+            getNode("ADMIN:TREE").notify(Util.getUTCTime(),tree_bytes);
         }
+
         command("ADMIN:CRC32 "+Integer.toString(crcval));
+
         return 0;
     }
 
@@ -505,6 +524,7 @@ public class ConfigTree {
                     final int crcvalue = (int)crc.getValue();
                     Log.d(TAG, "CALC CRC: " + Integer.toHexString(crcvalue));
                     getNode("ADMIN:CRC32").value = crcvalue;
+                    Util.setPreference(crcToPrefKey(crcvalue),(byte[])payload);
                 } catch (DataFormatException e) {
                     e.printStackTrace();
                 } catch (IOException e) {

@@ -31,8 +31,6 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -854,7 +852,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 float delta = (float) ThermocoupleHelper.K.voltsToDegC(volts);
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
-                if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
+                if(Util.getPreferenceBoolean(Util.preference_keys.USE_FAHRENHEIT)) {
                     rval = new MeterReading(internal_temp+Util.TemperatureUnitsHelper.relK2F(delta), 5, 2000, "F");
                 } else {
                     rval = new MeterReading(internal_temp+delta,5,1000,"C");

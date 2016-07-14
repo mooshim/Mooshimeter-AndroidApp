@@ -1,6 +1,5 @@
 package com.mooshim.mooshimeter.activities;
 
-import android.app.ActionBar;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -10,12 +9,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
@@ -26,13 +22,6 @@ import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.Util;
-import com.mooshim.mooshimeter.devices.MooshimeterDevice;
-import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
-import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
-import com.mooshim.mooshimeter.interfaces.NotifyHandler;
-
-import java.util.ArrayList;
-import java.util.Arrays;
 
 public class GlobalPreferencesActivity extends MyActivity {
     private static final String TAG = "GPreferenceActivity";
@@ -93,7 +82,7 @@ public class GlobalPreferencesActivity extends MyActivity {
         return s;
     }
     public Switch makeSwitchForPreference(final String pref_name) {
-        boolean set = Util.getPreference(pref_name);
+        boolean set = Util.getPreferenceBoolean(pref_name);
         return makeSwitch(set, new BooleanRunnable() {
             @Override
             public void run() {

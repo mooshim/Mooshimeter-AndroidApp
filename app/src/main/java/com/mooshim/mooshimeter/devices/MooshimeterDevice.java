@@ -378,7 +378,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 float delta_c = (float) ThermocoupleHelper.K.voltsToDegC(volts);
                 float internal_temp = getValue(Channel.CH2).value;
                 MeterReading rval;
-                if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
+                if(Util.getPreferenceBoolean(Util.preference_keys.USE_FAHRENHEIT)) {
                     delta_c = Util.TemperatureUnitsHelper.relK2F(delta_c);
                     rval = new MeterReading(internal_temp+delta_c,5,2000,"F");
                 } else {

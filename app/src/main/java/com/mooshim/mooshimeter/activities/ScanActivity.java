@@ -515,10 +515,6 @@ public class ScanActivity extends MyActivity {
                     case 0:
                         // Update now
                         pushActivityToStack(m, OADActivity.class);
-                        // View the instructions
-                        //Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://moosh.im/upgrading-mooshimeter-firmware/"));
-                        //startActivity(browserIntent);
-                        //m.disconnect();
                         break;
                     case 1:
                         // Continue without viewing

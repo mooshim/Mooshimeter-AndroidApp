@@ -27,6 +27,7 @@ import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.util.Base64;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
@@ -453,13 +454,27 @@ public class Util {
     public static boolean hasPreference(String key) {
         return getSharedPreferences().contains(key);
     }
-    public static boolean getPreference(String key) {
+    public static boolean getPreferenceBoolean(String key) {
         return getSharedPreferences().getBoolean(key, false);
+    }
+    public static byte[] getPreferenceByteArray(String key) {
+        String intermediate = getSharedPreferences().getString(key,null);
+        if(intermediate==null) {
+            return null;
+        }
+        return  Base64.decode(intermediate, Base64.DEFAULT);
     }
     public static void setPreference(String key, boolean val) {
         SharedPreferences sp = getSharedPreferences();
         SharedPreferences.Editor e = sp.edit();
         e.putBoolean(key,val);
+        e.commit();
+    }
+    public static void setPreference(String key, byte[] val) {
+        SharedPreferences sp = getSharedPreferences();
+        SharedPreferences.Editor e = sp.edit();
+        String saveThis = Base64.encodeToString(val, Base64.DEFAULT);
+        e.putString(key,saveThis);
         e.commit();
     }
 }

@@ -30,7 +30,6 @@ import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -179,7 +178,7 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
             Converter converter;
             String units;
 
-            if(Util.getPreference(Util.preference_keys.USE_FAHRENHEIT)) {
+            if(Util.getPreferenceBoolean(Util.preference_keys.USE_FAHRENHEIT)) {
                 units = "F";
                 if(relative) {
                     converter = new Converter() {
