@@ -132,7 +132,11 @@ public class BLEDeviceBase {
     }
 
     public boolean getPreference(String key) {
-        return getSharedPreferences().getBoolean(key, false);
+        return getPreference(key,false);
+    }
+
+    public boolean getPreference(String key, boolean d) {
+        return getSharedPreferences().getBoolean(key, d);
     }
 
     public void setPreference(String key, boolean val) {

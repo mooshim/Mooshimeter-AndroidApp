@@ -336,12 +336,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private void rateButtonRefresh() {
         int rate = mMeter.getSampleRateHz();
         String title = String.format("%dHz", rate);
-        autoButtonRefresh(rate_button, title, mMeter.rate_auto);
+        autoButtonRefresh(rate_button, title, mMeter.getRateAuto());
     }
     private void depthButtonRefresh() {
         int depth = mMeter.getBufferDepth();
         String title = String.format("%dsmpl", depth);
-        autoButtonRefresh(depth_button, title, mMeter.depth_auto);
+        autoButtonRefresh(depth_button, title, mMeter.getDepthAuto());
     }
     private void loggingButtonRefresh() {
         int s = mMeter.getLoggingStatus();
@@ -475,8 +475,9 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             public void onReceived(double timestamp_utc, Object payload) {
                 popupMenu = null;
                 int choice = (Integer) payload;
-                mMeter.rate_auto = choice == 0;
-                if (!mMeter.rate_auto) {
+                boolean new_rate_auto = (choice == 0);
+                mMeter.setRateAuto(new_rate_auto);
+                if (!new_rate_auto) {
                     mMeter.setSampleRateIndex(choice - 1);
                 }
                 refreshAllControls();
@@ -492,8 +493,9 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             public void onReceived(double timestamp_utc, Object payload) {
                 popupMenu = null;
                 int choice = (Integer) payload;
-                mMeter.depth_auto = choice == 0;
-                if (!mMeter.depth_auto) {
+                boolean new_depth_auto = choice == 0;
+                mMeter.setDepthAuto(new_depth_auto);
+                if (!new_depth_auto) {
                     mMeter.setBufferDepthIndex(choice - 1);
                 }
                 refreshAllControls();

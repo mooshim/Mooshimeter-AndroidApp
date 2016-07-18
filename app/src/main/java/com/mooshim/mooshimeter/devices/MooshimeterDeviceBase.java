@@ -94,8 +94,10 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
 
     // Display control settings
     public final Map<Channel,Boolean> range_auto = new ConcurrentHashMap<>();
-    public boolean         rate_auto = true;
-    public boolean         depth_auto = true;
+    private final String rate_auto_key = "RATE_AUTO";
+    private final String depth_auto_key = "DEPTH_AUTO";
+    protected boolean rate_auto;
+    protected boolean depth_auto;
 
     public final Map<Channel,Boolean> speech_on = new ConcurrentHashMap<>();
 
@@ -135,6 +137,8 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         range_auto.put(Channel.CH2,true);
         speech_on.put(Channel.CH1, false);
         speech_on.put(Channel.CH2, false);
+        rate_auto = getPreference("RATE_AUTO",true);
+        depth_auto = getPreference("DEPTH_AUTO",true);
     }
 
     public int disconnect() {
@@ -228,6 +232,21 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
 
     protected MeterReading wrapMeterReading(Channel c,float val) {
         return wrapMeterReading(c,val,false);
+    }
+
+    public boolean getRateAuto() {
+        return rate_auto;
+    }
+    public void setRateAuto(boolean arg) {
+        rate_auto = arg;
+        setPreference("RATE_AUTO",arg);
+    }
+    public boolean getDepthAuto() {
+        return depth_auto;
+    }
+    public void setDepthAuto(boolean arg) {
+        depth_auto = arg;
+        setPreference("DEPTH_AUTO",arg);
     }
 
     //////////////////////////////////////
