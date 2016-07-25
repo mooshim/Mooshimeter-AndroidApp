@@ -399,8 +399,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             setInput(Channel.CH2,input_descriptors.get(Channel.CH2).get(0));
         }
 
+        //////////////////////
         // Stitch together updates on nodes of the config tree with calls to the delegate
-
+        //////////////////////
         attachCallback("CH1:MAPPING", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
@@ -626,7 +627,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         return (float)1.1*Float.parseFloat(choice.getShortName());
     }
     private boolean applyAutorange(Channel c) {
-        if(!range_auto.get(c)) {
+        if(!getRangeAuto(c)) {
             return false;
         }
         float max = getMaxRangeForChannel(c);
@@ -648,7 +649,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         rval |= applyAutorange(Channel.CH2);
         boolean rms_on = tree.getNode("CH1:ANALYSIS").getChosen().getShortName().equals("RMS")
                 ||       tree.getNode("CH2:ANALYSIS").getChosen().getShortName().equals("RMS");
-        if(rate_auto) {
+        if(getRateAuto()) {
             if( rms_on ) {
                 if(!tree.getChosenName("SAMPLING:RATE").equals("4000")) {
                     tree.command("SAMPLING:RATE 5");
@@ -659,7 +660,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 }
             }
         }
-        if(depth_auto) {
+        if(getDepthAuto()) {
             if( rms_on ) {
                 if(!tree.getChosenName("SAMPLING:DEPTH").equals("256")) {
                     tree.command("SAMPLING:DEPTH 3");

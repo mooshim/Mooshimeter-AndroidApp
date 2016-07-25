@@ -21,6 +21,7 @@ package com.mooshim.mooshimeter.devices;
 
 
 import android.bluetooth.BluetoothGatt;
+import android.util.Log;
 
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.MeterReading;
@@ -93,11 +94,10 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     public int disconnect_handle;
 
     // Display control settings
-    public final Map<Channel,Boolean> range_auto = new ConcurrentHashMap<>();
+    private final String ch1_auto_key = "CH1_AUTO";
+    private final String ch2_auto_key = "CH2_AUTO";
     private final String rate_auto_key = "RATE_AUTO";
     private final String depth_auto_key = "DEPTH_AUTO";
-    protected boolean rate_auto;
-    protected boolean depth_auto;
 
     public final Map<Channel,Boolean> speech_on = new ConcurrentHashMap<>();
 
@@ -133,12 +133,8 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         // Initialize super
         super(wrap);
         mInstance = this;
-        range_auto.put(Channel.CH1,true);
-        range_auto.put(Channel.CH2,true);
         speech_on.put(Channel.CH1, false);
         speech_on.put(Channel.CH2, false);
-        rate_auto = getPreference("RATE_AUTO",true);
-        depth_auto = getPreference("DEPTH_AUTO",true);
     }
 
     public int disconnect() {
@@ -234,19 +230,51 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         return wrapMeterReading(c,val,false);
     }
 
+    public boolean getRangeAuto(Channel c) {
+        final String key;
+        switch(c) {
+            case CH1:
+                key = ch1_auto_key;
+                break;
+            case CH2:
+                key = ch2_auto_key;
+                break;
+            default:
+                Log.e(TAG,"EGADS");
+                key = "";
+                break;
+        }
+        return getPreference(key,true);
+    }
+
+    public void setRangeAuto(Channel c, boolean b) {
+        final String key;
+        switch(c) {
+            case CH1:
+                key = ch1_auto_key;
+                break;
+            case CH2:
+                key = ch2_auto_key;
+                break;
+            default:
+                Log.e(TAG,"EGADS");
+                key = "";
+                break;
+        }
+        setPreference(key,b);
+    }
+
     public boolean getRateAuto() {
-        return rate_auto;
+        return  getPreference(rate_auto_key);
     }
     public void setRateAuto(boolean arg) {
-        rate_auto = arg;
-        setPreference("RATE_AUTO",arg);
+        setPreference(rate_auto_key,arg);
     }
     public boolean getDepthAuto() {
-        return depth_auto;
+        return getPreference(depth_auto_key);
     }
     public void setDepthAuto(boolean arg) {
-        depth_auto = arg;
-        setPreference("DEPTH_AUTO",arg);
+        setPreference(depth_auto_key,arg);
     }
 
     //////////////////////////////////////

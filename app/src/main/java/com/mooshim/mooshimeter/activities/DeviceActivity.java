@@ -365,7 +365,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void rangeButtonRefresh(final int c) {
         String lval = mMeter.getRangeLabel(chanEnum(c));
-        autoButtonRefresh(range_buttons[c], lval, mMeter.range_auto.get(chanEnum(c)));
+        autoButtonRefresh(range_buttons[c], lval, mMeter.getRangeAuto(chanEnum(c)));
     }
     private void valueLabelRefresh(final int c,final MeterReading val) {
         final TextView v = value_labels[c];
@@ -430,8 +430,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
             public void onReceived(double timestamp_utc, Object payload) {
                 popupMenu = null;
                 int choice = (Integer) payload;
-                mMeter.range_auto.put(chanEnum(c), choice == 0);
-                if (!mMeter.range_auto.get(chanEnum(c))) {
+                mMeter.setRangeAuto(chanEnum(c), choice == 0);
+                if (!mMeter.getRangeAuto(chanEnum(c))) {
                     mMeter.setRange(chanEnum(c), mMeter.getSelectedDescriptor(chanEnum(c)).ranges.get(choice - 1));
                 }
                 refreshAllControls();
@@ -584,7 +584,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 valueLabelRefresh(c.ordinal(), val);
                 // Run the autorange only on channel 2
                 if (c== MooshimeterControlInterface.Channel.CH2 && autorange_cooldown.expired) {
-                    autorange_cooldown.fire(200);
+                    autorange_cooldown.fire(500);
                     Util.dispatch(new Runnable() {
                         @Override
                         public void run() {

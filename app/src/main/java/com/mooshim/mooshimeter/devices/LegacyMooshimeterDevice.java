@@ -1165,7 +1165,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return (float)1.1*getRangeDescriptorForChannel(c).max;
     }
     private boolean applyAutorange(Channel c) {
-        if(!range_auto.get(c)) {
+        if(!getRangeAuto(c)) {
             return false;
         }
         float max = getMaxRangeForChannel(c);
@@ -1189,12 +1189,12 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         byte calc_stash = meter_settings.calc_settings;
         // Autorange sample rate and buffer depth.
         // If anything is doing AC, we need a deep buffer and fast sample
-        if(rate_auto) {
+        if(getRateAuto()) {
             meter_settings.adc_settings &= ~ADC_SETTINGS_SAMPLERATE_MASK;
             if(ac_used) {meter_settings.adc_settings |= 5;} // 4kHz
             else        {meter_settings.adc_settings |= 0;} // 125Hz
         }
-        if(depth_auto) {
+        if(getDepthAuto()) {
             meter_settings.calc_settings &=~METER_CALC_SETTINGS_DEPTH_LOG2;
             if(ac_used) {meter_settings.calc_settings |= 8;} // 256 samples
             else        {meter_settings.calc_settings |= 5;} // 32 samples
