@@ -476,7 +476,12 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                     if(bufferModeOn) {
                         window_width_t = (((float)mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
                     } else {
-                        window_width_t = (((float)maxNumberOfPointsOnScreen*mMeter.getBufferDepth())/(float)mMeter.getSampleRateHz());
+                        float sample_t = mMeter.getBufferDepth()/(float)mMeter.getSampleRateHz();
+                        // The sample time is in practice limited by the connection interval
+                        if(sample_t < 50e-3f) {
+                            sample_t = 50e-3f;
+                        }
+                        window_width_t = (float)maxNumberOfPointsOnScreen*sample_t;
                     }
                     for(int i = 0; i < 2; i++) {
                         Viewport present_vp = mChart[i].getCurrentViewport();
