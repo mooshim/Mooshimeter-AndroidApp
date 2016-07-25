@@ -722,6 +722,9 @@ public class OADActivity extends MyActivity {
             rval = m.oad_block.send();
             if(rval!=0) {
                 Log.e("","SEND ERROR OCCURRED:" + rval);
+                if(!m.isConnected()) {
+                    stopProgramming();
+                }
             }
         } while(rval!=0);
     }
