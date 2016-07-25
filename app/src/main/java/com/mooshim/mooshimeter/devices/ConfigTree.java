@@ -241,6 +241,10 @@ public class ConfigTree {
                 new Exception().printStackTrace();
                 return null;
             }
+            if(!tree.pwrap.isConnected()) {
+                Log.e(TAG,"Trying to interact with disconnected device!");
+                return null;
+            }
             lock.l();
             tree.sendBytes(new byte[]{(byte)code});
             lock.awaitMilli(2000);
@@ -248,6 +252,10 @@ public class ConfigTree {
             return value;
         }
         public void sendValue(Object new_value, boolean blocking) {
+            if(!tree.pwrap.isConnected()) {
+                Log.e(TAG,"Trying to interact with disconnected device!");
+                return;
+            }
             byte[] payload = new byte[20];
             for(int i = 0; i < 20; i++) {
                 // Zero out the buffer
