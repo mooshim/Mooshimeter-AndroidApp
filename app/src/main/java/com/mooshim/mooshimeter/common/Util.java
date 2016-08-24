@@ -191,6 +191,8 @@ public class Util {
                 // """
                 if(!((Activity)context).isFinishing()) {
                     alertDialog.show();
+                } else {
+                    sem.release();
                 }
             }
         };

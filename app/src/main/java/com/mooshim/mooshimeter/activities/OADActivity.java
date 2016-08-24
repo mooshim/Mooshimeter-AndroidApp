@@ -188,6 +188,12 @@ public class OADActivity extends MyActivity {
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mProgramming = false;
+    }
+
+    @Override
     public void onBackPressed() {
         Log.d(TAG, "onBackPressed");
         if (mProgramming) {
@@ -213,12 +219,6 @@ public class OADActivity extends MyActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                startProgramming();
-            }
-        });
     }
 
     @Override
