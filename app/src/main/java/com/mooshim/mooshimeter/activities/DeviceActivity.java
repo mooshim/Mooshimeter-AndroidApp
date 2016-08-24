@@ -43,9 +43,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final String TAG = "DeviceActivity";
     public static final String AUTORANGE = "AUTORANGE";
 
-    private static int PREF_ACT_REQ = 1;
-    private static int GRAPH_ACT_REQ = 2;
-
     private static MooshimeterControlInterface.Channel chanEnum(int c) {
         return MooshimeterControlInterface.Channel.values()[c];
     }
@@ -147,7 +144,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 		// Handle presses on the action bar items
 		switch (item.getItemId()) {
 		case R.id.opt_prefs:
-			startPreferenceActivity();
+            pushActivityToStack(mMeter,PreferencesActivity.class);
 			break;
 		default:
             finish();
@@ -222,12 +219,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
     }
-
-	private void startPreferenceActivity() {
-		final Intent i = new Intent(this, PreferencesActivity.class);
-        i.putExtra("addr", mMeter.getAddress());
-		startActivityForResult(i, PREF_ACT_REQ);
-	}
 
 	private void setError(final String txt) {
         final Context c = this;
