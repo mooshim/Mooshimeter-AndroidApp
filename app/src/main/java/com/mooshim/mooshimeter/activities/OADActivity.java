@@ -71,6 +71,8 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.crashlytics.android.answers.Answers;
+import com.crashlytics.android.answers.CustomEvent;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.FilteredScanCallback;
 import com.mooshim.mooshimeter.common.FirmwareFile;
@@ -127,7 +129,13 @@ public class OADActivity extends MyActivity {
 
         // Sorry about the casting games
         Intent intent = getIntent();
-        mMeter = getDeviceWithAddress(intent.getStringExtra("addr"));
+        String addr = intent.getStringExtra("addr");
+        mMeter = getDeviceWithAddress(addr);
+        if(mMeter==null) {
+            Util.logNullMeterEvent(addr);
+            finish();
+            return;
+        }
 
         // GUI init
         setContentView(R.layout.activity_oad);

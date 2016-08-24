@@ -102,7 +102,13 @@ public class PreferencesActivity extends MyActivity {
         mContext = this;
 
         Intent intent = getIntent();
-        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
+        String addr = intent.getStringExtra("addr");
+        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(addr);
+        if(mMeter==null) {
+            Util.logNullMeterEvent(addr);
+            finish();
+            return;
+        }
 
         setContentView(R.layout.activity_preference);
 

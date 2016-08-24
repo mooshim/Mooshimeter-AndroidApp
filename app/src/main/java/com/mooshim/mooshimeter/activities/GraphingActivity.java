@@ -171,7 +171,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         mRefreshButton.setVisibility(View.GONE);
 
         Intent intent = getIntent();
-        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(intent.getStringExtra("addr"));
+        String addr = intent.getStringExtra("addr");
+        mMeter = (MooshimeterDeviceBase)getDeviceWithAddress(addr);
+        if(mMeter==null) {
+            Util.logNullMeterEvent(addr);
+            finish();
+            return;
+        }
 
         mSettingsView = new GraphSettingsView(this, this);
         mSettingsWindow = new PopupWindow(this);

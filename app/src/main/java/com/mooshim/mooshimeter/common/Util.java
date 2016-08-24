@@ -36,6 +36,8 @@ import android.widget.EditText;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
+import com.crashlytics.android.answers.Answers;
+import com.crashlytics.android.answers.CustomEvent;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 
 import java.nio.ByteBuffer;
@@ -432,6 +434,14 @@ public class Util {
             rval.add(o.toString());
         }
         return rval;
+    }
+
+    public static void logNullMeterEvent(String addr) {
+        // For unknown reasons, getDeviceWithAddress sometimes returns null
+        // This should be impossible.  But to prevent it crashing the app
+        Answers.getInstance().logCustom(new CustomEvent("ReceivedNullMeter")
+                                        .putCustomAttribute("StackTrace", Log.getStackTraceString(new Exception()))
+                                        .putCustomAttribute("MeterAddress", addr));
     }
 
     public static class TemperatureUnitsHelper {
