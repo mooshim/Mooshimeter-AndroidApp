@@ -19,6 +19,7 @@
 
 package com.mooshim.mooshimeter.common;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -68,7 +69,12 @@ public class Util {
             @Override
             public void onInit(int i) {
                 if(i != TextToSpeech.ERROR) {
-                    speaker.setLanguage(Locale.US);
+                    try {
+                        speaker.setLanguage(Locale.US);
+                    } catch(IllegalArgumentException e) {
+                        // On Samsung Galaxy S6 running Android 6.0, speaker.setLanguage crashes with IllegalArgumentException!
+                        // We catch it here though.  It's out of our hands.  Let the chips fall where they may.
+                    }
                 }
             }
         };
@@ -175,7 +181,15 @@ public class Util {
                                               sem.release();
                                           }
                                       });
-                alertDialog.show();
+                // In some circumstances, we can end up posting a dialog box with an activity that is
+                // finishing, which will cause a:
+                // """
+                // Fatal Exception: android.view.WindowManager$BadTokenException
+                // Unable to add window -- token android.os.BinderProxy@4fb78e4 is not valid; is your activity running?
+                // """
+                if(!((Activity)context).isFinishing()) {
+                    alertDialog.show();
+                }
             }
         };
 
@@ -217,7 +231,9 @@ public class Util {
                               }
                           });
                 }
-                alertDialog.show();
+                if(!((Activity)context).isFinishing()) {
+                    alertDialog.show();
+                }
             }
         };
 
