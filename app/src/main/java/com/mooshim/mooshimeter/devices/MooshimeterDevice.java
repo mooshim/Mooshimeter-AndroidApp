@@ -586,7 +586,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
     @Override
     public void setTime(double utc_time) {
-        tree.command("TIME_UTC "+(int)Util.getUTCTime());
+        double tmp_time = Util.getUTCTime();
+        int utc_time_ms = (int)((tmp_time*1000)%1000);
+        tree.command("TIME_UTC "+(int)tmp_time);
+        tree.command("TIME_UTC_MS "+utc_time_ms);
     }
     @Override
     public MeterReading getOffset(Channel c) {
