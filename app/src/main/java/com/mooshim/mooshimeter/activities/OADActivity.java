@@ -180,7 +180,8 @@ public class OADActivity extends MyActivity {
         Util.dispatch(new Runnable() {
             @Override
             public void run() {
-                FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
+                //FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
+                FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-alpha.bin");
                 Log.d(TAG,"Successfully downloaded newer firmware file!");
                 Util.download_fw = tmp;
             }
