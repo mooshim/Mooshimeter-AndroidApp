@@ -470,7 +470,8 @@ public class Util {
     public static class preference_keys {
         private preference_keys() {}
         public static final String
-        USE_FAHRENHEIT= "USE_FAHRENHEIT";
+        USE_FAHRENHEIT= "USE_FAHRENHEIT",
+        BROADCAST_INTENTS= "BROADCAST_INTENTS";
     }
 
     public static SharedPreferences getSharedPreferences(String name) {

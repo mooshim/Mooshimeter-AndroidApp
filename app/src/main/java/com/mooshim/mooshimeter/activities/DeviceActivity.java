@@ -43,7 +43,6 @@ import me.grantland.widget.AutofitHelper;
 public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final String TAG = "DeviceActivity";
     public static final String AUTORANGE = "AUTORANGE";
-    public static Context broadcastContext;  // added for broadcast intent
 
     private static MooshimeterControlInterface.Channel chanEnum(int c) {
         return MooshimeterControlInterface.Channel.values()[c];
@@ -590,7 +589,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 }
                 if(mMeter.speech_on.get(c)) {
                     speaksOnLargeChange.decideAndSpeak(val);
-                    broadcastIntentData.broadcastIntent(getApplicationContext(), val);
                 }
                 break;
             case MATH:
