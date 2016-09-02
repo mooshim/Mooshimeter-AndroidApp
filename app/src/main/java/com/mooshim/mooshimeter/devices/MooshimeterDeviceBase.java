@@ -265,13 +265,13 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     }
 
     public boolean getRateAuto() {
-        return  getPreference(rate_auto_key);
+        return  getPreference(rate_auto_key, true);
     }
     public void setRateAuto(boolean arg) {
         setPreference(rate_auto_key,arg);
     }
     public boolean getDepthAuto() {
-        return getPreference(depth_auto_key);
+        return getPreference(depth_auto_key, true);
     }
     public void setDepthAuto(boolean arg) {
         setPreference(depth_auto_key,arg);
