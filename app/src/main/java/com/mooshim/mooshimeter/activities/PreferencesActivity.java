@@ -136,7 +136,7 @@ public class PreferencesActivity extends MyActivity {
         }));
         // Logging interval
         final Button log_interval_button = new Button(mContext);
-        final int[] ms_options = new int[]{0, 1000, 10000, 60000, 60000};
+        final int[] ms_options = new int[]{0, 1000, 10000, 60000, 600000};
         final ArrayList<String> option_list = new ArrayList<>(
                 Arrays.asList("No wait", "1s", "10s", "1min", "10min"));
         int i=0;
