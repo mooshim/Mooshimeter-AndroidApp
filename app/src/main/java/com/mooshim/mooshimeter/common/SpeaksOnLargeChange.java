@@ -12,6 +12,12 @@ public class SpeaksOnLargeChange {
         if(in==null||in.equals("")){
             return "";
         }
+
+        // If there are no numbers in the input (such as "OUT OF RANGE"), don't treat it as numeric.
+        if (!in.matches("[0-9]")) {
+            return in;
+        }
+
         StringBuilder outbuilder = new StringBuilder();
         for(char c : in.toCharArray()) {
             switch(c) {
