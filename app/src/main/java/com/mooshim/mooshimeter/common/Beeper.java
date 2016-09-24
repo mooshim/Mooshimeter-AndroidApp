@@ -4,6 +4,10 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
 
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Created by First on 6/5/2016.
  */
@@ -14,8 +18,13 @@ public class Beeper {
     private static final int numSamples = duration * sampleRate;
     private static final double freqOfTone = 880; // hz
     private static final byte generatedSnd[] = new byte[numSamples*2];
+    private static final int samplesPerLoop = (int)(100 * sampleRate/freqOfTone);
 
     private static AudioTrack audioTrack;
+
+    private static ScheduledThreadPoolExecutor executor;
+    private static Runnable beepTimeout;
+    private static ScheduledFuture nextTimeout;
 
     private static void singletonInit() {
         if(audioTrack!=null) {
@@ -24,7 +33,7 @@ public class Beeper {
         final float sample[] = new float[numSamples];
         // fill out the array
         for (int i = 0; i < numSamples; ++i) {
-            sample[i]  = (float)Math.sin(2 * Math.PI * i / (sampleRate/freqOfTone));
+            sample[i]= (float)Math.sin(2 * Math.PI * i / (sampleRate/freqOfTone));
         }
         // Put an envelope on the beginning and end to avoid speaker crackle
         for(int i = 0; i < leadin; i++) {
@@ -45,17 +54,46 @@ public class Beeper {
                                     AudioFormat.ENCODING_PCM_16BIT, generatedSnd.length,
                                     AudioTrack.MODE_STATIC);
         audioTrack.write(generatedSnd, 0, generatedSnd.length);
+
+        // A way to schedule a call to stopBeeping() in the future
+        executor = new ScheduledThreadPoolExecutor(1);
+        beepTimeout = new Runnable() {
+            @Override
+            public void run() {
+                stopBeeping();
+            }
+        };
+
     }
+
+    /**
+     * Play an audible beep for one second.
+     * If called again within the duration, the tone is extended.
+     */
     public static void beep() {
         singletonInit();
-        if(audioTrack.getPlaybackHeadPosition()<numSamples &&
-           audioTrack.getPlayState()==AudioTrack.PLAYSTATE_PLAYING) {
-            return;
+        if(audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+
+            // On the initial play, we play including the attenuated lead-in
+            // After that, we loop full periods of beep to give a continuous tone.
+            audioTrack.stop();
+            audioTrack.setLoopPoints(leadin, leadin + samplesPerLoop, -1);
+            audioTrack.setPlaybackHeadPosition(0);
+            audioTrack.play();
         }
-        audioTrack.stop();
-        audioTrack.setPlaybackHeadPosition(0);
-        audioTrack.play();
+
+        // This AudioTrack will loop indefinitely, until stopBeeping() is called.
+        // This isn't quite good enough, since the user might switch modes while we
+        // are beeping, causing an infinite beep. Therefore, we let the beep time
+        // out using this trick.
+        if (nextTimeout != null) nextTimeout.cancel(true);
+        nextTimeout = executor.schedule(beepTimeout, duration, TimeUnit.SECONDS);
+
     }
+
+    /**
+     * Interrupt a tone started by beep()
+     */
     public static void stopBeeping() {
         singletonInit();
         audioTrack.stop();
