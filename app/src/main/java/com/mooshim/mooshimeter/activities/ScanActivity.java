@@ -428,8 +428,12 @@ public class ScanActivity extends MyActivity {
     // Listeners for GUI Events
     /////////////////////////////
 
+    private boolean isScanning() {
+        return mScanCb != null;
+    }
+
     public synchronized void startScan() {
-        if(mScanCb != null){return;}
+        if(isScanning()){return;}
         // Prune disconnected meters
         for(BLEDeviceBase m : getDevices()) {
             if( m.isDisconnected() ) {
@@ -454,7 +458,6 @@ public class ScanActivity extends MyActivity {
             setError("Failed to start scan");
             stopScan();
         } else {
-            mBtnScan.setEnabled(false);
             updateScanningButton(true);
             Util.postDelayed(new Runnable() {
                 @Override
@@ -467,14 +470,10 @@ public class ScanActivity extends MyActivity {
 
     public void stopScan() {
         Log.d(TAG,"stopScan called");
-        if(mScanCb==null) {
-            Log.d(TAG,"Scan not running!  Not going to call stopLeScan.");
-            return;
-        }
+        if(!isScanning()){return;}
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                mBtnScan.setEnabled(true);
                 updateScanningButton(false);
             }
         });
@@ -484,7 +483,11 @@ public class ScanActivity extends MyActivity {
     }
 
     public void onBtnScan(View view) {
-        startScan();
+        if(isScanning()){
+            stopScan();
+        } else {
+            startScan();
+        }
     }
 
     private void startSingleMeterActivity(BLEDeviceBase m) {
