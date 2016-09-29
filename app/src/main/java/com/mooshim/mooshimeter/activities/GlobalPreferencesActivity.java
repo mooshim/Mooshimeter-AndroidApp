@@ -23,64 +23,9 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.Util;
 
-public class GlobalPreferencesActivity extends MyActivity {
+public class GlobalPreferencesActivity extends PreferencesActivity {
     private static final String TAG = "GPreferenceActivity";
 
-    private Context mContext;
-
-    // GUI housekeeping
-    private class PreferenceGUIBuilder {
-        LinearLayout base;
-        public PreferenceGUIBuilder() {
-            base = (LinearLayout)findViewById(R.id.preference_background_layout);
-        }
-        public void add(String title,String descr,View widget) {
-            View v = getLayoutInflater().inflate(R.layout.element_pref_descriptor,null,false);
-            TextView titleview = (TextView)v.findViewById(R.id.pref_title);
-            TextView descrview = (TextView)v.findViewById(R.id.pref_descr);
-            titleview.setText(title);
-            descrview.setText(descr);
-            FrameLayout frame = (FrameLayout)v.findViewById(R.id.frame);
-            if(widget!=null) {
-                widget.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-                frame.addView(widget);
-            } else {
-                titleview.setGravity(Gravity.CENTER);
-                descrview.setGravity(Gravity.CENTER);
-                frame.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT,0f));
-            }
-            v.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-            base.addView(v);
-        }
-    }
-
-    Button makeButton(String label, final Runnable cb) {
-        Button b = new Button(mContext);
-        b.setText(label);
-        b.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                cb.run();
-            }
-        });
-        return b;
-    }
-    abstract class BooleanRunnable implements Runnable {
-        boolean arg;
-    }
-    Switch makeSwitch(boolean checked, final BooleanRunnable cb) {
-        Switch s = new Switch(mContext);
-        s.setChecked(checked);
-        s.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                cb.arg = isChecked;
-                cb.run();
-            }
-        });
-        s.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.MATCH_PARENT));
-        return s;
-    }
     public Switch makeSwitchForPreference(final String pref_name) {
         boolean set = Util.getPreferenceBoolean(pref_name);
         return makeSwitch(set, new BooleanRunnable() {
@@ -95,7 +40,6 @@ public class GlobalPreferencesActivity extends MyActivity {
     public void onCreate(Bundle savedInstanceState) {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
-        mContext = this;
 
         Intent intent = getIntent();
 
@@ -136,7 +80,6 @@ public class GlobalPreferencesActivity extends MyActivity {
     public void onBackPressed() {
         Log.e(TAG, "Back pressed");
         finish();
-        //transitionToActivity(null, ScanActivity.class);
     }
 
     @Override
@@ -144,40 +87,4 @@ public class GlobalPreferencesActivity extends MyActivity {
         onBackPressed();
         return true;
     }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-    }
-
-	@Override
-	protected void onResume() {
-		super.onResume();
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-    }
-
-	private void setError(final String txt) {
-        final Context c = this;
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(c, txt, Toast.LENGTH_LONG).show();
-            }
-        });
-	}
-
 }
