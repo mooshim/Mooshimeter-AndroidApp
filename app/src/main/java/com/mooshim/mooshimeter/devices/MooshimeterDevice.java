@@ -748,7 +748,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public String getName() {
-        return (String)tree.getValueAt("NAME");
+        String rval = (String)tree.getValueAt("NAME");
+        // Remove null termination
+        return rval.trim();
     }
 
     protected float getEnob(final Channel c) {
