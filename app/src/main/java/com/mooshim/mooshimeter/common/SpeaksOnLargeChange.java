@@ -14,7 +14,7 @@ public class SpeaksOnLargeChange {
         }
 
         // If there are no numbers in the input (such as "OUT OF RANGE"), don't treat it as numeric.
-        if (!in.matches("[0-9]")) {
+        if (!in.matches(".*[0-9].*")) {
             return in;
         }
 
