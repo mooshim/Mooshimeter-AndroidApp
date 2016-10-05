@@ -28,6 +28,7 @@ import android.widget.Toast;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.CooldownTimer;
+import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
@@ -620,10 +621,9 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     public void onOffsetChange(MooshimeterControlInterface.Channel c, MeterReading offset) {
 		zeroButtonRefresh(c.ordinal(), offset);
     }
+    @Override
+    public void onLogInfoReceived(LogFile log) {}
 
     @Override
-    public void onLogInfoReceived(MooshimeterDeviceBase.LogFile log) {}
-
-    @Override
-    public void onLogFileReceived(MooshimeterDeviceBase.LogFile log) {}
+    public void onLogFileReceived(LogFile log) {}
 }

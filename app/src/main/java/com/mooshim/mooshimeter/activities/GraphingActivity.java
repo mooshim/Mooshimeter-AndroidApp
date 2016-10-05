@@ -18,6 +18,7 @@ import android.widget.PopupWindow;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
+import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.interfaces.GraphingActivityInterface;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
@@ -673,10 +674,10 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     }*/
 
     @Override
-    public void onLogInfoReceived(MooshimeterDeviceBase.LogFile log) {
+    public void onLogInfoReceived(LogFile log) {
     }
 
     @Override
-    public void onLogFileReceived(MooshimeterDeviceBase.LogFile log) {
+    public void onLogFileReceived(LogFile log) {
     }
 }

@@ -25,6 +25,7 @@ import android.util.Log;
 import com.mooshim.mooshimeter.common.Beeper;
 import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.Chooser;
+import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
@@ -1052,6 +1053,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     @Override
     public void downloadLog(LogFile log) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public LogFile getLogInfo(int index) {
+        return null;
     }
 
 

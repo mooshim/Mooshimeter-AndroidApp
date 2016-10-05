@@ -24,6 +24,7 @@ import android.bluetooth.BluetoothGatt;
 import android.util.Log;
 
 import com.mooshim.mooshimeter.common.Chooser;
+import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;

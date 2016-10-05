@@ -5,6 +5,7 @@ import android.util.Log;
 import com.mooshim.mooshimeter.common.Beeper;
 import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.Chooser;
+import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.ThermocoupleHelper;
@@ -553,11 +554,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 delegate.onBatteryVoltageReceived((Float) payload);
             }
         });
+        final MooshimeterDevice self_ref = this;
         attachCallback("LOG:INFO:INDEX", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
                 mActiveLog = new LogFile();
                 mActiveLog.mIndex = (Integer)payload;
+                mActiveLog.mMeter = self_ref;
                 mLogs.put(mActiveLog.mIndex,mActiveLog);
             }
         });
@@ -963,7 +966,13 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public void downloadLog(LogFile log) {
         mActiveLog = log;
+        log.mData.reset();
         tree.command("LOG:STREAM:INDEX "+log.mIndex);
+    }
+
+    @Override
+    public LogFile getLogInfo(int index) {
+        return mLogs.get(index);
     }
 
     private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
