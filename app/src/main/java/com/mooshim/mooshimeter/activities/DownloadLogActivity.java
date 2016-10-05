@@ -156,6 +156,14 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if(!mDone) {
+            mMeter.cancelLogDownload();
+        }
+    }
+
+    @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
     }

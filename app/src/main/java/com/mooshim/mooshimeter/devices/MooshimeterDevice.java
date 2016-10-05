@@ -971,6 +971,11 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
+    public void cancelLogDownload() {
+        tree.command("LOG:STREAM:INDEX -1");
+    }
+
+    @Override
     public LogFile getLogInfo(int index) {
         return mLogs.get(index);
     }

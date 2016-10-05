@@ -335,6 +335,11 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
+    public void cancelLogDownload() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public LogFile getLogInfo(int index) {
         return mLogs.get(index);
     }

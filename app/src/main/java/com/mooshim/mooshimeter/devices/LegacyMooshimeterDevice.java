@@ -1056,6 +1056,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     }
 
     @Override
+    public void cancelLogDownload() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public LogFile getLogInfo(int index) {
         return null;
     }
