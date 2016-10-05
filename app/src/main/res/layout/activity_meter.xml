@@ -278,7 +278,7 @@
             android:onClick="onLoggingClick"
             style="@style/AppBaseTheme"
             android:textSize="24dp"
-            android:background="@drawable/button_auto"
+            android:background="@drawable/button_normal"
             android:layout_gravity="center"
             android:layout_margin="0px" android:paddingLeft="10dp" android:paddingRight="10dp"/>
 

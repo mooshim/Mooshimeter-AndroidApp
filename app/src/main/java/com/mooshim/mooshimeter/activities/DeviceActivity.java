@@ -260,20 +260,23 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         b.setText(title);
         b.setBackground(bg);
     }
-    private void autoButtonRefresh(final Button b, final String title, boolean auto) {
-        final Drawable bg = auto? getAutoBG(): getNormalBG();
-        SpannableStringBuilder sb = new SpannableStringBuilder();
 
-        String auto_string = auto?"AUTO":"MANUAL";
-        sb.append(auto_string);
+    private void twoLineButtonRefresh(final Button b, final String top_line, final String bottom_line) {
+        SpannableStringBuilder sb = new SpannableStringBuilder();
+        sb.append(top_line);
         sb.append("\n");
         int i = sb.length();
-        sb.append(title);
+        sb.append(bottom_line);
         sb.setSpan(new RelativeSizeSpan((float)1.6), i, sb.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         float button_height = b.getHeight(); // Button height in raw pixels
         b.setTextSize(TypedValue.COMPLEX_UNIT_PX,button_height/3); // Divisor arrived at empirically
         Util.setText(b, sb);
+    }
+    private void autoButtonRefresh(final Button b, final String title, boolean auto) {
+        final Drawable bg = auto? getAutoBG(): getNormalBG();
+        String auto_string = auto?"AUTO":"MANUAL";
+        twoLineButtonRefresh(b,auto_string,title);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -340,17 +343,18 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     private void loggingButtonRefresh() {
         int s = mMeter.getLoggingStatus();
-        final String title;
+        final String bottom_line, topline;
         final boolean logging_ok = s==0;
         if(logging_ok) {
-            title = mMeter.getLoggingOn()?"Logging:ON":"Logging:OFF";
+            topline = "Interval: "+(mMeter.getLoggingIntervalMS()/1000)+"s";
         } else {
-            title = mMeter.getLoggingStatusMessage();
+            topline = mMeter.getLoggingStatusMessage();
         }
+        bottom_line = mMeter.getLoggingOn()?"Logging:ENABLED":"Logging:DISABLED";
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                disableableButtonRefresh(logging_button, title, logging_ok);
+                twoLineButtonRefresh(logging_button,topline,bottom_line);
             }
         });
     }
