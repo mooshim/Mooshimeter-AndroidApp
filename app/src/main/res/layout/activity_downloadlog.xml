@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:layout_margin="10dip"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/tw_file"
+                style="@style/dataStyle1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.5"
+                android:gravity="left"
+                android:text="@string/no_image_sel"
+                android:textAlignment="gravity"
+                android:layout_gravity="center_horizontal" />
+
+            <TextView
+                android:id="@+id/tw_info"
+                style="@style/dataStyle"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="5dp"
+                android:layout_weight="0"
+                android:gravity="center_horizontal"
+                android:text="@string/idle"
+                android:textSize="14dp" />
+
+        </LinearLayout>
+
+        <ImageButton
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:id="@+id/share_button"
+            android:background="@drawable/share"
+            android:layout_gravity="center" />
+
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/pb_progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:maxHeight="15dp"
+        android:minHeight="15dp"
+        android:progress="0" />
+
+    <HorizontalScrollView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/horizontalScrollView" >
+
+        <TextView
+            android:id="@+id/tw_log"
+            style="@style/logStyle"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_weight="1"
+            android:lines="20"
+            android:padding="5dp"
+            android:scrollHorizontally="true"
+            android:text="            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+            Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum"
+            android:singleLine="false"
+            android:scrollIndicators="right" />
+    </HorizontalScrollView>
+
+</LinearLayout>
