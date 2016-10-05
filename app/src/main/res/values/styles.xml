@@ -75,7 +75,6 @@
     </style>
     
     <style name="dataStyle">
-        <item name="android:background">#fff</item>
         <item name="android:textSize">16dp</item>
         <item name="android:textColor">#030</item>
         <item name="android:textColorHint">#fff</item>
