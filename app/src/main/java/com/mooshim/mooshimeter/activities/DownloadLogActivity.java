@@ -23,11 +23,10 @@ import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 
-import java.io.File;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -74,6 +73,28 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
         filename_text.setText(mLog.getFile().getAbsolutePath());
 
         log_text.setMovementMethod(new ScrollingMovementMethod());
+
+        if(mLog.getFile().exists()) {
+            // We already downloaded this file!
+            mDone = true;
+            Toast.makeText(this,"Already downloaded this file!",Toast.LENGTH_LONG).show();
+            byte[] buf = new byte[(int)mLog.getFile().length()];
+            try {
+                FileInputStream reader = new FileInputStream(mLog.getFile());
+                reader.read(buf);
+                reader.close();
+                String val = new String(buf);
+                log_text.setText(val);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else if(!mDone) {
+            mMeter.downloadLog(mLog);
+            Util.postToMain(dl_checker);
+        }
     }
 
     @OnClick(R.id.share_button)
@@ -122,9 +143,6 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
                     int dl_kb = mLog.mData.size()/1024;
                     int total_kb = mLog.mBytes/1024;
                     progress_text.setText(dl_kb+" of "+total_kb+"kb");
-                    int lineCount = log_text.getLayout().getLineCount();
-                    String log = mLog.mData.toString();
-                    
                     log_text.setText(mLog.mData.toString());
                     if(!mDone) {
                         Util.postDelayed(this,500);
@@ -133,20 +151,6 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
             });
         }
     };
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        if(mLog.getFile().exists()) {
-            // We already downloaded this file!
-            mDone = true;
-            Toast.makeText(this,"Already downloaded this file!",Toast.LENGTH_LONG).show();
-        }
-        else if(!mDone) {
-            mMeter.downloadLog(mLog);
-            Util.postToMain(dl_checker);
-        }
-    }
 
     @Override
     protected void onPause() {
