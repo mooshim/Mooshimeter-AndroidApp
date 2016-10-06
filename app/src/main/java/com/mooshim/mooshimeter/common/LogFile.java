@@ -24,10 +24,19 @@ public class LogFile {
     private FileOutputStream mWriter = null;
     private File mFile = null;
 
+    static final String mLogDir = "MooshimeterLogs/";
+
+    static {
+        File logdir = new File(Environment.getExternalStorageDirectory(), mLogDir);
+        if(!logdir.exists()) {
+            logdir.mkdirs();
+        }
+    }
+
     public String getFileName() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmm");
         String end_time_string = sdf.format(new Date(mEndTime*1000));
-        return mMeter.getName()+"-Log"+mIndex+"-"+end_time_string+".csv";
+        return mLogDir+mMeter.getName()+"-Log"+mIndex+"-"+end_time_string+".csv";
     }
 
     public File getFile() {
@@ -39,7 +48,6 @@ public class LogFile {
 
     public void appendToFile(byte[] data) throws IOException {
         if(mWriter == null) {
-            //mWriter = new FileWriter(getFile(),true);
             mWriter = new FileOutputStream(getFile(),true);
         }
         mWriter.write(data);
