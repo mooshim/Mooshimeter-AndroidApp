@@ -303,24 +303,32 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
         Util.postDelayed(new LogInfoProducer(),1000);
     }
 
+    private LogDataProducer mProducer;
+
     private class LogDataProducer implements Runnable{
         LogFile mLogFile;
         int mBytesRemaining;
+        boolean cancel = false;
         public LogDataProducer(LogFile file) {
             mLogFile = file;
-            mBytesRemaining = mLogFile.mBytes;
+            mBytesRemaining = (int) (mLogFile.mBytes-mLogFile.getFile().length());
         }
         @Override
         public void run() {
+            if(cancel) {
+                return;
+            }
             String testline = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n";
             try {
-                mLogFile.mData.write(testline.getBytes());
+                mLogFile.appendToFile(testline.getBytes());
                 mBytesRemaining -= testline.length();
+                delegate.onLogDataReceived(mLogFile,testline);
             } catch (IOException e) {
                 e.printStackTrace();
             }
             if(mBytesRemaining<=0) {
                 delegate.onLogFileReceived(mLogFile);
+                mProducer = null;
             } else {
                 // Synthesize 1kb/s
                 int ms_delay = testline.length();
@@ -331,17 +339,26 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public void downloadLog(LogFile log) {
-        Util.postDelayed(new LogDataProducer(log),100);
+        if(mProducer==null) {
+            mProducer= new LogDataProducer(log);
+            Util.postDelayed(mProducer,100);
+        }
     }
 
     @Override
     public void cancelLogDownload() {
-        throw new UnsupportedOperationException();
+        mProducer.cancel=true;
+        mProducer = null;
     }
 
     @Override
     public LogFile getLogInfo(int index) {
         return mLogs.get(index);
+    }
+
+    @Override
+    public void setLogOffset(int offset) {
+        throw new UnsupportedOperationException();
     }
 
     private boolean mIsConnected = false;

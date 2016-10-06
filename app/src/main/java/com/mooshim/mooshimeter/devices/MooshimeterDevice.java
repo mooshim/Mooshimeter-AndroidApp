@@ -584,8 +584,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         attachCallback("LOG:STREAM:DATA", new NotifyHandler() {
             @Override
             public void onReceived(double timestamp_utc, Object payload) {
+                String str = new String((byte[])payload);
                 try {
-                    mActiveLog.mData.write((byte[]) payload);
+                    mActiveLog.appendToFile((byte[])payload);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -967,10 +968,27 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
-    public void downloadLog(LogFile log) {
+    public void downloadLog(final LogFile log) {
         mActiveLog = log;
-        log.mData.reset();
-        tree.command("LOG:STREAM:INDEX "+log.mIndex);
+        if(log.getFile().length()>=log.mBytes) {
+            // Already downloaded the whole file
+            Util.dispatchCb(new Runnable() {
+                @Override
+                public void run() {
+                    delegate.onLogFileReceived(log);
+                }
+            });
+        } else {
+            if(log.getFile().length()>0) {
+                setLogOffset((int)log.getFile().length());
+            }
+            tree.command("LOG:STREAM:INDEX "+log.mIndex);
+        }
+    }
+
+    @Override
+    public void setLogOffset(int offset) {
+        tree.command("LOG:STREAM:OFFSET "+offset);
     }
 
     @Override

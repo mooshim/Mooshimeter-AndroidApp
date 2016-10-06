@@ -1065,6 +1065,11 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return null;
     }
 
+    @Override
+    public void setLogOffset(int offset) {
+        throw new UnsupportedOperationException();
+    }
+
 
     private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
         return (RangeDescriptor) getSelectedDescriptor(c).ranges.getChosen();
