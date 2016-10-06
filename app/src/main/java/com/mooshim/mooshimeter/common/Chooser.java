@@ -21,7 +21,7 @@ public class Chooser<ValueType> {
     public void clear() {
         l.clear();
     }
-    public ValueType choose(Integer k) {
+    public ValueType chooseIndex(Integer k) {
         chosen_key = k;
         return getChosen();
     }

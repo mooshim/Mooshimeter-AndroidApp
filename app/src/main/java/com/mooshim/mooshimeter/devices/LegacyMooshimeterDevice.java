@@ -1164,7 +1164,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         }
         choice_i += expand?1:-1;
         choice_i %= n_choices;
-        setRange(c, range_chooser.choose(choice_i));
+        setRange(c, range_chooser.chooseIndex(choice_i));
         return true;
     }
 
