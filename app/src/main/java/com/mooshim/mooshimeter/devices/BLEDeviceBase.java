@@ -20,11 +20,13 @@
 package com.mooshim.mooshimeter.devices;
 
 
+import android.app.Application;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.mooshim.mooshimeter.activities.MyApplication;
 import com.mooshim.mooshimeter.common.Util;
 
 import java.util.UUID;
@@ -87,6 +89,9 @@ public class BLEDeviceBase {
     }
 
     public BLEDeviceBase chooseSubclass() {
+        if(getClass()==SimulatedMooshimeterDevice.class) {
+            return this;
+        }
         if(!mPwrap.isConnected()) {
             Log.e(TAG,"Can't decide subclass until after connection!");
             return null;
@@ -120,11 +125,11 @@ public class BLEDeviceBase {
     }
 
     private String getSharedPreferenceString() {
-        return "mooshimeter-preference-"+mPwrap.getAddress();
+        return "mooshimeter-preference-"+getAddress();
     }
 
     private SharedPreferences getSharedPreferences() {
-        return mPwrap.mContext.getSharedPreferences(getSharedPreferenceString(),Context.MODE_PRIVATE);
+        return MyApplication.getMyContext().getSharedPreferences(getSharedPreferenceString(),Context.MODE_PRIVATE);
     }
 
     public boolean hasPreference(String key) {
@@ -193,5 +198,8 @@ public class BLEDeviceBase {
     }
     public String getAddress() {
         return mPwrap.getAddress();
+    }
+    public String getName() {
+        return mPwrap.getBLEDevice().getName();
     }
 }
