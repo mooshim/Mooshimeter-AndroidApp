@@ -26,6 +26,7 @@ import com.mooshim.mooshimeter.common.Beeper;
 import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.ThermocoupleHelper;
 import com.mooshim.mooshimeter.common.Util;
@@ -1042,6 +1043,17 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
     public MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(Channel c) {
         return input_descriptors.get(c).getChosen();
     }
+
+    @Override
+    public void pollLogInfo() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void downloadLog(LogFile log) {
+        throw new UnsupportedOperationException();
+    }
+
 
     private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
         return (RangeDescriptor) getSelectedDescriptor(c).ranges.getChosen();

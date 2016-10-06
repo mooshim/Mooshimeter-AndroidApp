@@ -2,6 +2,7 @@ package com.mooshim.mooshimeter.interfaces;
 import com.mooshim.mooshimeter.common.MeterReading;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 /**
@@ -13,6 +14,13 @@ public interface MooshimeterControlInterface {
         CH1,
         CH2,
         MATH,
+    }
+
+    public static class LogFile {
+        public int mIndex    = -1;
+        public int mBytes    = -1;
+        public long mEndTime = -1;
+        public ByteArrayOutputStream mData = new ByteArrayOutputStream();
     }
 
     void addDelegate(final MooshimeterDelegate d);
@@ -82,4 +90,7 @@ public interface MooshimeterControlInterface {
     int setInput(Channel c, MooshimeterDeviceBase.InputDescriptor descriptor);
     List<MooshimeterDeviceBase.InputDescriptor> getInputList(Channel c);
     MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(Channel c);
+
+    void pollLogInfo();
+    void downloadLog(LogFile log);
 }

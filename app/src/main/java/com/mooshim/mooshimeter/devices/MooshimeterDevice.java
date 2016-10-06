@@ -10,6 +10,7 @@ import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.ThermocoupleHelper;
 import com.mooshim.mooshimeter.common.Util;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -41,6 +42,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             METER_SERIN         = fromString("1BC5FFA1-0200-62AB-E411-F254E005DBD4"),
             METER_SEROUT        = fromString("1BC5FFA2-0200-62AB-E411-F254E005DBD4");
     }
+
+    public LogFile mActiveLog = null;
+    public Map<Integer,LogFile> mLogs = new ConcurrentHashMap<>();
 
     ////////////////////////////////
     // CONFIG TREE
@@ -894,6 +898,18 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public MooshimeterDeviceBase.InputDescriptor getSelectedDescriptor(final Channel channel) {
         return input_descriptors.get(channel).getChosen();
     }
+
+    @Override
+    public void pollLogInfo() {
+        tree.command("LOG:POLLDIR");
+    }
+
+    @Override
+    public void downloadLog(LogFile log) {
+        mActiveLog = log;
+        tree.command("LOG:STREAM:INDEX "+log.mIndex);
+    }
+
     private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
         return (RangeDescriptor) getSelectedDescriptor(c).ranges.getChosen();
     }
