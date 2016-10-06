@@ -146,7 +146,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 		// Handle presses on the action bar items
 		switch (item.getItemId()) {
 		case R.id.opt_prefs:
-            pushActivityToStack(mMeter,PreferencesActivity.class);
+            pushActivityToStack(mMeter,MeterPreferencesActivity.class);
 			break;
 		default:
             finish();

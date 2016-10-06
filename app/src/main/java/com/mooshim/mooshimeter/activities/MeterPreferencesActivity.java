@@ -15,6 +15,7 @@ import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.devices.MooshimeterDevice;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
@@ -22,8 +23,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class MeterPreferencesActivity extends PreferencesActivity{
-    private static final String TAG = "PreferenceActivity";
-
 	// BLE
     private MooshimeterDeviceBase mMeter = null;
 
@@ -154,29 +153,6 @@ public class MeterPreferencesActivity extends PreferencesActivity{
             finish();
 		}
 		return true;
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if(   mMeter==null ||!mMeter.isConnected()) {
-            onBackPressed();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if(!(mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH1) || mMeter.speech_on.get(MooshimeterControlInterface.Channel.CH2))) {
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    mMeter.pause();
-                    mMeter.removeDelegate();
-                }
-            });
-        }
     }
 
     @Override

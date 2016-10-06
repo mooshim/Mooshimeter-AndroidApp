@@ -41,8 +41,6 @@ public class GlobalPreferencesActivity extends PreferencesActivity {
 		requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		super.onCreate(savedInstanceState);
 
-        Intent intent = getIntent();
-
         setContentView(R.layout.activity_preference);
 
         PreferenceGUIBuilder builder = new PreferenceGUIBuilder();

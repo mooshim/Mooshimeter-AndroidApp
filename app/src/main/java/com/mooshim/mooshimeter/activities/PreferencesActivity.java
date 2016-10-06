@@ -30,8 +30,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class PreferencesActivity extends MyActivity {
-    private static final String TAG = "PreferenceActivity";
-
     protected Context mContext;
 
     @Override
@@ -60,6 +58,9 @@ public class PreferencesActivity extends MyActivity {
             }
             v.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             base.addView(v);
+        }
+        public void add(View widget) {
+            base.addView(widget);
         }
     }
 
