@@ -535,6 +535,44 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 delegate.onBatteryVoltageReceived((Float) payload);
             }
         });
+        attachCallback("LOG:INFO:INDEX", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                mActiveLog = new LogFile();
+                mActiveLog.mIndex = (Integer)payload;
+                mLogs.put(mActiveLog.mIndex,mActiveLog);
+            }
+        });
+        attachCallback("LOG:INFO:END_TIME", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                long utc_time = (Integer)payload;
+                // Prevent sign extension since Java will assume the int being unpacked is signed
+                utc_time &= 0xFFFFFFFF;
+                mActiveLog.mEndTime = utc_time;
+            }
+        });
+        attachCallback("LOG:INFO:N_BYTES", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                int bytes = (int)payload;
+                mActiveLog.mBytes = bytes;
+                delegate.onLogInfoReceived(mActiveLog);
+            }
+        });
+        attachCallback("LOG:STREAM:DATA", new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                try {
+                    mActiveLog.mData.write((byte[]) payload);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                if(mActiveLog.mBytes <= mActiveLog.mData.size()) {
+                    delegate.onLogFileReceived(mActiveLog);
+                }
+            }
+        });
 
         // Start a heartbeat.  The Mooshimeter needs to hear from the phone every 20 seconds or it
         // assumes the Android device has fallen in to a phantom connection mode and disconnects itself.

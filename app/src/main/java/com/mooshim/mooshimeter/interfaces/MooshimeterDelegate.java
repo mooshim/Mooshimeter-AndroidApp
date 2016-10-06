@@ -1,6 +1,7 @@
 package com.mooshim.mooshimeter.interfaces;
 
 import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.devices.MooshimeterDevice;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
 
 /**
@@ -28,4 +29,7 @@ public interface MooshimeterDelegate {
     void onInputChange(final MooshimeterControlInterface.Channel c, final MooshimeterDeviceBase.InputDescriptor descriptor);
 
     void onOffsetChange(final MooshimeterControlInterface.Channel c, final MeterReading offset);
+
+    void onLogInfoReceived(MooshimeterDeviceBase.LogFile log);
+    void onLogFileReceived(MooshimeterDeviceBase.LogFile log);
 }

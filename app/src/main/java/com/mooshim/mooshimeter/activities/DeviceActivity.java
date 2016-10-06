@@ -625,4 +625,10 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     public void onOffsetChange(MooshimeterControlInterface.Channel c, MeterReading offset) {
 		zeroButtonRefresh(c.ordinal(), offset);
     }
+
+    @Override
+    public void onLogInfoReceived(MooshimeterDeviceBase.LogFile log) {}
+
+    @Override
+    public void onLogFileReceived(MooshimeterDeviceBase.LogFile log) {}
 }
