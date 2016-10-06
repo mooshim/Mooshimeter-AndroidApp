@@ -2,11 +2,11 @@ package com.mooshim.mooshimeter.common;
 
 import android.os.Environment;
 
-import com.mooshim.mooshimeter.devices.MooshimeterDevice;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -20,7 +20,9 @@ public class LogFile {
     public int mIndex    = -1;
     public int mBytes    = -1;
     public long mEndTime = -1;
-    public ByteArrayOutputStream mData = new ByteArrayOutputStream();
+    //public ByteArrayOutputStream mData = new ByteArrayOutputStream();
+    private FileOutputStream mWriter = null;
+    private File mFile = null;
 
     public String getFileName() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmm");
@@ -29,28 +31,29 @@ public class LogFile {
     }
 
     public File getFile() {
-        return new File(Environment.getExternalStorageDirectory(), getFileName());
+        if(mFile==null) {
+            mFile = new File(Environment.getExternalStorageDirectory(), getFileName());
+        }
+        return mFile;
     }
 
-    public void writeToFile() {
-        Util.postToMain(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    File sdCardFile = getFile();
-                    if(sdCardFile.exists()) {
-                        // The file already exists!  Don't bother writing it again.
-                    } else {
-                        FileWriter writer = new FileWriter(sdCardFile);
-                        writer.write(mData.toString());
-                        writer.flush();
-                        writer.close();
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+    public void appendToFile(byte[] data) throws IOException {
+        if(mWriter == null) {
+            //mWriter = new FileWriter(getFile(),true);
+            mWriter = new FileOutputStream(getFile(),true);
+        }
+        mWriter.write(data);
+        mWriter.flush();
+        if(getFile().length()>=mBytes) {
+            mWriter.close();
+        }
     }
 
+    public String getFileData() throws IOException {
+        byte[] buf = new byte[(int)getFile().length()];
+        FileInputStream reader = new FileInputStream(getFile());
+        reader.read(buf);
+        reader.close();
+        return new String(buf);
+    }
 }

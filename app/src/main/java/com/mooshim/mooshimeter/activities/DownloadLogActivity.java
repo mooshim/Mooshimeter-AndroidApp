@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.text.method.ScrollingMovementMethod;
 import android.view.MenuItem;
 import android.view.Window;
@@ -22,11 +21,6 @@ import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
-
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -74,27 +68,7 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
 
         log_text.setMovementMethod(new ScrollingMovementMethod());
 
-        if(mLog.getFile().exists()) {
-            // We already downloaded this file!
-            mDone = true;
-            Toast.makeText(this,"Already downloaded this file!",Toast.LENGTH_LONG).show();
-            byte[] buf = new byte[(int)mLog.getFile().length()];
-            try {
-                FileInputStream reader = new FileInputStream(mLog.getFile());
-                reader.read(buf);
-                reader.close();
-                String val = new String(buf);
-                log_text.setText(val);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        else if(!mDone) {
-            mMeter.downloadLog(mLog);
-            Util.postToMain(dl_checker);
-        }
+        mMeter.downloadLog(mLog);
     }
 
     @OnClick(R.id.share_button)
