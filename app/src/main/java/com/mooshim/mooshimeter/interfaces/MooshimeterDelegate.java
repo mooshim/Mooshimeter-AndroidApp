@@ -33,4 +33,5 @@ public interface MooshimeterDelegate {
 
     void onLogInfoReceived(LogFile log);
     void onLogFileReceived(LogFile log);
+    void onLogDataReceived(LogFile log, String data);
 }

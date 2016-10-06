@@ -132,26 +132,6 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
         mMeter.addDelegate(this);
     }
 
-    private Runnable dl_checker = new Runnable() {
-        @Override
-        public void run() {
-            Util.postToMain(new Runnable() {
-                @Override
-                public void run() {
-                    float progress = ((float)mLog.mData.size())/((float)mLog.mBytes);
-                    progress_bar.setProgress((int)(progress*progress_bar.getMax()));
-                    int dl_kb = mLog.mData.size()/1024;
-                    int total_kb = mLog.mBytes/1024;
-                    progress_text.setText(dl_kb+" of "+total_kb+"kb");
-                    log_text.setText(mLog.mData.toString());
-                    if(!mDone) {
-                        Util.postDelayed(this,500);
-                    }
-                }
-            });
-        }
-    };
-
     @Override
     protected void onPause() {
         super.onPause();
@@ -210,12 +190,30 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
     @Override
     public void onLogFileReceived(final LogFile log) {
         mDone = true;
-        mLog.writeToFile();
         Util.postToMain(new Runnable() {
             @Override
             public void run() {
+                progress_bar.setProgress(progress_bar.getMax());
+                int total_kb = mLog.mBytes/1024;
+                progress_text.setText("Downloaded "+total_kb+"kb");
                 Toast.makeText(mContext,"Saved file to "+mLog.getFile().getAbsolutePath(),Toast.LENGTH_LONG).show();
                 shareButtonClicked();
+            }
+        });
+    }
+
+    @Override
+    public void onLogDataReceived(LogFile log, final String data) {
+        Util.postToMain(new Runnable() {
+            @Override
+            public void run() {
+                int length =(int)mLog.getFile().length();
+                float progress = ((float)length)/((float)mLog.mBytes);
+                progress_bar.setProgress((int)(progress*progress_bar.getMax()));
+                int dl_kb = length/1024;
+                int total_kb = mLog.mBytes/1024;
+                progress_text.setText(dl_kb+" of "+total_kb+"kb");
+                log_text.setText(data);
             }
         });
     }

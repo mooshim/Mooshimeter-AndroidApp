@@ -630,4 +630,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onLogFileReceived(LogFile log) {}
+
+    @Override
+    public void onLogDataReceived(LogFile log, String data) {}
 }

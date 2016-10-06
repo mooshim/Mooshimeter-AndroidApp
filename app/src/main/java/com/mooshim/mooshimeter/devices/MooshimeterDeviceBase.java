@@ -154,6 +154,13 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
                 d.onLogFileReceived(log);
             }
         }
+
+        @Override
+        public void onLogDataReceived(LogFile log, String data) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onLogDataReceived(log,data);
+            }
+        }
     };
 
     public int disconnect_handle;

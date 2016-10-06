@@ -680,4 +680,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     @Override
     public void onLogFileReceived(LogFile log) {
     }
+
+    @Override
+    public void onLogDataReceived(LogFile log, String data) {}
 }

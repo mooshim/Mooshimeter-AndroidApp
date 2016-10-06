@@ -589,7 +589,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                if(mActiveLog.mBytes <= mActiveLog.mData.size()) {
+                delegate.onLogDataReceived(mActiveLog,str);
+                if(mActiveLog.mBytes <= mActiveLog.getFile().length()) {
                     delegate.onLogFileReceived(mActiveLog);
                 }
             }

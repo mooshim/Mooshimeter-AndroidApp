@@ -264,4 +264,7 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
     }
     @Override
     public void onLogFileReceived(LogFile log) {}
+
+    @Override
+    public void onLogDataReceived(LogFile log, String data) {}
 }
