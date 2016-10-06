@@ -367,6 +367,11 @@ public class ScanActivity extends MyActivity {
     }
 
     private void refreshAllMeterTiles() {
+        for(BLEDeviceBase m : getDevices()) {
+            if(findTileForMeter(m)==null) {
+                addDeviceToTileList(m);
+            }
+        }
         for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
             final ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
             refreshMeterTile(vg);

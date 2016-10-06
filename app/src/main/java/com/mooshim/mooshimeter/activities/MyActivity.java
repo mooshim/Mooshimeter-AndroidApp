@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
+import com.mooshim.mooshimeter.devices.SimulatedMooshimeterDevice;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,7 +18,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class MyActivity extends Activity {
     // This is the master list of all Mooshimeters
-    private static final Map<String,BLEDeviceBase> mMeterDict = new ConcurrentHashMap<>();
+    private final static Map<String,BLEDeviceBase> mMeterDict;
+    static {
+        mMeterDict = new ConcurrentHashMap<>();
+        SimulatedMooshimeterDevice sim = new SimulatedMooshimeterDevice(null);
+        putDevice(sim);
+    }
 
     public static int getNDevices() {
         synchronized (mMeterDict) {
@@ -31,7 +37,12 @@ public abstract class MyActivity extends Activity {
     }
     public static void clearDeviceCache() {
         synchronized (mMeterDict) {
+            //If there's a simulated device, keep it
+            SimulatedMooshimeterDevice sim = (SimulatedMooshimeterDevice) mMeterDict.get("FAKEADDR");
             mMeterDict.clear();
+            if(sim!=null) {
+                putDevice(sim);
+            }
         }
     }
     public static BLEDeviceBase getDeviceWithAddress(String addr) {
@@ -46,7 +57,9 @@ public abstract class MyActivity extends Activity {
     }
     public static void removeDevice(BLEDeviceBase device) {
         synchronized (mMeterDict) {
-            mMeterDict.remove(device.getAddress());
+            if(!device.getAddress().equals("FAKEADDR")) {
+                mMeterDict.remove(device.getAddress());
+            }
         }
     }
 
