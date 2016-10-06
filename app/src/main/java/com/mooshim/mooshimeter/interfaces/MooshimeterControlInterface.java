@@ -16,7 +16,7 @@ public interface MooshimeterControlInterface {
     }
 
     void addDelegate(final MooshimeterDelegate d);
-    void removeDelegate();
+    void removeDelegate(final MooshimeterDelegate d);
 
     ////////////////////////////////
     // Convenience functions

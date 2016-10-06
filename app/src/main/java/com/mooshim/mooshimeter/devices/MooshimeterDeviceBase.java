@@ -31,7 +31,9 @@ import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements MooshimeterControlInterface {
@@ -65,31 +67,88 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
 
     private static final String TAG="MooshimeterDeviceBase";
 
-    private static MooshimeterDelegate dummy_delegate = new MooshimeterDelegate() {
+    Set<MooshimeterDelegate> delegates = new HashSet<>();
+
+    protected MooshimeterDelegate delegate = new MooshimeterDelegate() {
         @Override
-        public void onDisconnect() {        }
+        public void onDisconnect() {
+            for(MooshimeterDelegate d:delegates) {
+                d.onDisconnect();
+            }
+        }
         @Override
-        public void onRssiReceived(int rssi) {}
+        public void onRssiReceived(int rssi) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onRssiReceived(rssi);
+            }
+        }
         @Override
-        public void onBatteryVoltageReceived(float voltage) {}
+        public void onBatteryVoltageReceived(float voltage) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onBatteryVoltageReceived(voltage);
+            }
+        }
         @Override
-        public void onSampleReceived(double timestamp_utc, Channel c, MeterReading val) {}
+        public void onSampleReceived(double timestamp_utc, Channel c, MeterReading val) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onSampleReceived(timestamp_utc,c,val);
+            }
+        }
         @Override
-        public void onBufferReceived(double timestamp_utc, Channel c, float dt, float[] val) {}
+        public void onBufferReceived(double timestamp_utc, Channel c, float dt, float[] val) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onBufferReceived(timestamp_utc,c,dt,val);
+            }
+        }
         @Override
-        public void onSampleRateChanged(int i, int sample_rate_hz) {        }
+        public void onSampleRateChanged(int i, int sample_rate_hz) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onSampleRateChanged(i,sample_rate_hz);
+            }
+        }
         @Override
-        public void onBufferDepthChanged(int i, int buffer_depth) {        }
+        public void onBufferDepthChanged(int i, int buffer_depth) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onBufferDepthChanged(i,buffer_depth);
+            }
+        }
         @Override
-        public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
+        public void onLoggingStatusChanged(boolean on, int new_state, String message) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onLoggingStatusChanged(on,new_state,message);
+            }
+        }
         @Override
-        public void onRangeChange(Channel c, RangeDescriptor new_range) {        }
+        public void onRangeChange(Channel c, RangeDescriptor new_range) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onRangeChange(c,new_range);
+            }
+        }
         @Override
-        public void onInputChange(Channel c, InputDescriptor descriptor) {        }
+        public void onInputChange(Channel c, InputDescriptor descriptor) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onInputChange(c,descriptor);
+            }
+        }
         @Override
-        public void onOffsetChange(Channel c, MeterReading offset) { }
+        public void onOffsetChange(Channel c, MeterReading offset) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onOffsetChange(c, offset);
+            }
+        }
+        @Override
+        public void onLogInfoReceived(LogFile log) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onLogInfoReceived(log);
+            }
+        }
+        @Override
+        public void onLogFileReceived(LogFile log) {
+            for(MooshimeterDelegate d:delegates) {
+                d.onLogFileReceived(log);
+            }
+        }
     };
-    public MooshimeterDelegate delegate = dummy_delegate;
 
     public int disconnect_handle;
 
@@ -282,10 +341,10 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     //////////////////////////////////////
     @Override
     public void addDelegate(MooshimeterDelegate d) {
-        delegate = d;
+        delegates.add(d);
     }
     @Override
-    public void removeDelegate() {
-        delegate = dummy_delegate;
+    public void removeDelegate(MooshimeterDelegate d) {
+        delegates.remove(d);
     }
 }
