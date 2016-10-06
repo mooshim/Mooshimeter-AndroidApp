@@ -501,12 +501,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     }
     public void onLoggingClick(View v) {
         Log.i(TAG, "onLoggingClick");
-        if(mMeter.getLoggingStatus()!=0) {
-            setError(mMeter.getLoggingStatusMessage());
-            mMeter.setLoggingOn(false);
-        } else {
-            mMeter.setLoggingOn(!mMeter.getLoggingOn());
-        }
+        pushActivityToStack(mMeter,LoggingPreferencesActivity.class);
     }
     public void onZeroClick(final int c) {
         MooshimeterControlInterface.Channel channel = chanEnum(c);
@@ -554,7 +549,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
 
     @Override
     public void onDisconnect() {
-        //transitionToActivity(mMeter, ScanActivity.class);
         finish();
     }
 
