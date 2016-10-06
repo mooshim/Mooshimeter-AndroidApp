@@ -54,7 +54,6 @@ import com.mooshim.mooshimeter.devices.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.common.FilteredScanCallback;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ScanActivity extends MyActivity {
@@ -116,19 +115,12 @@ public class ScanActivity extends MyActivity {
         filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         registerReceiver(mReceiver, filter);
-
-
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         unregisterReceiver(mReceiver);
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
     }
 
     @Override
@@ -319,7 +311,7 @@ public class ScanActivity extends MyActivity {
         if(d.mOADMode) {
             name = "Bootloader";
         } else {
-            name = d.getBLEDevice().getName();
+            name = d.getName();
             if (name == null) {
                 name = "Unknown device";
             }
