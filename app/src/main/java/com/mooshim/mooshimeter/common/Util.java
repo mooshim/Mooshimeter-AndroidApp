@@ -471,7 +471,8 @@ public class Util {
         private preference_keys() {}
         public static final String
         USE_FAHRENHEIT= "USE_FAHRENHEIT",
-        BROADCAST_INTENTS= "BROADCAST_INTENTS";
+        BROADCAST_INTENTS= "BROADCAST_INTENTS",
+        SIMULATED_METER= "SIMULATED_METER";
     }
 
     public static SharedPreferences getSharedPreferences(String name) {

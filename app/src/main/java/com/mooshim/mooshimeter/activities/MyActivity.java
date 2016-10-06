@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 import com.mooshim.mooshimeter.devices.SimulatedMooshimeterDevice;
 
@@ -21,8 +22,6 @@ public abstract class MyActivity extends Activity {
     private final static Map<String,BLEDeviceBase> mMeterDict;
     static {
         mMeterDict = new ConcurrentHashMap<>();
-        SimulatedMooshimeterDevice sim = new SimulatedMooshimeterDevice(null);
-        putDevice(sim);
     }
 
     public static int getNDevices() {
@@ -38,10 +37,9 @@ public abstract class MyActivity extends Activity {
     public static void clearDeviceCache() {
         synchronized (mMeterDict) {
             //If there's a simulated device, keep it
-            SimulatedMooshimeterDevice sim = (SimulatedMooshimeterDevice) mMeterDict.get("FAKEADDR");
             mMeterDict.clear();
-            if(sim!=null) {
-                putDevice(sim);
+            if(mSim!=null) {
+                putDevice(mSim);
             }
         }
     }
@@ -57,7 +55,7 @@ public abstract class MyActivity extends Activity {
     }
     public static void removeDevice(BLEDeviceBase device) {
         synchronized (mMeterDict) {
-            if(!device.getAddress().equals("FAKEADDR")) {
+            if(device != mSim) {
                 mMeterDict.remove(device.getAddress());
             }
         }
@@ -92,10 +90,20 @@ public abstract class MyActivity extends Activity {
         super.onStart();
     }
 
+    private static SimulatedMooshimeterDevice mSim = null;
+
     @Override
     protected void onResume() {
         Log.d(cname(), "onResume");
         super.onResume();
+        if(Util.getPreferenceBoolean(Util.preference_keys.SIMULATED_METER)) {
+            if(mSim==null) {
+                mSim = new SimulatedMooshimeterDevice(null);
+                putDevice(mSim);
+            }
+        } else {
+            mSim = null;
+        }
     }
 
     @Override
