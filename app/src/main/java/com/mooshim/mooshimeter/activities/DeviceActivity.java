@@ -159,6 +159,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        final MooshimeterDelegate d = this;
         // I still don't understand why, but mMeter keeps getting set to null!  WHY ANDROID WHY?!
         if(mMeter==null) {
             Log.e(TAG,"GOT A NULL MMETER IN onPause!");
@@ -169,7 +170,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 @Override
                 public void run() {
                     mMeter.pause();
-                    mMeter.removeDelegate();
+                    mMeter.removeDelegate(d);
                 }
             });
         }

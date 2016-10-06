@@ -230,6 +230,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     protected void onPause() {
         super.onPause();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        final MooshimeterDelegate d = this;
         refresh_timer.cancel();
         Util.dispatch(new Runnable() {
             @Override
@@ -238,7 +239,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                     setBufferModeOn(false);
                 }
                 mMeter.pause();
-                mMeter.removeDelegate();
+                mMeter.removeDelegate(d);
             }
         });
     }
