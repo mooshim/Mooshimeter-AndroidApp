@@ -48,6 +48,11 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         public String toString() {
             return name;
         }
+        public RangeDescriptor() {}
+        public RangeDescriptor(String name_arg,float max_arg) {
+            name=name_arg;
+            max=max_arg;
+        }
     }
     public static class InputDescriptor {
         public String name;
