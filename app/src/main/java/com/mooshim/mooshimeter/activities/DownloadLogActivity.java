@@ -68,6 +68,7 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
 
         log_text.setMovementMethod(new ScrollingMovementMethod());
 
+        mMeter.addDelegate(this);
         mMeter.downloadLog(mLog);
     }
 
@@ -76,7 +77,6 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
         if(mDone) {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("text/plain");
-            intent.putExtra(Intent.EXTRA_EMAIL, new String[] {"james.whong@gmail.com"});
             intent.putExtra(Intent.EXTRA_SUBJECT, mLog.getFileName());
             intent.putExtra(Intent.EXTRA_TEXT, "This is a logfile from a Mooshimeter.");
             Uri uri = Uri.fromFile(mLog.getFile());
@@ -163,6 +163,9 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
     public void onLogInfoReceived(final LogFile log) {}
     @Override
     public void onLogFileReceived(final LogFile log) {
+        if(mDone) {
+            return;
+        }
         mDone = true;
         Util.postToMain(new Runnable() {
             @Override
