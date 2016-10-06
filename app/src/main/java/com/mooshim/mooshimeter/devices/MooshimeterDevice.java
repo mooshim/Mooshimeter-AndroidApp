@@ -247,7 +247,25 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
 
         // At this point the tree is loaded.  Refresh all values in the tree.
-        tree.refreshAll();
+        tree.command("PCB_VERSION");
+        tree.command("NAME");
+        tree.command("BAT_V");
+        tree.command("SAMPLING:RATE");
+        tree.command("SAMPLING:DEPTH");
+        tree.command("SAMPLING:TRIGGER");
+        tree.command("LOG:ON");
+        tree.command("LOG:INTERVAL");
+        tree.command("CH1:MAPPING");
+        tree.command("CH1:RANGE_I");
+        tree.command("CH1:VALUE");
+        tree.command("CH1:OFFSET");
+        tree.command("CH1:ANALYSIS");
+        tree.command("CH2:MAPPING");
+        tree.command("CH2:RANGE_I");
+        tree.command("CH2:VALUE");
+        tree.command("CH2:OFFSET");
+        tree.command("CH2:ANALYSIS");
+        tree.command("SHARED");
 
         setTime(Util.getUTCTime());
 
