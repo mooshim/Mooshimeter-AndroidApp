@@ -120,6 +120,7 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
                 if(mMeter.getLoggingStatus() != 0) {
                     Toast.makeText(mContext,"No SD card to load logs from",Toast.LENGTH_LONG).show();
                 } else {
+                    mLogView.addLine("#","End Time","Size");
                     Util.dispatch(new Runnable() {
                         @Override
                         public void run() {
@@ -142,14 +143,46 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
             this.setDividerDrawable(getDrawable(R.drawable.divider));
             this.setShowDividers(SHOW_DIVIDER_MIDDLE);
         }
-        public void addFileLine(final LogFile info) {
+        public LinearLayout addLine(String col0, String col1, String col2) {
             LinearLayout row = new LinearLayout(mContext);
             row.setBackground(getDrawable(R.drawable.list_element));
             row.setOrientation(LinearLayout.HORIZONTAL);
             LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            //lp.setMargins(10,50,10,50);
             row.setPadding(10,50,10,50);
             row.setLayoutParams(lp);
+
+            TextView ilabel = new TextView(mContext);
+            ilabel.setText(col0);
+            ilabel.setTextSize(20);
+            ilabel.setGravity(Gravity.CENTER);
+            ilabel.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+
+            TextView datelabel = new TextView(mContext);
+            datelabel.setText(col1);
+            datelabel.setTextSize(20);
+            datelabel.setGravity(Gravity.CENTER);
+            datelabel.setLayoutParams(new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+            TextView sizelabel = new TextView(mContext);
+            sizelabel.setText(col2);
+            sizelabel.setTextSize(20);
+            sizelabel.setGravity(Gravity.CENTER);
+            sizelabel.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+
+            row.addView(ilabel);
+            row.addView(datelabel);
+            row.addView(sizelabel);
+            this.addView(row);
+            requestLayout();
+
+            return row;
+        }
+        public void addFileLine(final LogFile info) {
+            Date date = new Date(info.mEndTime*1000);
+            SimpleDateFormat format = new SimpleDateFormat("MM.dd HH:mm z");
+            LinearLayout row = addLine(""+info.mIndex,
+                                           format.format(date),
+                                           (info.mBytes/1024)+"kB");
 
             row.setOnClickListener(new OnClickListener() {
                 @Override
@@ -160,32 +193,6 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
                     startActivityForResult(intent, 0);
                 }
             });
-
-            TextView ilabel = new TextView(mContext);
-            ilabel.setText(""+info.mIndex);
-            ilabel.setTextSize(20);
-            ilabel.setGravity(Gravity.CENTER);
-            ilabel.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            TextView datelabel = new TextView(mContext);
-            Date date = new Date(info.mEndTime*1000);
-            SimpleDateFormat format = new SimpleDateFormat("MM.dd HH:mm z");
-            datelabel.setText(format.format(date));
-            datelabel.setTextSize(20);
-            datelabel.setGravity(Gravity.CENTER);
-            datelabel.setLayoutParams(new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-
-            TextView sizelabel = new TextView(mContext);
-            sizelabel.setText((info.mBytes/1024)+"kB");
-            sizelabel.setTextSize(20);
-            sizelabel.setGravity(Gravity.CENTER);
-            sizelabel.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-
-            row.addView(ilabel);
-            row.addView(datelabel);
-            row.addView(sizelabel);
-            this.addView(row);
-            requestLayout();
         }
     }
 
