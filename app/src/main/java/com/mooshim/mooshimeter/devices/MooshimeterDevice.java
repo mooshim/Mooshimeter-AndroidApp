@@ -964,7 +964,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public void pollLogInfo() {
-        tree.command("LOG:POLLDIR");
+        tree.command("LOG:POLLDIR 1");
     }
 
     @Override
