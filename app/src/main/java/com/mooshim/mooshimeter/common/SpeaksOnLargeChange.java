@@ -12,6 +12,12 @@ public class SpeaksOnLargeChange {
         if(in==null||in.equals("")){
             return "";
         }
+
+        // If there are no numbers in the input (such as "OUT OF RANGE"), don't treat it as numeric.
+        if (!in.matches(".*[0-9].*")) {
+            return in;
+        }
+
         StringBuilder outbuilder = new StringBuilder();
         for(char c : in.toCharArray()) {
             switch(c) {
@@ -55,6 +61,7 @@ public class SpeaksOnLargeChange {
     public boolean decideAndSpeak(MeterReading val) {
         double threshold = Math.max(abs(0.20 * val.value), abs(0.05 * val.getMax()));
         double change = abs(last_value - val.value);
+        if (Util.isSpeaking()) return false;
         if( timer.expired
             || (change>threshold)) {
             // If the value has changed 20%, or just every 5 second
