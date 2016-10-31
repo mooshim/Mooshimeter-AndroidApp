@@ -269,12 +269,12 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         sb.append(title);
         sb.setSpan(new RelativeSizeSpan((float)1.6), i, sb.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-        float button_height = b.getHeight(); // Button height in raw pixels
-        b.setTextSize(TypedValue.COMPLEX_UNIT_PX,button_height/3); // Divisor arrived at empirically
         Util.setText(b, sb);
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                float button_height = b.getHeight(); // Button height in raw pixels
+                b.setTextSize(TypedValue.COMPLEX_UNIT_PX,button_height/3); // Divisor arrived at empirically
                 b.setBackground(bg);
             }
         });
