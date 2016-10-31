@@ -2,7 +2,7 @@ package com.mooshim.mooshimeter.devices;
 
 import android.util.Log;
 
-import com.mooshim.mooshimeter.common.Beeper;
+import com.mooshim.mooshimeter.common.Alerter;
 import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.LogFile;
@@ -287,9 +287,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             @Override
             public void execute(float value) {
                 if(value < 0.1) {
-                    Beeper.beep();
+                    Alerter.alert();
                 } else {
-                    Beeper.stopBeeping();
+                    Alerter.stopAlerting();
                 }
             }
         };
@@ -312,9 +312,9 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
             @Override
             public void execute(float value) {
                 if(value < 0.1) {
-                    Beeper.beep();
+                    Alerter.alert();
                 } else {
-                    Beeper.stopBeeping();
+                    Alerter.stopAlerting();
                 }
             }
         };

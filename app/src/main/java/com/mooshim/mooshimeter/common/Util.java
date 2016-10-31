@@ -65,6 +65,8 @@ public class Util {
     public static FirmwareFile download_fw;
     public static FirmwareFile bundled_fw;
 
+    private static ArrayList<SharedPreferences.OnSharedPreferenceChangeListener> preference_listeners = new ArrayList<>();
+
     public static void init(Context context) {
         mRootContext = context;
         TextToSpeech.OnInitListener speaker_init_listener = new TextToSpeech.OnInitListener() {
@@ -92,6 +94,22 @@ public class Util {
                 }
             }
         });
+
+        registerPreferenceListeners();
+    }
+
+    // Whenever a shared preference changes, propagate the change to whomever it may concern
+    private static void registerPreferenceListeners() {
+
+        // From the documentation:
+        // Caution: The preference manager does not currently store a strong reference to the listener.
+        // ou must store a strong reference to the listener, or it will be susceptible to garbage collection.
+        // We recommend you keep a reference to the listener in the instance data of an object that will exist as long as you need the listener.
+        preference_listeners.add(new Alerter());
+
+        for (SharedPreferences.OnSharedPreferenceChangeListener listener : preference_listeners) {
+            getSharedPreferences().registerOnSharedPreferenceChangeListener(listener);
+        }
     }
 
     public static FirmwareFile getBundledFW() {
@@ -472,7 +490,8 @@ public class Util {
         public static final String
         USE_FAHRENHEIT= "USE_FAHRENHEIT",
         BROADCAST_INTENTS= "BROADCAST_INTENTS",
-        SIMULATED_METER= "SIMULATED_METER";
+        SIMULATED_METER= "SIMULATED_METER",
+        VIBRATION_ALERT= "VIBRATION_ALERT";
     }
 
     public static SharedPreferences getSharedPreferences(String name) {

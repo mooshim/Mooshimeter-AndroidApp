@@ -1,19 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="horizontal"
+    android:orientation="horizontal"
               android:layout_width="match_parent"
               android:layout_height="match_parent">
-
-    <lecho.lib.hellocharts.view.LineChartView
-        android:id="@+id/lineChart1"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        />
-    <lecho.lib.hellocharts.view.LineChartView
-        android:id="@+id/lineChart2"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -31,25 +20,79 @@
             android:background="#80000000"
             android:padding="4dp"
             android:text="REFRESH"
-            android:layout_marginEnd="16dp" />
+            android:layout_marginEnd="10dp" />
     </LinearLayout>
 
     <LinearLayout
+        android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="right"
-        android:layout_marginBottom="4dp"
-        android:layout_gravity="bottom">
-        <Button
-            android:id="@+id/config_btn"
-            android:onClick="onConfigButton"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
-            android:textColor="@android:color/white"
-            android:background="#80000000"
-            android:padding="4dp"
-            android:text="CONFIG"
-            android:layout_marginEnd="16dp"/>
+        android:layout_height="match_parent">
+
+        <FrameLayout
+            android:id="@+id/all_charts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="10">
+
+            <lecho.lib.hellocharts.view.LineChartView
+                android:id="@+id/lineChart2"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                />
+
+            <lecho.lib.hellocharts.view.LineChartView
+                android:id="@+id/lineChart1"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="top" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="left"
+            android:layout_marginBottom="4dp"
+            android:layout_weight="0"
+            android:orientation="horizontal"
+            android:layout_gravity="bottom">
+
+            <RelativeLayout
+                android:id="@+id/chart_labels"
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:layout_weight="10">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:id="@+id/chart_label_1"
+                    android:layout_alignParentLeft="true"
+                    android:textSize="25dp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:id="@+id/chart_label_2"
+                    android:layout_alignParentRight="true"
+                    android:textSize="25dp" />
+            </RelativeLayout>
+
+            <Button
+                android:id="@+id/config_btn"
+                android:onClick="onConfigButton"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:textColor="@android:color/white"
+                android:background="#80000000"
+                android:padding="4dp"
+                android:text="CONFIG"
+                android:gravity="right"
+                android:layout_marginEnd="10dp"/>
+
+        </LinearLayout>
 
     </LinearLayout>
 

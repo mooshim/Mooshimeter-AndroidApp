@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.PopupWindow;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mooshim.mooshimeter.R;
@@ -74,6 +75,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
     LineChartView[] mChart={null,null};
     Axis xAxis, yAxisLeft, yAxisRight;
+    TextView[] mChartLabel = {null, null};
+    MooshimeterDeviceBase.Channel[] mChannel = {MooshimeterDeviceBase.Channel.CH1,
+                                                MooshimeterDeviceBase.Channel.CH2};
+
+    private String[] labelUnits = {"", ""};
 
     private Timer refresh_timer = new Timer();
 
@@ -95,7 +101,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     ///////////////////////
     // HELPER VARS
     ///////////////////////
-
     //Create lists for storing actual value of points that are visible on the screen for both axises
     PointArrayWrapper[] axisValueHelpers={null,null};
 
@@ -223,6 +228,25 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         axisValueHelpers[0]  = new PointArrayWrapper();
         axisValueHelpers[1] = new PointArrayWrapper();
         axisValueHelpers = new PointArrayWrapper[]{axisValueHelpers[0], axisValueHelpers[1]};
+
+        // Labels below the charts
+        mChartLabel[0] = (TextView) findViewById(R.id.chart_label_1);
+        mChartLabel[1] = (TextView) findViewById(R.id.chart_label_2);
+        for (int i = 0; i < 2; i++) {
+            mChartLabel[i].setTextColor(mColorList[i]);
+
+            // Figure out a good string representation of the channel's units
+            labelUnits[i] = mMeter.getSelectedDescriptor(mChannel[i]).units;
+            if(labelUnits.equals("K")) {
+                // The values have actually been converted to whatever the user set in preferences,
+                // it's just the string label that indicates Kelvin.
+                if (Util.getPreferenceBoolean(Util.preference_keys.USE_FAHRENHEIT)) {
+                    labelUnits[i] = "F";
+                } else {
+                    labelUnits[i] = "C";
+                }
+            }
+        }
 
         time_start = Util.getNanoTime();
     }
@@ -447,6 +471,12 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
 
     private void setLineValues(int i,List<PointValue>data) {
         mChart[i].getLineChartData().getLines().get(0).setValues(data);
+
+        String label = "NO VALUE";
+        if (data.size() > 0) {
+            label = "" + data.get(data.size() - 1).getY() + labelUnits[i];
+        }
+        mChartLabel[i].setText(label);
     }
 
     @Override

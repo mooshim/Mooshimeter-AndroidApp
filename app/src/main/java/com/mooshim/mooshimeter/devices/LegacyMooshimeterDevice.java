@@ -22,7 +22,7 @@ package com.mooshim.mooshimeter.devices;
 
 import android.util.Log;
 
-import com.mooshim.mooshimeter.common.Beeper;
+import com.mooshim.mooshimeter.common.Alerter;
 import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.LogFile;
@@ -717,9 +717,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
                 float volts = lsb2PGAVoltage(lsb);
                 // PGA gain is 1, so PGA voltage=ADC voltage
                 if(volts < 0.1) {
-                    Beeper.beep();
+                    Alerter.alert();
                 } else {
-                    Beeper.stopBeeping();
+                    Alerter.stopAlerting();
                 }
                 return volts;
             }
