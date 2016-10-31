@@ -1,13 +1,9 @@
 package com.mooshim.mooshimeter.activities;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Color;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.Gravity;
 import android.view.MenuItem;
 import android.view.View;
@@ -16,7 +12,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,9 +24,6 @@ import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.Util;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +33,7 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
 	// BLE
     private MooshimeterDeviceBase mMeter = null;
     private FileListView mLogView;
+    private TextView mStatusMessage;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -59,6 +52,10 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
         setContentView(R.layout.activity_preference);
 
         PreferenceGUIBuilder builder = new PreferenceGUIBuilder();
+
+        // Logging Status
+        View status_pane = builder.add("Logging Status", mMeter.getLoggingStatusMessage(), null);
+        mStatusMessage = (TextView)status_pane.findViewById(R.id.pref_descr);
 
         // Logging on
         builder.add("Logging Enable","With logging enabled, logs will be written to SD card",
@@ -117,7 +114,9 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
         tmp.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(mMeter.getLoggingStatus() != 0) {
+                if(mMeter.mBuildTime < 1477000000) {
+                    Toast.makeText(mContext,"Needs later version of meter firmware",Toast.LENGTH_LONG).show();
+                } else if(mMeter.getLoggingStatus() != 0) {
                     Toast.makeText(mContext,"No SD card to load logs from",Toast.LENGTH_LONG).show();
                 } else {
                     mLogView.addLine("#","End Time","Size");
@@ -249,7 +248,9 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
     public void onBufferDepthChanged(int i, int buffer_depth) {}
 
     @Override
-    public void onLoggingStatusChanged(boolean on, int new_state, String message) {}
+    public void onLoggingStatusChanged(boolean on, int new_state, String message) {
+        mStatusMessage.setText(message);
+    }
 
     @Override
     public void onRangeChange(MooshimeterControlInterface.Channel c, MooshimeterDeviceBase.RangeDescriptor new_range) {}

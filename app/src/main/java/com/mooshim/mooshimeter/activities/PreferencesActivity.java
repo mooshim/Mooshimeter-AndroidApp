@@ -45,7 +45,7 @@ public class PreferencesActivity extends MyActivity {
         public PreferenceGUIBuilder() {
             base = (LinearLayout)findViewById(R.id.preference_background_layout);
         }
-        public void add(String title,String descr,View widget) {
+        public View add(String title,String descr,View widget) {
             View v = getLayoutInflater().inflate(R.layout.element_pref_descriptor,null,false);
             TextView titleview = (TextView)v.findViewById(R.id.pref_title);
             TextView descrview = (TextView)v.findViewById(R.id.pref_descr);
@@ -58,6 +58,7 @@ public class PreferencesActivity extends MyActivity {
             }
             v.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
             base.addView(v);
+            return v;
         }
         public void add(View widget) {
             base.addView(widget);
