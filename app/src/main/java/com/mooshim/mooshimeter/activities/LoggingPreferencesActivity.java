@@ -248,8 +248,13 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
     public void onBufferDepthChanged(int i, int buffer_depth) {}
 
     @Override
-    public void onLoggingStatusChanged(boolean on, int new_state, String message) {
-        mStatusMessage.setText(message);
+    public void onLoggingStatusChanged(boolean on, int new_state, final String message) {
+        Util.postToMain(new Runnable() {
+            @Override
+            public void run() {
+                mStatusMessage.setText(message);
+            }
+        });
     }
 
     @Override
