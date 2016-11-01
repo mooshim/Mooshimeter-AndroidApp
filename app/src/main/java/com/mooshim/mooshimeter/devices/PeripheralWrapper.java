@@ -94,14 +94,14 @@ public class PeripheralWrapper {
             public void run() {
                 try {
                     if(bleLock.isLocked() && !bleLock.isHeldByCurrentThread()) {
-                        Log.d(TAG,"WAITING ON bleLock");
+                        Log.v(TAG,"WAITING ON bleLock");
                     }
                     bleLock.lock();
                     if(conditionLock.isLocked() && !conditionLock.isHeldByCurrentThread()) {
-                        Log.d(TAG,"WAITING ON conditionLock");
+                        Log.v(TAG,"WAITING ON conditionLock");
                     }
                     conditionLock.lock();
-                    Log.d(TAG, "MAKING PROTECTED CALL");
+                    Log.v(TAG, "MAKING PROTECTED CALL");
                     r.call();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -116,7 +116,7 @@ public class PeripheralWrapper {
                         released = true;
                     }
                     if(released) {
-                        Log.d(TAG,"RELEASED");
+                        Log.v(TAG,"RELEASED");
                     }
                 }
             }
@@ -159,14 +159,14 @@ public class PeripheralWrapper {
         bleRSSICondition     = new StatLockManager(conditionLock,"RSSI ");
         
         mGattCallbacks = new BluetoothGattCallback() {
-            @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { Log.d(TAG,"GATTCB:DISCOVER");bleDiscoverCondition.l(stat);               bleDiscoverCondition.sig(); bleDiscoverCondition.ul();}
-            @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { Log.d(TAG,"GATTCB:READ");    bleReadCondition    .l(stat);               bleReadCondition    .sig(); bleReadCondition    .ul();}
-            @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) { Log.d(TAG,"GATTCB:WRITE");   bleWriteCondition   .l(stat);               bleWriteCondition   .sig(); bleWriteCondition   .ul();}
-            @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { Log.d(TAG,"GATTCB:DREAD");   bleDReadCondition   .l(stat);               bleDReadCondition   .sig(); bleDReadCondition   .ul();}
-            @Override public void onDescriptorWrite(BluetoothGatt g, BluetoothGattDescriptor d, int stat)         { Log.d(TAG,"GATTCB:DWRITE");  bleDWriteCondition  .l(stat);               bleDWriteCondition  .sig(); bleDWriteCondition  .ul();}
-            @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { Log.d(TAG,"GATTCB:RWRITE");  bleRWriteCondition  .l(stat);               bleRWriteCondition  .sig(); bleRWriteCondition  .ul();}
-            @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { Log.d(TAG,"GATTCB:RSSI");    bleRSSICondition    .l(stat); mRssi = rssi; bleRSSICondition    .sig(); bleRSSICondition    .ul();}
-            @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         { Log.d(TAG,"GATTCB:CCHANGE");
+            @Override public void onServicesDiscovered(BluetoothGatt g, int stat)                                 { Log.v(TAG,"GATTCB:DISCOVER");bleDiscoverCondition.l(stat);               bleDiscoverCondition.sig(); bleDiscoverCondition.ul();}
+            @Override public void onCharacteristicRead(BluetoothGatt g, BluetoothGattCharacteristic c, int stat)  { Log.v(TAG,"GATTCB:READ");    bleReadCondition    .l(stat);               bleReadCondition    .sig(); bleReadCondition    .ul();}
+            @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic c, int stat) { Log.v(TAG,"GATTCB:WRITE");   bleWriteCondition   .l(stat);               bleWriteCondition   .sig(); bleWriteCondition   .ul();}
+            @Override public void onDescriptorRead(BluetoothGatt g, BluetoothGattDescriptor d, int stat)          { Log.v(TAG,"GATTCB:DREAD");   bleDReadCondition   .l(stat);               bleDReadCondition   .sig(); bleDReadCondition   .ul();}
+            @Override public void onDescriptorWrite(BluetoothGatt g, BluetoothGattDescriptor d, int stat)         { Log.v(TAG,"GATTCB:DWRITE");  bleDWriteCondition  .l(stat);               bleDWriteCondition  .sig(); bleDWriteCondition  .ul();}
+            @Override public void onReliableWriteCompleted(BluetoothGatt g, int stat)                             { Log.v(TAG,"GATTCB:RWRITE");  bleRWriteCondition  .l(stat);               bleRWriteCondition  .sig(); bleRWriteCondition  .ul();}
+            @Override public void onReadRemoteRssi(BluetoothGatt g, int rssi, int stat)                           { Log.v(TAG,"GATTCB:RSSI");    bleRSSICondition    .l(stat); mRssi = rssi; bleRSSICondition    .sig(); bleRSSICondition    .ul();}
+            @Override public void onCharacteristicChanged(BluetoothGatt g, BluetoothGattCharacteristic c)         { Log.v(TAG,"GATTCB:CCHANGE");
                 bleChangedCondition .l(0);
                 final byte[] val = c.getValue();
                 // The BLE stack sometimes gives us a null here, unclear why.

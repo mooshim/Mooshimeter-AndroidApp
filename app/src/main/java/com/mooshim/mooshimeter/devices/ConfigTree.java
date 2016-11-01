@@ -413,7 +413,7 @@ public class ConfigTree {
                 }
                 interpretAggregate(timestamp_utc);
                 // Advance the last received sequence number
-                Log.d(TAG, "RECV: " + next_expected_seqn + " " + bytes.length + " bytes");
+                Log.v(TAG, "RECV: " + next_expected_seqn + " " + bytes.length + " bytes");
                 recv_seq_n = (recv_seq_n+1)%0x100;
                 next_expected_seqn = (recv_seq_n+1)%0x100;
             }
