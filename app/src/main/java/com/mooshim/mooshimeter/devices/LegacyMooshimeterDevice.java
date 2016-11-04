@@ -950,9 +950,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             delegate.onSampleReceived(timestamp_utc, Channel.CH2, r2);
             delegate.onSampleReceived(timestamp_utc, Channel.MATH, r3);
             if(Util.getPreferenceBoolean(Util.preference_keys.BROADCAST_INTENTS)) {
-                BroadcastIntentData.broadcastMeterReading(r1);
-                BroadcastIntentData.broadcastMeterReading(r2);
-                BroadcastIntentData.broadcastMeterReading(r3);
+                BroadcastIntentData.broadcastMeterReading(r1,"CH1");
+                BroadcastIntentData.broadcastMeterReading(r2,"CH2");
+                BroadcastIntentData.broadcastMeterReading(r3,"MATH");
             }
         }
     };

@@ -226,7 +226,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         }
         delegate.onSampleReceived(timestamp_utc, c,reading);
         if(Util.getPreferenceBoolean(Util.preference_keys.BROADCAST_INTENTS)) {
-            BroadcastIntentData.broadcastMeterReading(reading);
+            BroadcastIntentData.broadcastMeterReading(reading,c.name());
         }
     }
 
