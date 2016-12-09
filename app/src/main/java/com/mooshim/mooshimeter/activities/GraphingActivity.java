@@ -73,6 +73,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     public Button mConfigButton;
     public Button mRefreshButton;
 
+    //mChart[0] is the left chart
+    //mChart[1] is the right chart
+    //mChart[1] is on top
     LineChartView[] mChart={null,null};
     Axis xAxis, yAxisLeft, yAxisRight;
     TextView[] mChartLabel = {null, null};
@@ -389,7 +392,9 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         Point size = new Point();
         display.getSize(size);
 
-        MotionEvent pass_to_other    = MotionEvent.obtain(event);
+        // Make a copy of the motion event in case we end up making a horizontal
+        // motion, which must be passed to both charts
+        MotionEvent horizontal_motion    = MotionEvent.obtain(event);
 
         switch(event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -397,8 +402,8 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 break;
             case MotionEvent.ACTION_POINTER_DOWN:
             case MotionEvent.ACTION_POINTER_UP:
-                // Don't pass zooming!
-                pass_to_other = null;
+                // This is a zoom, no horizontal to pass
+                horizontal_motion = null;
                 break;
             default:
                 Log.d(TAG,"What dis is?");
@@ -407,14 +412,14 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 // Kill any Y motion component in pass_to_other
                 // This is to allow smooth horizontal scrolling
                 if(move_start!=null) {
-                    pass_to_other.setLocation(pass_to_other.getX(), move_start.getY());
+                    horizontal_motion.setLocation(horizontal_motion.getX(), move_start.getY());
                 }
                 break;
         }
 
         if(event.getPointerCount()>1) {
             //Don't pass multi-touches!
-            pass_to_other = null;
+            horizontal_motion = null;
         }
 
         if(event.getActionIndex()!=0) {
@@ -425,17 +430,20 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         if(move_start.getX() < size.x/2) {
             // LEFT SIDE TOUCH
             mChart[0].dispatchTouchEvent(event);
-            if(pass_to_other!=null) {
-                return super.dispatchTouchEvent(pass_to_other);
-            } else {
+            if(horizontal_motion==null) {
+                // No horizontal motion to pass, consume the touch
                 return true;
+            } else {
+                // Pass the horizontal motion to the other chart
+                return mChart[1].dispatchTouchEvent(horizontal_motion);
+                //return super.dispatchTouchEvent(horizontal_motion);
             }
         } else {
             // RIGHT SIDE TOUCH
-            // Don't consume the touch, let it be dispatched as normal.
-            if(pass_to_other!=null) {
-                mChart[0].dispatchTouchEvent(pass_to_other);
+            if(horizontal_motion!=null) {
+                mChart[0].dispatchTouchEvent(horizontal_motion);
             }
+            // Don't consume the touch, let it be dispatched as normal.
             return super.dispatchTouchEvent(event);
         }
     }
