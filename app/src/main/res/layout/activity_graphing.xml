@@ -34,18 +34,17 @@
             android:layout_height="wrap_content"
             android:layout_weight="10">
 
-            <lecho.lib.hellocharts.view.LineChartView
-                android:id="@+id/lineChart2"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                />
-
+            <!--WARNING: lineChart1 and lineChart2 below overlap deliberately!-->
             <lecho.lib.hellocharts.view.LineChartView
                 android:id="@+id/lineChart1"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_gravity="top" />
-
+            <lecho.lib.hellocharts.view.LineChartView
+                android:id="@+id/lineChart2"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                />
         </FrameLayout>
 
         <LinearLayout
