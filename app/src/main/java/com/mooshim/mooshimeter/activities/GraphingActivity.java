@@ -90,7 +90,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     // BEHAVIOR CONTROL
     ///////////////////////
 
-    final static int maxNumberOfPoints = 10000;
     int maxNumberOfPointsOnScreen = 50;
     protected ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
     protected boolean autoScrollOn = true;
@@ -251,7 +250,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             }
         }
 
-        time_start = Util.getNanoTime();
+        time_start = Util.getUTCTime();
     }
 
     @Override
@@ -422,10 +421,6 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             horizontal_motion = null;
         }
 
-        if(event.getActionIndex()!=0) {
-            Log.d(TAG,"What dis is 2?");
-        }
-
         //If it's on the left half of the screen, dispatch it to the left chart
         if(move_start.getX() < size.x/2) {
             // LEFT SIDE TOUCH
@@ -435,8 +430,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 return true;
             } else {
                 // Pass the horizontal motion to the other chart
-                return mChart[1].dispatchTouchEvent(horizontal_motion);
-                //return super.dispatchTouchEvent(horizontal_motion);
+                return super.dispatchTouchEvent(horizontal_motion);
             }
         } else {
             // RIGHT SIDE TOUCH

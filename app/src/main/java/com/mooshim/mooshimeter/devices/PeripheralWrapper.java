@@ -174,7 +174,7 @@ public class PeripheralWrapper {
                     final NotifyHandler cb = mNotifyCB.get(c.getUuid());
                     if (cb != null) {
                         final byte[] payload = val.clone();
-                        final double timestamp = Util.getNanoTime();
+                        final double timestamp = Util.getUTCTime();
                         Util.dispatchCb(new Runnable() {
                             @Override
                             public void run() {

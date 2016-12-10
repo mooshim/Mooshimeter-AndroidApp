@@ -961,7 +961,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         @Override
         public void run() {
             float dt = 1/(float)getSampleRateHz();
-            double timestamp = Util.getNanoTime();
+            double timestamp = Util.getUTCTime();
             delegate.onBufferReceived(timestamp, Channel.CH1, dt, Arrays.copyOfRange(meter_ch1_buf.floatBuf, 0, getBufferDepth()));
             delegate.onBufferReceived(timestamp, Channel.CH2, dt, Arrays.copyOfRange(meter_ch2_buf.floatBuf, 0, getBufferDepth()));
         }
