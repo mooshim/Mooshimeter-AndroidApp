@@ -16,6 +16,7 @@ import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -78,34 +79,54 @@ public class GraphSettingsView extends LinearLayout {
 
         setOrientation(LinearLayout.VERTICAL);
 
-        //TextView tv = new TextView(mContext);
-        //LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-        //                                                                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        //tv.setTextSize(10);
-        //tv.setTextColor(0xFF000000);
-        //tv.setText("Hi this is a sample text for popup window");
-        //addView(tv,params);
-
-        setBackgroundColor(0xBBFFFFFF);
+        setBackgroundColor(0xDDFFFFFF);
 
         Builder builder = new Builder();
-        // Name
-        builder.add("CH1 Autorange", makeSwitch(
-                mDelegate.dispModes[0]==GraphingActivity.ChDispModes.AUTO,
-                new BooleanRunnable() {
+
+        String[] option_array ={ GraphingActivity.ChDispModes.OFF.toString(),
+                                 GraphingActivity.ChDispModes.MANUAL.toString(),
+                                 GraphingActivity.ChDispModes.AUTO.toString()};
+        final List<String> options = Arrays.asList(option_array);
+        final Button c1b = new Button(mContext);
+        c1b.setText(mDelegate.dispModes[0].toString());
+        c1b.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void run() {
-                        mDelegate.setDispModes(0,arg? GraphingActivity.ChDispModes.AUTO: GraphingActivity.ChDispModes.MANUAL);
-            }
-        }));
-        builder.add("CH2 Autorange", makeSwitch(
-                mDelegate.dispModes[1]==GraphingActivity.ChDispModes.AUTO,
-                new BooleanRunnable() {
+            public void onClick(View v) {
+                Util.generatePopupMenuWithOptions(mContext, options, mDelegate.mConfigButton, new NotifyHandler() {
                     @Override
-                    public void run() {
-                        mDelegate.setDispModes(1,arg? GraphingActivity.ChDispModes.AUTO: GraphingActivity.ChDispModes.MANUAL);
+                    public void onReceived(double timestamp_utc, Object payload) {
+                        mDelegate.setDispModes(0, GraphingActivity.ChDispModes.values()[(Integer)payload]);
+                        Util.postToMain(new Runnable() {
+                            @Override
+                            public void run() {
+                                c1b.setText(mDelegate.dispModes[0].toString());
+                            }
+                        });
                     }
-        }));
+                },null);
+            }
+        });
+        builder.add("CH1 Mode", c1b);
+        final Button c2b = new Button(mContext);
+        c2b.setText(mDelegate.dispModes[1].toString());
+        c2b.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Util.generatePopupMenuWithOptions(mContext, options, mDelegate.mConfigButton, new NotifyHandler() {
+                    @Override
+                    public void onReceived(double timestamp_utc, Object payload) {
+                        mDelegate.setDispModes(1, GraphingActivity.ChDispModes.values()[(Integer)payload]);
+                        Util.postToMain(new Runnable() {
+                            @Override
+                            public void run() {
+                                c2b.setText(mDelegate.dispModes[1].toString());
+                            }
+                        });
+                    }
+                },null);
+            }
+        });
+        builder.add("CH2 Mode", c2b);
         builder.add("Autoscroll", makeSwitch(
                 mDelegate.autoScrollOn,
                 new BooleanRunnable() {
