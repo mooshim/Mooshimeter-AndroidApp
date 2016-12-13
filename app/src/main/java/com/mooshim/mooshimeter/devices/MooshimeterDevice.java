@@ -693,7 +693,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         ConfigTree.ConfigNode rnode = getInputNode(c);
         int cnum = (Integer)tree.getValueAt(c.name()+ RANGE_I);
         ConfigTree.ConfigNode choice = rnode.children.get(cnum);
-        return (float)1.1*Float.parseFloat(choice.getShortName());
+        return (float)Float.parseFloat(choice.getShortName());
     }
     private boolean applyAutorange(Channel c) {
         if(!getRangeAuto(c)) {

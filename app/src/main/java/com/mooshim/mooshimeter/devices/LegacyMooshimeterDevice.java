@@ -1200,7 +1200,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         return (float)0.9 * getSelectedDescriptor(c).ranges.getChoiceBelow().max;
     }
     protected float getMaxRangeForChannel(Channel c) {
-        return (float)1.1*getRangeDescriptorForChannel(c).max;
+        return (float)getRangeDescriptorForChannel(c).max;
     }
     private boolean applyAutorange(Channel c) {
         if(!getRangeAuto(c)) {
