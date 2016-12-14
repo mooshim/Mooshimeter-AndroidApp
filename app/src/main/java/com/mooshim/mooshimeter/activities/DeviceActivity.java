@@ -30,6 +30,7 @@ import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.CooldownTimer;
 import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.common.MeterReading;
+import com.mooshim.mooshimeter.common.MinMaxTracker;
 import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.MooshimeterDelegate;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
@@ -37,9 +38,12 @@ import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.SpeaksOnLargeChange;
 import com.mooshim.mooshimeter.common.Util;
 
+import java.util.Arrays;
 import java.util.List;
 
 import me.grantland.widget.AutofitHelper;
+
+enum minmaxmode_t {OFF, MIN, MAX};
 
 public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final String TAG = "DeviceActivity";
@@ -48,7 +52,6 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static MooshimeterControlInterface.Channel chanEnum(int c) {
         return MooshimeterControlInterface.Channel.values()[c];
     }
-
 
 	// BLE
     private MooshimeterDeviceBase mMeter;
@@ -60,6 +63,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final Button[] input_set_buttons = {null,null};
     private static final Button[] range_buttons     = {null,null};
     private static final Button[] zero_buttons      = {null,null};
+    private static final Button[] minmax_buttons     = {null,null};
     private static final Button[] sound_buttons     = {null,null};
 
     private Button rate_button;
@@ -69,6 +73,8 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private Button power_button;
 
     private float battery_voltage = 0;
+    private minmaxmode_t[] minmax_modes = {minmaxmode_t.OFF,minmaxmode_t.OFF};
+    private MinMaxTracker[] minmax_trackers = {null, null};
 
     // GUI housekeeping
     private Drawable getAutoBG(){
@@ -107,11 +113,13 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         input_set_buttons  [0] = (Button)findAndAutofit(R.id.ch1_input_set_button);
         range_buttons      [0] = (Button)findViewById(R.id.ch1_range_button);
         zero_buttons       [0] = (Button)findAndAutofit(R.id.ch1_zero_button);
+        minmax_buttons     [0] = (Button)findAndAutofit(R.id.ch1_minmax_button);
         sound_buttons      [0] = (Button)findAndAutofit(R.id.ch1_sound_button);
 
         input_set_buttons  [1] = (Button)findAndAutofit(R.id.ch2_input_set_button);
         range_buttons      [1] = (Button)findViewById(R.id.ch2_range_button);
         zero_buttons       [1] = (Button)findAndAutofit(R.id.ch2_zero_button);
+        minmax_buttons     [1] = (Button)findAndAutofit(R.id.ch2_minmax_button);
         sound_buttons      [1] = (Button)findAndAutofit(R.id.ch2_sound_button);
 
         rate_button            = (Button)findViewById(R.id.rate_button);
@@ -119,6 +127,9 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         logging_button         = (Button)findAndAutofit(R.id.log_button);
         graph_button           = (Button)findAndAutofit(R.id.graph_button);
         power_button           = (Button)findAndAutofit(R.id.power_button);
+
+        minmax_trackers[0] = new MinMaxTracker();
+        minmax_trackers[1] = new MinMaxTracker();
 
         ActionBar actionBar = getActionBar();
         actionBar.setDisplayShowHomeEnabled(true);
@@ -250,6 +261,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                     inputSetButtonRefresh(c);
                     rangeButtonRefresh(c);
                     soundButtonRefresh(c);
+                    minmaxButtonRefresh(c);
                     zeroButtonRefresh(c, mMeter.getOffset(chanEnum(c)));
                 }
             }
@@ -389,6 +401,26 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         Util.setText(b, s);
     }
 
+    private void minmaxButtonRefresh(final int c) {
+        final Button b = minmax_buttons[c];
+        final String s;
+        switch(minmax_modes[c]) {
+            case OFF:
+                s = "MIN/MAX";
+                break;
+            case MIN:
+                s = "MIN: "+mMeter.wrapMeterReading(chanEnum(c),minmax_trackers[c].min).toString();
+                break;
+            case MAX:
+                s = "MAX: "+mMeter.wrapMeterReading(chanEnum(c),minmax_trackers[c].max).toString();
+                break;
+            default:
+                s="ERROR";
+                break;
+        }
+        Util.setText(b, s);
+    }
+
     /////////////////////////
     // Button Click Handlers
     ////////////////////////
@@ -417,6 +449,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
                 if(0!=mMeter.setInput(chanEnum(c), l.get((Integer) payload))) {
                     setError("Invalid input change!");
                 }
+                minmax_trackers[c].clear();
                 refreshAllControls();
             }
         });
@@ -448,7 +481,17 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         soundButtonRefresh(0);
         soundButtonRefresh(1);
     }
-
+    private void onMinMaxClick(final int c) {
+        List<String> options = Arrays.asList("OFF","MIN","MAX");
+        makePopupMenu(options, minmax_buttons[c], new NotifyHandler() {
+            @Override
+            public void onReceived(double timestamp_utc, Object payload) {
+                minmax_modes[c] = minmaxmode_t.values()[(Integer)payload];
+                minmaxButtonRefresh(c);
+                minmax_trackers[c].clear();
+            }
+        });
+    }
     public void onCh1InputSetClick(View v) {
         Log.i(TAG, "onCh1InputSetClick");
         onInputSetClick(0);
@@ -464,6 +507,14 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     public void onCh2RangeClick(View v) {
         Log.i(TAG, "onCh2RangeClick");
         onRangeClick(1);
+    }
+    public void onCh1MinMaxClick(View v) {
+        Log.i(TAG, "onCh1MinMaxClick");
+        onMinMaxClick(0);
+    }
+    public void onCh2MinMaxClick(View v) {
+        Log.i(TAG, "onCh2MinMaxClick");
+        onMinMaxClick(1);
     }
     public void onRateClick(View v) {
         Log.i(TAG, "onRateClick");
@@ -574,6 +625,9 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         switch(c) {
             case CH1:
             case CH2:
+                if(minmax_trackers[c.ordinal()].process(val.value)) {
+                    minmaxButtonRefresh(c.ordinal());
+                }
                 valueLabelRefresh(c.ordinal(), val);
                 // Run the autorange only on channel 2
                 if (c== MooshimeterControlInterface.Channel.CH2 && autorange_cooldown.expired) {

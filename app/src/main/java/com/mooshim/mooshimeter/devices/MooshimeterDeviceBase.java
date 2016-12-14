@@ -237,7 +237,7 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
     abstract float getEnob(Channel c);
     abstract float getMaxRangeForChannel(Channel c);
 
-    protected MeterReading wrapMeterReading(Channel c,float val,boolean relative) {
+    public MeterReading wrapMeterReading(Channel c,float val,boolean relative) {
         MooshimeterDeviceBase.InputDescriptor id = getSelectedDescriptor(c);
         final float enob = getEnob(c);
         float max = getMaxRangeForChannel(c);
@@ -298,7 +298,7 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         return rval;
     }
 
-    protected MeterReading wrapMeterReading(Channel c,float val) {
+    public MeterReading wrapMeterReading(Channel c,float val) {
         return wrapMeterReading(c,val,false);
     }
 
