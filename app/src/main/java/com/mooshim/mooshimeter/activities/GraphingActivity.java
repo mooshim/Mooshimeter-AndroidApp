@@ -90,9 +90,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     // BEHAVIOR CONTROL
     ///////////////////////
 
-    int maxNumberOfPointsOnScreen = 50;
-    protected ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
-    protected boolean autoScrollOn = true;
+    protected static int maxNumberOfPointsOnScreen = 50;
+    protected static ChDispModes[] dispModes = new ChDispModes[]{ChDispModes.AUTO, ChDispModes.AUTO};;
+    protected static boolean autoScrollOn = true;
+    protected static Viewport[] viewportStash = {null,null};
+
     protected boolean xyModeOn = false;
     protected boolean bufferModeOn = false;
     protected boolean playing = true;
@@ -250,6 +252,20 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
             }
         }
 
+        // dispModes is static, so do whatever housekeeping is necessary to make that screen mode stick
+        setDispModes(0,dispModes[0]);
+        setDispModes(1,dispModes[1]);
+        setAutoScrollOn(autoScrollOn);
+
+        // Restore the axes from the last run
+        if(viewportStash[0]!=null) {
+            mChart[0].setMaximumViewport(viewportStash[0]);
+            mChart[0].setCurrentViewport(viewportStash[0]);
+        }
+        if(viewportStash[1]!=null) {
+            mChart[1].setMaximumViewport(viewportStash[1]);
+            mChart[1].setCurrentViewport(viewportStash[1]);
+        }
         time_start = Util.getUTCTime();
     }
 
@@ -269,6 +285,13 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                 mMeter.removeDelegate(d);
             }
         });
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        viewportStash[0] = mChart[0].getCurrentViewport();
+        viewportStash[1] = mChart[1].getCurrentViewport();
     }
 
     @Override
@@ -358,7 +381,7 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
     }
 
     public void setAutoScrollOn(boolean autoScrollOn) {
-        this.autoScrollOn = autoScrollOn;
+        GraphingActivity.autoScrollOn = autoScrollOn;
         mChart[0].setContainerScrollEnabled(!autoScrollOn, ContainerScrollType.HORIZONTAL);
         mChart[1].setContainerScrollEnabled(!autoScrollOn, ContainerScrollType.HORIZONTAL);
     }
@@ -535,6 +558,11 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
                             onscreen = new PointArrayWrapper();
                         } else {
                             onscreen = axisValueHelpers[i].getValuesInViewport(present_vp);
+                        }
+
+                        // If we have no points to graph, skip the below
+                        if(onscreen.backing.size()==0) {
+                            continue;
                         }
 
                         setLineValues(i,onscreen.backing);
