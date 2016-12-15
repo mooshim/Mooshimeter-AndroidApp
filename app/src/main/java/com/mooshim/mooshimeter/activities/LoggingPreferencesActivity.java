@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.support.v4.content.ContextCompat;
 import android.view.Gravity;
 import android.view.MenuItem;
 import android.view.View;
@@ -139,12 +140,12 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
             this.setOrientation(LinearLayout.VERTICAL);
             LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.MATCH_PARENT);
             this.setLayoutParams(lp);
-            this.setDividerDrawable(getDrawable(R.drawable.divider));
+            this.setDividerDrawable(ContextCompat.getDrawable(getContext(),R.drawable.divider));
             this.setShowDividers(SHOW_DIVIDER_MIDDLE);
         }
         public LinearLayout addLine(String col0, String col1, String col2) {
             LinearLayout row = new LinearLayout(mContext);
-            row.setBackground(getDrawable(R.drawable.list_element));
+            row.setBackground(ContextCompat.getDrawable(getContext(),R.drawable.list_element));
             row.setOrientation(LinearLayout.HORIZONTAL);
             LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             row.setPadding(10,50,10,50);
