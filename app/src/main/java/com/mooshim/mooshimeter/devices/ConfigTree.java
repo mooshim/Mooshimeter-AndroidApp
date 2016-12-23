@@ -75,7 +75,7 @@ public class ConfigTree {
         protected ConfigTree tree   = null;
         public List<NotifyHandler> notify_handlers = new ArrayList<NotifyHandler>();
 
-        private Object value = (Integer)0;
+        private Object value;
         String cache_longname=null;
         StatLockManager lock;
 
@@ -87,6 +87,15 @@ public class ConfigTree {
                 for(ConfigNode c:children_arg) {
                     children.add(c);
                 }
+            }
+            if(ntype == NTYPE.VAL_STR) {
+                value = "";
+            } else if(ntype == NTYPE.VAL_BIN) {
+                value = new Byte[0];
+            } else if(ntype == NTYPE.VAL_FLT) {
+                value = (Float)0.0f;
+            } else {
+                value = (Integer)0;
             }
             lock = new StatLockManager(tree.lock);
         }
