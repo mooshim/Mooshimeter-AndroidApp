@@ -172,19 +172,9 @@ public class OADActivity extends MyActivity {
                 }
             });
         }
-        mFirmwareFile = Util.getLatestFirmware();
-        updateStartButton();
-        unpackFirmwareFileBuffer();
 
-        // TODO: This is repeated code
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-                Log.d(TAG,"Successfully downloaded newer firmware file!");
-                Util.download_fw = tmp;
-            }
-        });
+        updateStartButton();
+
     }
 
     @Override
@@ -219,6 +209,40 @@ public class OADActivity extends MyActivity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        if (mFirmwareFile == null) {
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    dispatchToLog("Downloading latest firmware...\n");
+                    // This can take a while, so must be done in the background thread
+                    final FirmwareFile result = Util.downloadLatestFirmware();
+
+                    // This must wait until after the download is finished, so we dispatch it back. Nice.
+                    runOnUiThread(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (result != null) {
+                                        dispatchToLog("Successfully downloaded newer firmware file!\n");
+                                    } else {
+                                        dispatchToLog("Download failed.\n");
+                                    }
+
+                                    dispatchToLog("Unpacking firmware...");
+                                    mFirmwareFile = Util.getLatestFirmware();
+                                    unpackFirmwareFileBuffer();
+
+                                }
+
+                    }
+
+                    );
+                }
+            });
+        } else {
+            unpackFirmwareFileBuffer();
+        }
     }
 
     @Override
@@ -636,7 +660,7 @@ public class OADActivity extends MyActivity {
     }
 
     private void displayImageInfo(TextView v) {
-        String s = String.format("Old Build: %d<br/>New Build: %d", mMeter.mBuildTime, mFirmwareFile.getVersion());
+        String s = String.format("Current Build: %d<br/>New Build: %d", mMeter.mBuildTime, mFirmwareFile.getVersion());
         v.setText(Html.fromHtml(s));
     }
 
@@ -671,6 +695,15 @@ public class OADActivity extends MyActivity {
     // Utility
     /////////////////////////////
 
+    private void dispatchToLog(final String s) {
+        runOnUiThread(new Runnable() {
+                          @Override
+                          public void run() {
+                              addToLog(s);
+                          }
+                      }
+        );
+    }
     private void addToLog(final String s) {
         Log.v(TAG,s);
         runOnUiThread(new Runnable() {
@@ -706,8 +739,8 @@ public class OADActivity extends MyActivity {
         displayStats();
 
         // Log
-        mLog.setText("Image Loaded.\n");
-        addToLog("Ready to program device!\n");
+        dispatchToLog("Image Loaded.\n");
+        dispatchToLog("Ready to program device!\n");
 
         updateStartButton();
     }
