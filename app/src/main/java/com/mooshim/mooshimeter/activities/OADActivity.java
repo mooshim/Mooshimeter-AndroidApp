@@ -207,8 +207,8 @@ public class OADActivity extends MyActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
 
         if (mFirmwareFile == null) {
             Util.dispatch(new Runnable() {
@@ -235,7 +235,7 @@ public class OADActivity extends MyActivity {
 
                                 }
 
-                    }
+                            }
 
                     );
                 }
@@ -243,6 +243,11 @@ public class OADActivity extends MyActivity {
         } else {
             unpackFirmwareFileBuffer();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
     }
 
     @Override
