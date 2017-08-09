@@ -5,7 +5,9 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -76,7 +78,12 @@ public class FirmwareFile {
             return;
         }
         try {
-            InputStream stream = url.openStream();
+            URLConnection conn = url.openConnection();
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.connect();
+
+            InputStream stream = conn.getInputStream();
             int bytes_read=0;
             int rval;
             while(-1 != (rval=stream.read(mFileBuffer, bytes_read, mFileBuffer.length-bytes_read))) {

@@ -84,16 +84,6 @@ public class Util {
         };
         speaker = new TextToSpeech(context,speaker_init_listener);
         bundled_fw = FirmwareFile.FirmwareFileFromPath("Mooshimeter.bin");
-        Util.dispatch(new Runnable() {
-            @Override
-            public void run() {
-                FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
-                if(tmp != null) {
-                    Log.d(TAG,"Successfully downloaded newer firmware file!");
-                    download_fw = tmp;
-                }
-            }
-        });
 
         registerPreferenceListeners();
     }
@@ -110,6 +100,21 @@ public class Util {
         for (SharedPreferences.OnSharedPreferenceChangeListener listener : preference_listeners) {
             getSharedPreferences().registerOnSharedPreferenceChangeListener(listener);
         }
+    }
+
+    public static FirmwareFile downloadLatestFirmware() {
+        if (download_fw == null) {
+            FirmwareFile tmp = FirmwareFile.FirmwareFileFromURL("https://moosh.im/s/f/mooshimeter-firmware-beta.bin");
+            if (tmp != null) {
+                Log.d(TAG, "Successfully downloaded newer firmware file!");
+                download_fw = tmp;
+            } else {
+                Log.d(TAG, "Failed to download newer firmware.");
+                download_fw = null;
+            }
+        }
+
+        return download_fw;
     }
 
     public static FirmwareFile getBundledFW() {
