@@ -20,11 +20,6 @@
 package com.mooshim.mooshimeter.activities;
 
 import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -45,8 +40,8 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import com.idevicesinc.sweetblue.BleStatuses;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.FirmwareFile;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
@@ -54,7 +49,14 @@ import com.mooshim.mooshimeter.devices.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.common.FilteredScanCallback;
 
-import java.util.List;
+import com.idevicesinc.sweetblue.BleDevice;
+import com.idevicesinc.sweetblue.BleDeviceState;
+import com.idevicesinc.sweetblue.BleManager;
+import com.idevicesinc.sweetblue.BleManagerConfig;
+import com.idevicesinc.sweetblue.utils.BluetoothEnabler;
+import com.idevicesinc.sweetblue.utils.Uuids;
+
+import java.util.UUID;
 
 public class ScanActivity extends MyActivity {
     // Defines
@@ -70,11 +72,17 @@ public class ScanActivity extends MyActivity {
     private static FilteredScanCallback mScanCb = null;
     private LayoutInflater mInflater;
 
+    private BleManager m_bleManager;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         super.onCreate(savedInstanceState);
 
+        BluetoothEnabler.start(this);
+
+        m_bleManager = BleManager.get(this);
+/*
         // Use this check to determine whether BLE is supported on the device. Then
         // you can selectively disable BLE-related features.
         if (!getPackageManager().hasSystemFeature(
@@ -93,7 +101,7 @@ public class ScanActivity extends MyActivity {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableIntent, REQ_ENABLE_BT);
         }
-
+*/
         setContentView(R.layout.fragment_scan);
         // Initialize widgets
         mStatus           = (TextView)     findViewById(R.id.status);
@@ -103,24 +111,11 @@ public class ScanActivity extends MyActivity {
         mDeviceScrollView.setClickable(true);
 
         mInflater = LayoutInflater.from(this);
-
-        // Register to receive all the bluetooth actions
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-        filter.addAction(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED);
-        filter.addAction(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-        filter.addAction(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        filter.addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
-        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
-        registerReceiver(mReceiver, filter);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mReceiver);
     }
 
     @Override
@@ -149,6 +144,7 @@ public class ScanActivity extends MyActivity {
         */
         // Check if there are any presently connected Mooshimeters
         // If there are, disconnect them.
+        /*
         BluetoothManager manager = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         List<BluetoothDevice> connectedDevices = manager.getConnectedDevices(BluetoothProfile.GATT);
         for( BluetoothDevice device : connectedDevices ) {
@@ -175,6 +171,8 @@ public class ScanActivity extends MyActivity {
                 });
             }
         }
+        */
+        m_bleManager.onResume();
         startScan();
     }
 
@@ -197,6 +195,8 @@ public class ScanActivity extends MyActivity {
         }
         return true;
     }
+
+
 
     /////////////////////////////
     // GUI Element Manipulation
@@ -433,7 +433,7 @@ public class ScanActivity extends MyActivity {
         if(isScanning()){return;}
         // Prune disconnected meters
         for(BLEDeviceBase m : getDevices()) {
-            if( m.isDisconnected() ) {
+            if( !m.isConnected() ) {
                 for(int i = 0; i < mDeviceScrollView.getChildCount(); i++) {
                     ViewGroup vg = (ViewGroup) mDeviceScrollView.getChildAt(i);
                     if (vg.getTag() == m) {
@@ -446,15 +446,83 @@ public class ScanActivity extends MyActivity {
         }
         refreshAllMeterTiles();
 
-        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mScanCb = new MainScanCallback();
 
-        if( !bluetoothAdapter.startLeScan(mScanCb) ) {
-            // Starting the scan failed!
-            Log.e(TAG,"Failed to start BLE Scan");
-            setError("Failed to start scan");
-            stopScan();
-        } else {
+        if( m_bleManager.startScan(new BleManager.DiscoveryListener()
+        {
+            @Override public void onEvent(DiscoveryEvent event)
+            {
+                if( event.was(LifeCycle.DISCOVERED)
+                 || event.was(LifeCycle.REDISCOVERED))
+                {
+
+                    //BLEDeviceBase m;
+                    //mScanCb.FilteredCallback(m);
+                    ////////////////////////////////////////////////////////////
+                    ////////////////////////////////////////////////////////////
+                    ////////////////////////////////////////////////////////////
+                    ////////////////////////////////////////////////////////////
+
+                    final BleDevice d = event.device();
+                    final UUID[] uuids = d.getAdvertisedServices();
+                    final byte[] manu_data = d.getManufacturerData();
+
+                    // Filter devices
+                    boolean is_meter = false;
+                    boolean oad_mode = false;
+                    int build_time = 0;
+
+                    // Always expecting a single service UUID
+                    if(uuids.length != 1) {
+                        return;
+                    }
+                    // Always expecting a 4 bytes of manufacturer data
+                    if(manu_data.length != 4) {
+                        return;
+                    }
+                    // In the case of the Mooshimeter this is the build time
+                    // in UTC seconds
+                    for(int j = 3; j >= 0; j--) {
+                        build_time |= (manu_data[j] & 0xFF) << (8*j);
+                    }
+
+                    BLEDeviceBase m = MyActivity.getDeviceWithAddress(d.getMacAddress());
+                    if(m==null) {
+                        PeripheralWrapper p = new PeripheralWrapper(event.device(), Util.getRootContext());
+                        m = new BLEDeviceBase(p);
+                        MyActivity.putDevice(m);
+                    }
+                    m.mOADMode = oad_mode;
+                    m.mBuildTime = build_time;
+                    mScanCb.FilteredCallback(m);
+
+                    /*
+                    */
+                    /*
+                    event.device().connect(new BleDevice.StateListener()
+                    {
+                        @Override public void onEvent(StateEvent event)
+                        {
+                            if( event.didEnter(BleDeviceState.INITIALIZED) )
+                            {
+                                Log.i("SweetBlueExample", event.device().getName_debug() + " just initialized!");
+
+                                event.device().read(Uuids.BATTERY_LEVEL, new BleDevice.ReadWriteListener()
+                                {
+                                    @Override public void onEvent(ReadWriteEvent result)
+                                    {
+                                        if( result.wasSuccess() )
+                                        {
+                                            Log.i("SweetBlueExample", "Battery level is " + result.data()[0] + "%");
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    });*/
+                }
+            }
+        }) ) {
             updateScanningButton(true);
             Util.postDelayed(new Runnable() {
                 @Override
@@ -462,6 +530,11 @@ public class ScanActivity extends MyActivity {
                     stopScan();
                 }
             }, 5000);
+        } else {
+            // Starting the scan failed!
+            Log.e(TAG,"Failed to start BLE Scan");
+            setError("Failed to start scan");
+            stopScan();
         }
     }
 
@@ -474,8 +547,7 @@ public class ScanActivity extends MyActivity {
                 updateScanningButton(false);
             }
         });
-        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        bluetoothAdapter.stopLeScan(mScanCb);
+        m_bleManager.stopScan();
         mScanCb = null;
     }
 
@@ -549,22 +621,14 @@ public class ScanActivity extends MyActivity {
             m.disconnect();
         } else {
             do {
-                int rval = BluetoothGatt.GATT_FAILURE;
+                int rval = -1;
                 int attempts = 0;
-                while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
+                while(attempts++ < 3 && rval != BleStatuses.CONN_SUCCESS) {
                     setStatus("Connecting... Attempt "+attempts);
                     rval = m.connect();
                 }
-                if (BluetoothGatt.GATT_SUCCESS != rval) {
+                if (BleStatuses.CONN_SUCCESS != rval) {
                     setStatus("Connection failed.  Status: "+rval);
-                    break;
-                }
-                setStatus("Discovering Services...");
-                rval = m.discover();
-                if (BluetoothGatt.GATT_SUCCESS != rval) {
-                    // We may have failed because
-                    setStatus("Discovery failed.  Status: "+rval);
-                    m.disconnect();
                     break;
                 }
                 // At this point we are connected and have discovered characteristics for the BLE
@@ -603,32 +667,4 @@ public class ScanActivity extends MyActivity {
             }
         });
     }
-
-    ///////////////////////////////
-    // Adapter state change receiver
-    ///////////////////////////////
-
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            Log.d("TAG", "ADAPTER" + action);
-            // TODO: This is here as a template for later.
-
-            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
-                                                     BluetoothAdapter.ERROR);
-                switch (state) {
-                    case BluetoothAdapter.STATE_OFF:
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_OFF:
-                        break;
-                    case BluetoothAdapter.STATE_ON:
-                        break;
-                    case BluetoothAdapter.STATE_TURNING_ON:
-                        break;
-                }
-            }
-        }
-    };
 }

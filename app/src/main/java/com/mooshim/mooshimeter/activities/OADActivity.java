@@ -263,13 +263,14 @@ public class OADActivity extends MyActivity {
         final StatLockManager mylock = new StatLockManager(new ReentrantLock(), "Disconnector");
         int rval = 0;
         BLEDeviceBase m = mMeter;
-        int cb_handle = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+        Runnable disco_runnable = new Runnable() {
             @Override
             public void run() {
                 addToLog("Received disconnect event.\n");
                 mylock.sig();
             }
-        });
+        };
+        mMeter.mPwrap.addDisconnectCB(disco_runnable);
         m.disconnect();
         if(m.isConnected() && mylock.awaitMilli(10000)) {
             // Our wait timed out (disconnection failed)
@@ -280,7 +281,7 @@ public class OADActivity extends MyActivity {
             addToLog("Disconnect successful\n");
             rval = 0;
         }
-        mMeter.mPwrap.cancelConnectionStateCB(cb_handle);
+        mMeter.mPwrap.cancelDisconnectCB(disco_runnable);
         return rval;
     }
 
@@ -326,14 +327,6 @@ public class OADActivity extends MyActivity {
         }
         if (BluetoothGatt.GATT_SUCCESS != rval) {
             addToLog("Connection failed.  Status: "+rval+"\n");
-            return null;
-        }
-        addToLog("Discovering Services...\n");
-        rval = m.discover();
-        if (BluetoothGatt.GATT_SUCCESS != rval) {
-            // We may have failed because
-            addToLog("Discovery failed.  Status: "+rval+"\n");
-            m.disconnect();
             return null;
         }
         // At this point we are connected and have discovered characteristics for the BLE
@@ -561,8 +554,8 @@ public class OADActivity extends MyActivity {
         m.oad_identity.send();
         // Initialize stats
         mProgInfo.reset();
-        final int[] cb_handle = new int[1];
-        cb_handle[0] = mMeter.mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+        final Runnable[] disco_runnable = new Runnable[1];
+        disco_runnable[0] = new Runnable() {
             @Override
             public void run() {
                 runOnUiThread(new Runnable() {
@@ -575,12 +568,13 @@ public class OADActivity extends MyActivity {
                 Util.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        mMeter.mPwrap.cancelConnectionStateCB(cb_handle[0]);
+                        mMeter.mPwrap.cancelDisconnectCB(disco_runnable[0]);
                         finish();
                     }
                 }, 3000);
             }
-        });
+        };
+        mMeter.mPwrap.addDisconnectCB(disco_runnable[0]);
         Thread t = new Thread(new Runnable() {
             @Override
             public void run() {

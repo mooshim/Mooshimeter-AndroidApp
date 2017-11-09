@@ -329,7 +329,7 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                title.setText(mMeter.getBLEDevice().getName());
+                title.setText(mMeter.getName());
                 bat.setImageDrawable(bat_img);
                 rssi.setImageDrawable(rssi_img);
             }

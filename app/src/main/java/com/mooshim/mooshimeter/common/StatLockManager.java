@@ -24,6 +24,7 @@ import android.util.Log;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by First on 10/2/2015.
@@ -37,6 +38,9 @@ public class StatLockManager {
         if(false && name!=null && name.length()>0) {
             Log.d("LOCK:" + name, msg);
         }
+    }
+    public StatLockManager() {
+        this(new ReentrantLock(),"TMP");
     }
     public StatLockManager(Lock l,String dbg_name) {
         name = dbg_name;

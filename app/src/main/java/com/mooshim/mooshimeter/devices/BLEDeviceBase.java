@@ -26,9 +26,13 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.idevicesinc.sweetblue.BleDevice;
 import com.mooshim.mooshimeter.activities.MyApplication;
 import com.mooshim.mooshimeter.common.Util;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 import static java.util.UUID.fromString;
@@ -160,10 +164,11 @@ public class BLEDeviceBase {
         // we can just see what's in the service dictionary.
         // If we haven't connected, revert to whatever the scan
         // hinted at.
-        if(mPwrap.mServices.containsKey(mServiceUUIDs.METER_SERVICE)){
+        List<UUID> services = Arrays.asList(mPwrap.mDevice.getAdvertisedServices());
+        if(services.contains(mServiceUUIDs.METER_SERVICE)) {
             mOADMode = false;
         }
-        if(mPwrap.mServices.containsKey(mServiceUUIDs.OAD_SERVICE_UUID)) {
+        if(services.contains(mServiceUUIDs.OAD_SERVICE_UUID)) {
             mOADMode = true;
         }
         return mOADMode;
@@ -175,31 +180,22 @@ public class BLEDeviceBase {
     public int connect() {
         return mPwrap.connect();
     }
-    public int discover() {
-        return mPwrap.discover();
-    }
     public boolean isConnected() {
         return mPwrap.isConnected();
     }
     public boolean isConnecting() {
         return mPwrap.isConnecting();
     }
-    public boolean isDisconnected() {
-        return mPwrap.isDisconnected();
-    }
     public int getRSSI() {
-        return mPwrap.mRssi;
+        return getBLEDevice().getRssi();
     }
-    public void setRSSI(int rssi) {
-        mPwrap.mRssi = rssi;
-    }
-    public BluetoothDevice getBLEDevice() {
+    public BleDevice getBLEDevice() {
         return mPwrap.getBLEDevice();
     }
     public String getAddress() {
         return mPwrap.getAddress();
     }
     public String getName() {
-        return mPwrap.getBLEDevice().getName();
+        return mPwrap.getBLEDevice().getName_normalized();
     }
 }

@@ -163,7 +163,7 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
         }
     };
 
-    public int disconnect_handle;
+    public Runnable disconnect_runnable;
 
     // Display control settings
     private final String ch1_auto_key = "CH1_AUTO";
@@ -223,14 +223,14 @@ public abstract class MooshimeterDeviceBase extends BLEDeviceBase implements Moo
                 delegate.onRssiReceived(getRSSI());
             }
         };
-
-        disconnect_handle = mPwrap.addConnectionStateCB(BluetoothGatt.STATE_DISCONNECTED, new Runnable() {
+        disconnect_runnable = new Runnable() {
             @Override
             public void run() {
-                mPwrap.cancelConnectionStateCB(disconnect_handle);
+                mPwrap.cancelDisconnectCB(disconnect_runnable);
                 delegate.onDisconnect();
             }
-        });
+        };
+        mPwrap.addDisconnectCB(disconnect_runnable);
         return 0;
     }
 

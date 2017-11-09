@@ -463,11 +463,14 @@ public class ConfigTree {
     }
 
     public int attach(PeripheralWrapper p, UUID serin, UUID serout) {
+        int rval = 0;
         pwrap=p;
         serin_uuid=serin;
         serout_uuid = serout;
-        if(0!=pwrap.enableNotify(serout, true, serout_callback)){
-            return -1;
+        rval = pwrap.enableNotify(serout, true, serout_callback);
+        if(0!=rval){
+            Log.e(TAG,"Something went wrong enabling serial notification!");
+            return rval;
         }
         // Grab the tree's CRC
         command("ADMIN:CRC32");

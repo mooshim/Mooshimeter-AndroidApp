@@ -382,10 +382,6 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
         return 0;
     }
     @Override
-    public int discover() {
-        return 0;
-    }
-    @Override
     public int initialize(){
         return 0;
     }
@@ -398,15 +394,9 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
         return false;
     }
     @Override
-    public boolean isDisconnected() {
-        return !mIsConnected;
-    }
-    @Override
     public int getRSSI() {
         return -50;
     }
-    @Override
-    public void setRSSI(int rssi) {}
     @Override
     public String getAddress() {
         return "FAKEADDR";
