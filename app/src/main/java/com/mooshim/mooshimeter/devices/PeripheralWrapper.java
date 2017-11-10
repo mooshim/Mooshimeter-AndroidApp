@@ -22,12 +22,10 @@ package com.mooshim.mooshimeter.devices;
 import android.content.Context;
 import android.util.Log;
 
-import com.idevicesinc.sweetblue.BleCharacteristic;
 import com.idevicesinc.sweetblue.BleDevice;
-import com.idevicesinc.sweetblue.ReadWriteListener;
-
 import com.idevicesinc.sweetblue.BleDeviceState;
 import com.idevicesinc.sweetblue.DeviceStateListener;
+
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.StatLockManager;
 import com.mooshim.mooshimeter.common.Util;
@@ -45,11 +43,8 @@ public class PeripheralWrapper {
     protected Context mContext;
     protected BleDevice mDevice;
 
-    private Map<UUID,NotifyHandler> mNotifyCB;
     private final List<Runnable> mConnectCBs;
     private final List<Runnable> mDisconnectCBs;
-
-    public static final UUID CLIENT_CHARACTERISTIC_CONFIG = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
     private class Interruptable implements Callable<Void> {
         public int mRval = 0;
@@ -108,8 +103,6 @@ public class PeripheralWrapper {
             }
         });
 
-        mNotifyCB          = new ConcurrentHashMap<>();
-
         mConnectCBs    = new ArrayList<>();
         mDisconnectCBs = new ArrayList<>();;
     }
@@ -143,7 +136,7 @@ public class PeripheralWrapper {
     }
 
     public boolean isConnected() {
-        return mDevice.isAny(BleDeviceState.CONNECTING_OVERALL);
+        return mDevice.isAny(BleDeviceState.INITIALIZED);
     }
 
     public boolean isConnecting() {
@@ -154,7 +147,18 @@ public class PeripheralWrapper {
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
-                mDevice.connect();
+                final StatLockManager l = new StatLockManager();
+                mRval = -1;
+                mDevice.connect(new BleDevice.StateListener() {
+                    @Override
+                    public void onEvent(StateEvent e) {
+                        if(e.didEnter(BleDeviceState.INITIALIZED)) {
+                            mRval = 0;
+                            l.sig();
+                        }
+                    }
+                });
+                l.awaitMilli(5000);
                 return null;
             }
         });
@@ -174,51 +178,63 @@ public class PeripheralWrapper {
         return mDevice.getRssi();
     }
 
-    public byte[] req(UUID uuid) {
-        final StatLockManager l = new StatLockManager();
+    public byte[] req(final UUID uuid) {
         final byte[][] rval = new byte[1][];
-        mDevice.read(uuid,new BleDevice.ReadWriteListener() {
-            @Override public void onEvent(BleDevice.ReadWriteListener.ReadWriteEvent result)
-            {
-                if( result.wasSuccess() )
-                {
-                    rval[0] = result.data();
-                } else {
-                    Log.e(TAG,"Read fail");
+        int error = protectedCall(new Interruptable() {
+            @Override
+            public Void call() throws InterruptedException {
+                final StatLockManager l = new StatLockManager();
+                mDevice.read(uuid,new BleDevice.ReadWriteListener() {
+                    @Override public void onEvent(BleDevice.ReadWriteListener.ReadWriteEvent result)
+                    {
+                        if( result.wasSuccess() )
+                        {
+                            rval[0] = result.data();
+                            mRval = 0;
+                        } else {
+                            Log.e(TAG,"Read fail");
+                            mRval = -1;
+                        }
+                        l.sig();
+                    }
+                });
+                if(l.awaitMilli(1000)) {
+                    //Timeout
+                    mRval = -1;
                 }
-                l.sig();
+                return null;
             }
         });
-        if(l.awaitMilli(1000)) {
-            //Timeout
+        if(error == 0) {
+            return rval[0];
+        } else {
             return null;
         }
-        return rval[0];
     }
 
     public int send(final UUID uuid, final byte[] value) {
-        final StatLockManager l = new StatLockManager();
-        final int[] rval = new int[1];
-        mDevice.write(uuid, value, new BleDevice.ReadWriteListener() {
+        return protectedCall(new Interruptable() {
             @Override
-            public void onEvent(ReadWriteEvent e) {
-                if(e.wasSuccess()) {
-                    rval[0] = 0;
-                } else {
-                    rval[0] = e.status().ordinal();
+            public Void call() throws InterruptedException {
+                final StatLockManager l = new StatLockManager();
+                mDevice.write(uuid, value, new BleDevice.ReadWriteListener() {
+                    @Override
+                    public void onEvent(ReadWriteEvent e) {
+                        if(e.wasSuccess()) {
+                            mRval = 0;
+                        } else {
+                            mRval = e.status().ordinal();
+                        }
+                        l.sig();
+                    }
+                });
+                if(l.awaitMilli(1000)) {
+                    //Timeout
+                    mRval = -1;
                 }
-                l.sig();
+                return null;
             }
         });
-        if(l.awaitMilli(1000)) {
-            //Timeout
-            return -1;
-        }
-        return rval[0];
-    }
-
-    public NotifyHandler getNotificationCallback(UUID uuid) {
-        return mNotifyCB.get(uuid);
     }
 
     public boolean isNotificationEnabled(UUID uuid) {
@@ -226,28 +242,28 @@ public class PeripheralWrapper {
     }
 
     public int enableNotify(final UUID uuid, final boolean enable, final NotifyHandler on_notify) {
-        mDevice.enableNotify(uuid, new BleDevice.ReadWriteListener() {
-            @Override
-            public void onEvent(ReadWriteEvent e) {
-                if(e.wasSuccess()) {
-                    final byte[] payload = e.data().clone();
-                    final double timestamp = Util.getUTCTime();
-                    Util.dispatchCb(new Runnable() {
-                        @Override
-                        public void run() {
-                            on_notify.onReceived(timestamp, payload);
+        if(enable) {
+            mDevice.enableNotify(uuid, new BleDevice.ReadWriteListener() {
+                @Override
+                public void onEvent(ReadWriteEvent e) {
+                    if(e.wasSuccess()) {
+                        if(e.isRead()) {
+                            final byte[] payload = e.data().clone();
+                            final double timestamp = Util.getUTCTime();
+                            Util.dispatchCb(new Runnable() {
+                                @Override
+                                public void run() {
+                                    on_notify.onReceived(timestamp, payload);
+                                }
+                            });
                         }
-                    });
-                } else {
-                    Log.e(TAG,"Notification failure");
+                    } else {
+                        Log.e(TAG,"Notification failure");
+                    }
                 }
-            }
-        });
-        // Set up the notify callback
-        if(on_notify != null) {
-            mNotifyCB.put(uuid, on_notify);
+            });
         } else {
-            mNotifyCB.remove(uuid);
+            mDevice.disableNotify(uuid);
         }
         return 0;
     }

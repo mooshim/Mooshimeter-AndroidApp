@@ -20,11 +20,6 @@
 package com.mooshim.mooshimeter.activities;
 
 import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
@@ -50,11 +45,9 @@ import com.mooshim.mooshimeter.common.Util;
 import com.mooshim.mooshimeter.common.FilteredScanCallback;
 
 import com.idevicesinc.sweetblue.BleDevice;
-import com.idevicesinc.sweetblue.BleDeviceState;
 import com.idevicesinc.sweetblue.BleManager;
 import com.idevicesinc.sweetblue.BleManagerConfig;
 import com.idevicesinc.sweetblue.utils.BluetoothEnabler;
-import com.idevicesinc.sweetblue.utils.Uuids;
 
 import java.util.UUID;
 
@@ -82,6 +75,9 @@ public class ScanActivity extends MyActivity {
         BluetoothEnabler.start(this);
 
         m_bleManager = BleManager.get(this);
+        BleManagerConfig tmp = m_bleManager.getConfigClone();
+        tmp.loggingEnabled = true;
+        m_bleManager.setConfig(tmp);
 /*
         // Use this check to determine whether BLE is supported on the device. Then
         // you can selectively disable BLE-related features.
