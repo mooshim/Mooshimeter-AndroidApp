@@ -10,6 +10,8 @@ import com.idevicesinc.sweetblue.compat.M_Util;
 import com.idevicesinc.sweetblue.utils.Utils;
 import com.idevicesinc.sweetblue.utils.Utils_Reflection;
 
+import java.lang.reflect.Method;
+
 
 final class P_AndroidBleDevice implements P_NativeDeviceLayer {
 
@@ -125,20 +127,37 @@ final class P_AndroidBleDevice implements P_NativeDeviceLayer {
 
     @Override
     public BluetoothGatt connect(Context context, boolean useAutoConnect, BluetoothGattCallback callback) {
+        BluetoothGatt rval = null;
         if (m_native_device != null)
         {
             if (Utils.isMarshmallow())
             {
-                return M_Util.connect(m_native_device, useAutoConnect, context, callback);
+                rval = M_Util.connect(m_native_device, useAutoConnect, context, callback);
             }
             else
             {
-                return m_native_device.connectGatt(context, useAutoConnect, callback);
+                rval = m_native_device.connectGatt(context, useAutoConnect, callback);
             }
+            refreshDeviceCache(rval);
         }
-        return null;
+        return rval;
     }
 
-
-
+    private boolean refreshDeviceCache(BluetoothGatt gatt){
+        // Forces the BluetoothGATT layer to dump what it knows about the connected device
+        // If this is not called during connection, the GATT layer will simply return the last cached
+        // services and refuse to do the service discovery process.
+        try {
+            Method localMethod = gatt.getClass().getMethod("refresh");
+            if (localMethod != null) {
+                return ((Boolean) localMethod.invoke(gatt));
+            } else {
+                //Log.e(TAG, "Unable to wipe the GATT Cache");
+            }
+        }
+        catch (Exception localException) {
+            //Log.e(TAG, "An exception occured while refreshing device");
+        }
+        return false;
+    }
 }
