@@ -400,7 +400,8 @@ public class ConfigTree {
                     return;
                 }
             } catch(BufferUnderflowException e){
-                Log.d(TAG,"Underflow caught");
+                // Deprecated warning, underflow is not a problem
+                //Log.d(TAG,"Underflow caught");
                 return;
             }
             // Advance recv_buf

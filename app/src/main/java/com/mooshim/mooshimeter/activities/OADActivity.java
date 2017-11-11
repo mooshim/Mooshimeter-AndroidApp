@@ -54,8 +54,6 @@
  **************************************************************************************************/
 package com.mooshim.mooshimeter.activities;
 
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothGatt;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -71,18 +69,20 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.crashlytics.android.answers.Answers;
-import com.crashlytics.android.answers.CustomEvent;
+import com.idevicesinc.sweetblue.BleDevice;
+import com.idevicesinc.sweetblue.BleManager;
+import com.idevicesinc.sweetblue.BleManagerConfig;
 import com.mooshim.mooshimeter.R;
-import com.mooshim.mooshimeter.common.FilteredScanCallback;
 import com.mooshim.mooshimeter.common.FirmwareFile;
 import com.mooshim.mooshimeter.common.StatLockManager;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 import com.mooshim.mooshimeter.devices.MooshimeterDeviceBase;
+import com.mooshim.mooshimeter.devices.PeripheralWrapper;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.devices.OADDevice;
 import com.mooshim.mooshimeter.common.Util;
 
+import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -109,19 +109,7 @@ public class OADActivity extends MyActivity {
 
     private int mOADDelayMs;
 
-    private class MainScanCallback extends FilteredScanCallback {
-        public BLEDeviceBase to_match;
-        public BLEDeviceBase matched;
-        public StatLockManager mylock;
-        public void FilteredCallback(final BLEDeviceBase m) {
-            if(m.getAddress().equals(to_match.getAddress())
-                    && matched==null
-                    && m.isInOADMode()) {
-                matched=m;
-                mylock.sig();
-            }
-        }
-    }
+    private BleManager mBleManager;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -136,6 +124,8 @@ public class OADActivity extends MyActivity {
             finish();
             return;
         }
+
+        mBleManager = BleManager.get(this);
 
         // GUI init
         setContentView(R.layout.activity_oad);
@@ -287,45 +277,80 @@ public class OADActivity extends MyActivity {
 
     private BLEDeviceBase synchronousScan(BLEDeviceBase m) {
         final StatLockManager mylock = new StatLockManager(new ReentrantLock(), "SyncScan");
-        final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        MainScanCallback scan_cb = new MainScanCallback();
-        scan_cb.to_match = m;
-        scan_cb.mylock = mylock;
-        BLEDeviceBase rval = null;
+        final BLEDeviceBase to_match = m;
+        final BLEDeviceBase rval[] = new BLEDeviceBase[1];
+        rval[0]=null;
+
+        addToLog("Scanning for meter...\n");
 
         MyActivity.clearDeviceCache();
 
-        do {
-            if (!bluetoothAdapter.startLeScan(scan_cb)) {
-                // Starting the scan failed!
-                addToLog("Failed to start scan\n");
-                break;
-            } else {
-                addToLog("Scanning for meter in OAD mode...\n");
-            }
+        mBleManager.startScan(new BleManager.DiscoveryListener()
+        {
+            @Override public void onEvent(DiscoveryEvent event)
+            {
+                if( event.was(LifeCycle.DISCOVERED) || event.was(LifeCycle.REDISCOVERED))
+                {
+                    final BleDevice d = event.device();
+                    final UUID[] uuids = d.getAdvertisedServices();
+                    final byte[] manu_data = d.getManufacturerData();
 
-            if (mylock.awaitMilli(20000)) {
-                // Timeout
-                addToLog("Did not see rebooted peripheral in scan!\n");
-                break;
-            } else {
-                // We were interrupted, that means we found it!
-                addToLog("Detected meter!\n");
-                rval = scan_cb.matched;
+                    // Filter devices
+                    boolean oad_mode = false;
+                    int build_time = 0;
+
+                    // Always expecting a single service UUID
+                    if(uuids.length != 1) {
+                        return;
+                    }
+                    // Always expecting a 4 bytes of manufacturer data
+                    if(manu_data.length != 4) {
+                        return;
+                    }
+                    // In the case of the Mooshimeter this is the build time
+                    // in UTC seconds
+                    for(int j = 3; j >= 0; j--) {
+                        build_time |= (manu_data[j] & 0xFF) << (8*j);
+                    }
+
+                    BLEDeviceBase detected = MyActivity.getDeviceWithAddress(d.getMacAddress());
+                    if(detected==null) {
+                        PeripheralWrapper p = new PeripheralWrapper(event.device(), Util.getRootContext());
+                        detected = new BLEDeviceBase(p);
+                        MyActivity.putDevice(detected);
+                    }
+                    detected.mOADMode = oad_mode;
+                    detected.mBuildTime = build_time;
+                    if(detected.getAddress().equals(to_match.getAddress())
+                            && rval[0]==null
+                            && detected.isInOADMode()) {
+                        rval[0]=detected;
+                        mylock.sig();
+                    }
+                }
             }
-        } while(false);
-        bluetoothAdapter.stopLeScan(scan_cb);
-        return rval;
+        });
+
+        if (mylock.awaitMilli(20000)) {
+            // Timeout
+            addToLog("Did not see rebooted peripheral in scan!\n");
+        } else {
+            // We were interrupted, that means we found it!
+            addToLog("Detected meter!\n");
+        }
+
+        mBleManager.stopScan();
+        return rval[0];
     }
 
     private BLEDeviceBase connectAndDiscover(BLEDeviceBase m) {
-        int rval = BluetoothGatt.GATT_FAILURE;
+        int rval = -1;
         int attempts = 0;
-        while(attempts++ < 3 && rval != BluetoothGatt.GATT_SUCCESS) {
+        while(attempts++ < 3 && rval != 0) {
             addToLog("Connecting... Attempt "+attempts+"\n");
             rval = m.connect();
         }
-        if (BluetoothGatt.GATT_SUCCESS != rval) {
+        if (0 != rval) {
             addToLog("Connection failed.  Status: "+rval+"\n");
             return null;
         }
@@ -375,13 +400,13 @@ public class OADActivity extends MyActivity {
         addToLog("PRESS THE RESET BUTTON NOW\n");
 
         Util.delay(500);  // VOODOO BULLSHIT
-        /*
+
         if(null==(m=synchronousScan(m))) {
             return null;
         }
 
         Util.delay(500);  // VOODOO BULLSHIT
-        */
+
         addToLog("Waiting for device to reboot...");
         Util.delay(mOADDelayMs);
         if(null==(m=connectAndDiscover(m))) {
@@ -437,13 +462,14 @@ public class OADActivity extends MyActivity {
             return null;
         }
 
-        // WE NEED TO SCAN FOR THE METER AND CONNECT TO THE NEW SCANNED DEVICE, TRYING TO CONNECT TO THE OLD ONE FAILS
-        /*
-        if(null==(m=synchronousScan(m))) {
-            return null;
-        }*/
         addToLog("Waiting for device to reboot...");
         Util.delay(mOADDelayMs);
+
+        // WE NEED TO SCAN FOR THE METER AND CONNECT TO THE NEW SCANNED DEVICE, TRYING TO CONNECT TO THE OLD ONE FAILS
+
+        if(null==(m=synchronousScan(m))) {
+            return null;
+        }
 
         if(null==(m=connectAndDiscover(m))) {
             return null;
@@ -521,7 +547,7 @@ public class OADActivity extends MyActivity {
                     }
                     if (in_recovery) {
                         // Give a 500ms delay for the BLE stack to catch up and clear
-                        Util.postDelayed(new Runnable() {
+                        Util.postDelayedToMain(new Runnable() {
                             @Override
                             public void run() {
                                 blockPacer.release();
@@ -565,7 +591,7 @@ public class OADActivity extends MyActivity {
                         addToLog("Meter disconnected.  Exiting...\n");
                     }
                 });
-                Util.postDelayed(new Runnable() {
+                Util.postDelayedToMain(new Runnable() {
                     @Override
                     public void run() {
                         mMeter.mPwrap.cancelDisconnectCB(disco_runnable[0]);

@@ -21,7 +21,6 @@ package com.mooshim.mooshimeter.common;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -132,7 +131,7 @@ public class Util {
         return bundled_fw;
     }
 
-    static boolean inMainThread() {
+    public static boolean inMainThread() {
         return Looper.getMainLooper().getThread() == Thread.currentThread();
     }
 
@@ -149,6 +148,9 @@ public class Util {
 
     public static void dispatch(Runnable r) {
         bg_dispatcher.dispatch(r);
+    }
+    public static void dispatchDelayed(Runnable r,int ms) {
+        bg_dispatcher.dispatchDelayed(r,ms);
     }
 
     public static void dispatchCb(Runnable r) {
@@ -169,7 +171,7 @@ public class Util {
     public static void postToMain(Runnable r) {
         getHandlerForPresentActivity().post(r);
     }
-    public static void postDelayed(Runnable r, int ms) {
+    public static void postDelayedToMain(Runnable r, int ms) {
         getHandlerForPresentActivity().postDelayed(r,ms);
     }
     public static void cancelDelayedCB(Runnable r) {
@@ -434,7 +436,7 @@ public class Util {
             return;
         }
         final Semaphore s = new Semaphore(0);
-        postDelayed(new Runnable() {
+        postDelayedToMain(new Runnable() {
             @Override
             public void run() {
                 s.release();

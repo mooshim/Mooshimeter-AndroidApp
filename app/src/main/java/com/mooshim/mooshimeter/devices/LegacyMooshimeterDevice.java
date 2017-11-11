@@ -27,7 +27,6 @@ import com.mooshim.mooshimeter.common.BroadcastIntentData;
 import com.mooshim.mooshimeter.common.Chooser;
 import com.mooshim.mooshimeter.common.LogFile;
 import com.mooshim.mooshimeter.common.MeterReading;
-import com.mooshim.mooshimeter.interfaces.MooshimeterControlInterface;
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
 import com.mooshim.mooshimeter.common.ThermocoupleHelper;
 import com.mooshim.mooshimeter.common.Util;
@@ -746,7 +745,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             }
             meter_bat.update();
             delegate.onBatteryVoltageReceived(meter_bat.bat_v);
-            Util.postDelayed(bat_poller, 10000);
+            Util.postDelayedToMain(bat_poller, 10000);
         }
     };
 
@@ -866,10 +865,10 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
         l.add(mid);
 
         Util.cancelDelayedCB(log_status_checker);
-        Util.postDelayed(log_status_checker, 5000);
+        Util.postDelayedToMain(log_status_checker, 5000);
 
         Util.cancelDelayedCB(bat_poller);
-        Util.postDelayed(bat_poller,1000);
+        Util.postDelayedToMain(bat_poller, 1000);
 
         determineInputDescriptorIndex(Channel.CH1);
         determineInputDescriptorIndex(Channel.CH2);
@@ -975,7 +974,7 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
             }
             meter_log_settings.update();
             delegate.onLoggingStatusChanged(getLoggingOn(), getLoggingStatus(), getLoggingStatusMessage());
-            Util.postDelayed(log_status_checker, 5000);
+            Util.postDelayedToMain(log_status_checker, 5000);
         }
     };
 

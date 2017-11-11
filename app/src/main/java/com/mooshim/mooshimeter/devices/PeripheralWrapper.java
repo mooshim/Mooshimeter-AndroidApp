@@ -24,6 +24,7 @@ import android.util.Log;
 
 import com.idevicesinc.sweetblue.BleDevice;
 import com.idevicesinc.sweetblue.BleDeviceState;
+import com.idevicesinc.sweetblue.BleNode;
 import com.idevicesinc.sweetblue.DeviceStateListener;
 
 import com.mooshim.mooshimeter.interfaces.NotifyHandler;
@@ -32,13 +33,13 @@ import com.mooshim.mooshimeter.common.Util;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class PeripheralWrapper {
     private static final String TAG="PeripheralWrapper";
+
+    private StatLockManager mConnStateLock;
 
     protected Context mContext;
     protected BleDevice mDevice;
@@ -59,6 +60,9 @@ public class PeripheralWrapper {
         if(Util.onCBThread()) {
             Log.e(TAG,"DON'T DO BLE STUFF FROM THE CB THREAD!");
             new Exception().printStackTrace();
+        }
+        if(Util.inMainThread()) {
+            Log.e(TAG,"PROTECTED CALL FROM MAIN THREAD!");
         }
         Runnable payload = new Runnable() {
             @Override
@@ -87,24 +91,33 @@ public class PeripheralWrapper {
         mContext = context;
         mDevice = device;
 
+        mConnStateLock = new StatLockManager();
+
+        mConnectCBs    = new ArrayList<>();
+        mDisconnectCBs = new ArrayList<>();
+
         mDevice.setListener_State(new DeviceStateListener() {
             @Override
             public void onEvent(BleDevice.StateListener.StateEvent e) {
+                mConnStateLock.sig();
                 if(e.didEnter(BleDeviceState.ADVERTISING)) {
                     for(Runnable cb : mDisconnectCBs) {
                         Util.dispatchCb(cb);
                     }
                 }
-                if(e.didEnter(BleDeviceState.CONNECTED)) {
-                    for(Runnable cb : mDisconnectCBs) {
+                if(e.didEnter(BleDeviceState.INITIALIZED)) {
+                    for(Runnable cb : mConnectCBs) {
                         Util.dispatchCb(cb);
                     }
                 }
             }
         });
-
-        mConnectCBs    = new ArrayList<>();
-        mDisconnectCBs = new ArrayList<>();;
+        mDevice.setListener_ConnectionFail(new BleDevice.ConnectionFailListener() {
+            @Override
+            public Please onEvent(ConnectionFailEvent e) {
+                return null;
+            }
+        });
     }
 
     public void addConnectCB(Runnable cb) {
@@ -147,18 +160,19 @@ public class PeripheralWrapper {
         return protectedCall(new Interruptable() {
             @Override
             public Void call() throws InterruptedException {
-                final StatLockManager l = new StatLockManager();
-                mRval = -1;
-                mDevice.connect(new BleDevice.StateListener() {
-                    @Override
-                    public void onEvent(StateEvent e) {
-                        if(e.didEnter(BleDeviceState.INITIALIZED)) {
-                            mRval = 0;
-                            l.sig();
-                        }
+                mDevice.connect();
+                while(!mConnStateLock.awaitMilli(6000)) {
+                    // Wait
+                    if(mDevice.isAny(BleDeviceState.INITIALIZED)) {
+                        break;
                     }
-                });
-                l.awaitMilli(5000);
+                }
+                if(mDevice.isAny(BleDeviceState.INITIALIZED)) {
+                    mRval = 0;
+                } else {
+                    // We timed out
+                    mRval = -1;
+                }
                 return null;
             }
         });
@@ -169,6 +183,14 @@ public class PeripheralWrapper {
             @Override
             public Void call() throws InterruptedException {
                 mDevice.disconnect();
+                while(mConnStateLock.awaitMilli(3000)) {
+                    if(mDevice.isAny(BleDeviceState.ADVERTISING)) {
+                        mRval = 0;
+                        return null;
+                    }
+                }
+                // We timed out
+                mRval = -1;
                 return null;
             }
         });

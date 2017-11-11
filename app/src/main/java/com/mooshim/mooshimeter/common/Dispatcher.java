@@ -7,7 +7,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -34,14 +34,18 @@ public class Dispatcher {
         }
     }
     private final BlockingQueue<Runnable> worker_tasks = new LinkedBlockingQueue<Runnable>();
-    private final ExecutorService worker = new ThreadPoolExecutor(
+    private final ScheduledThreadPoolExecutor worker = new ScheduledThreadPoolExecutor(
+            1,                          // How many threads
+            new NamedThreadFactory()    // Thread factory
+    );
+    /*private final ExecutorService worker = new ThreadPoolExecutor(
             1,  // Number of worker threads to run
             1,  // Maximum number of worker threads to run
             1,  // Timeout
             TimeUnit.SECONDS, // Timeout units
             worker_tasks, // Queue of runnables
             new NamedThreadFactory() // Thread factory to generate named thread for easy debug
-    );
+    );*/
     public void dispatch(final Runnable r) {
         // Preserve the dispatch context
         final Exception context = new Exception();
@@ -65,6 +69,30 @@ public class Dispatcher {
         // TODO: This returns a future which can be used for blocking
         // until the task is complete.  Maybe return it?
         worker.submit(wrap);
+    }
+    public void dispatchDelayed(final Runnable r, final int ms) {
+        // Preserve the dispatch context
+        final Exception context = new Exception();
+        // Wrap the runnable
+        Callable wrap = new Callable() {
+            @Override
+            public Object call() throws Exception {
+                try {
+                    r.run();
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception in callback dispatched from: ");
+                    context.printStackTrace();
+                    Log.e(TAG, "Exception details: " + e.getMessage());
+                    e.printStackTrace();
+                    // forward the exception
+                    throw e;
+                }
+                return null;
+            }
+        };
+        // TODO: This returns a future which can be used for blocking
+        // until the task is complete.  Maybe return it?
+        worker.schedule(wrap,ms,TimeUnit.MILLISECONDS);
     }
     public boolean isCallingThread() {
         boolean rval;

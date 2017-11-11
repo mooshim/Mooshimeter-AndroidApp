@@ -101,29 +101,29 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
             delegate.onSampleReceived(getUTCTime(),Channel.CH1,new MeterReading((float)Math.sin(Util.getUTCTime()/10),5,100,"F"));
             delegate.onSampleReceived(getUTCTime(),Channel.CH2,new MeterReading((float)Math.sin(Util.getUTCTime()/10),5,100,"F"));
             if(streaming) {
-                Util.postDelayed(streamer, 500);
+                Util.postDelayedToMain(streamer, 500);
             }
         }
     };
 
     @Override
     public void reboot() {
-        Util.postDelayed(new Runnable() {
+        Util.postDelayedToMain(new Runnable() {
             @Override
             public void run() {
                 delegate.onDisconnect();
             }
-        },1000);
+        }, 1000);
     }
 
     @Override
     public void enterShippingMode() {
-        Util.postDelayed(new Runnable() {
+        Util.postDelayedToMain(new Runnable() {
             @Override
             public void run() {
                 delegate.onDisconnect();
             }
-        },1000);
+        }, 1000);
     }
 
     @Override
@@ -293,14 +293,14 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
             delegate.onLogInfoReceived(logFile);
             if(i<10) {
                 i++;
-                Util.postDelayed(this, 500);
+                Util.postDelayedToMain(this, 500);
             }
         }
     }
 
     @Override
     public void pollLogInfo() {
-        Util.postDelayed(new LogInfoProducer(),1000);
+        Util.postDelayedToMain(new LogInfoProducer(), 1000);
     }
 
     private LogDataProducer mProducer;
@@ -332,7 +332,7 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
             } else {
                 // Synthesize 1kb/s
                 int ms_delay = testline.length();
-                Util.postDelayed(this, ms_delay);
+                Util.postDelayedToMain(this, ms_delay);
             }
         }
     }
@@ -341,7 +341,7 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
     public void downloadLog(LogFile log) {
         if(mProducer==null) {
             mProducer= new LogDataProducer(log);
-            Util.postDelayed(mProducer,100);
+            Util.postDelayedToMain(mProducer, 100);
         }
     }
 

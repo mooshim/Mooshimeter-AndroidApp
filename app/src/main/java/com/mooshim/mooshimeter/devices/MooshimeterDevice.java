@@ -597,7 +597,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
         // Start a heartbeat.  The Mooshimeter needs to hear from the phone every 20 seconds or it
         // assumes the Android device has fallen in to a phantom connection mode and disconnects itself.
         // We will just read out the PCB version every 10 seconds to satisfy this constraint.
-        Util.postDelayed(heartbeat_cb, 1000);
+        Util.dispatch(heartbeat_cb);
 
         return rval;
     }
@@ -609,7 +609,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 return;
             }
             tree.command("PCB_VERSION");
-            Util.postDelayed(heartbeat_cb,10000);
+            Util.dispatchDelayed(heartbeat_cb, 10000);
         }
     };
 

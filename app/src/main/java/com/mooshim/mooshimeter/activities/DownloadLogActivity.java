@@ -69,7 +69,14 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
         log_text.setMovementMethod(new ScrollingMovementMethod());
 
         mMeter.addDelegate(this);
-        mMeter.downloadLog(mLog);
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.downloadLog(mLog);
+            }
+        });
+
+        
     }
 
     @OnClick(R.id.share_button)
@@ -117,7 +124,12 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
     protected void onDestroy() {
         super.onDestroy();
         if(!mDone) {
-            mMeter.cancelLogDownload();
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    mMeter.cancelLogDownload();
+                }
+            });
         }
     }
 

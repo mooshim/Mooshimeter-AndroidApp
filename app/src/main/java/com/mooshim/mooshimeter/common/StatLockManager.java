@@ -70,7 +70,7 @@ public class StatLockManager {
         con.signalAll();
         if(!holding) {ul();}
     }
-    // returns whether it was interrupted or not
+    // returns true on timeout
     public boolean awaitMilli(int ms) {
         boolean rval = false;
         try {

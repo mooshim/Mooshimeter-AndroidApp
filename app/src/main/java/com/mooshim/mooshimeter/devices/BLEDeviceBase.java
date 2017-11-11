@@ -20,8 +20,6 @@
 package com.mooshim.mooshimeter.devices;
 
 
-import android.app.Application;
-import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
@@ -30,7 +28,6 @@ import com.idevicesinc.sweetblue.BleDevice;
 import com.mooshim.mooshimeter.activities.MyApplication;
 import com.mooshim.mooshimeter.common.Util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -69,10 +66,10 @@ public class BLEDeviceBase {
     }
 
     public int initialize() {
-        Util.postDelayed(RSSI_poller, 1000);
+        //Util.postDelayedToMain(RSSI_poller, 1000);
         return 0;
     }
-
+    /*
     private Runnable RSSI_poller = new Runnable() {
         @Override
         public void run() {
@@ -83,10 +80,10 @@ public class BLEDeviceBase {
             if(rssi_cb!=null) {
                 rssi_cb.run();
             }
-            Util.postDelayed(RSSI_poller, 2000);
+            Util.postDelayedToMain(RSSI_poller, 2000);
         }
     };
-
+    */
     public int disconnect() {
         mInitialized = false;
         return mPwrap.disconnect();
@@ -196,6 +193,6 @@ public class BLEDeviceBase {
         return mPwrap.getAddress();
     }
     public String getName() {
-        return mPwrap.getBLEDevice().getName_normalized();
+        return mPwrap.getBLEDevice().getName_native();
     }
 }

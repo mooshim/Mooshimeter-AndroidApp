@@ -36,13 +36,14 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.idevicesinc.sweetblue.BleNodeConfig;
 import com.idevicesinc.sweetblue.BleStatuses;
+import com.idevicesinc.sweetblue.utils.Interval;
 import com.mooshim.mooshimeter.R;
 import com.mooshim.mooshimeter.common.FirmwareFile;
 import com.mooshim.mooshimeter.devices.BLEDeviceBase;
 import com.mooshim.mooshimeter.devices.PeripheralWrapper;
 import com.mooshim.mooshimeter.common.Util;
-import com.mooshim.mooshimeter.common.FilteredScanCallback;
 
 import com.idevicesinc.sweetblue.BleDevice;
 import com.idevicesinc.sweetblue.BleManager;
@@ -62,10 +63,9 @@ public class ScanActivity extends MyActivity {
     private LinearLayout mDeviceScrollView = null;
 
     // Helpers
-    private static FilteredScanCallback mScanCb = null;
     private LayoutInflater mInflater;
 
-    private BleManager m_bleManager;
+    private BleManager mBleManager;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -74,10 +74,25 @@ public class ScanActivity extends MyActivity {
 
         BluetoothEnabler.start(this);
 
-        m_bleManager = BleManager.get(this);
-        BleManagerConfig tmp = m_bleManager.getConfigClone();
+        mBleManager = BleManager.get(this);
+        BleManagerConfig tmp = mBleManager.getConfigClone();
         tmp.loggingEnabled = true;
-        m_bleManager.setConfig(tmp);
+        tmp.rssiAutoPollRate = Interval.secs(2);
+        tmp.delayBetweenTasks = Interval.millis(20);
+        tmp.scanReportDelay = Interval.DISABLED;
+        tmp.reconnectFilter = new BleNodeConfig.ReconnectFilter() {
+            @Override
+            public Please onEvent(ReconnectEvent e) {
+                return Please.stopRetrying();
+            }
+        };
+        mBleManager.setConfig(tmp);
+        mBleManager.setListener_UhOh(new BleManager.UhOhListener() {
+            @Override
+            public void onEvent(UhOhEvent e) {
+                Log.e(TAG,"UhOh Caught "+e.toString());
+            }
+        });
 /*
         // Use this check to determine whether BLE is supported on the device. Then
         // you can selectively disable BLE-related features.
@@ -168,7 +183,7 @@ public class ScanActivity extends MyActivity {
             }
         }
         */
-        m_bleManager.onResume();
+        mBleManager.onResume();
         startScan();
     }
 
@@ -214,8 +229,17 @@ public class ScanActivity extends MyActivity {
             mBtnScan.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_action_refresh, 0);
             refreshAllMeterTiles();
         }
-        if(getNDevices() == 0) {
-            mStatus.setText("No devices found");
+        int n_devices = getNDevices();
+        switch(n_devices) {
+            case 0:
+                mStatus.setText("No devices found");
+                break;
+            case 1:
+                mStatus.setText("Found 1 Mooshimeter");
+                break;
+            default:
+                mStatus.setText("Found "+n_devices+" Mooshimeters");
+                break;
         }
     }
 
@@ -287,11 +311,6 @@ public class ScanActivity extends MyActivity {
 
         mDeviceScrollView.addView(wrapper);
         refreshMeterTile(wrapper);
-
-        if (getNDevices() > 1)
-            setStatus(getNDevices() + " devices");
-        else
-            setStatus("1 device");
     }
 
     private void refreshMeterTile(final ViewGroup wrapper) {
@@ -367,62 +386,11 @@ public class ScanActivity extends MyActivity {
     }
 
     /////////////////////////////
-    // Listeners for BLE Events
-    /////////////////////////////
-
-    private class MainScanCallback extends FilteredScanCallback {
-        public void FilteredCallback(final BLEDeviceBase m) {
-            if(findTileForMeter(m)==null) {
-                final BLEDeviceBase wrapped = m;
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        addDeviceToTileList(wrapped);
-                    }
-                });
-            }
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    refreshMeterTile((ViewGroup) findTileForMeter(m));
-                }
-            });
-            /*boolean should_automatically_connect_for_firmware_upload =
-                    m.isInOADMode() && (m.mBuildTime < Util.getBundledFirmwareVersion());*/
-            if(   m.getPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)
-               /*|| should_automatically_connect_for_firmware_upload*/ ) {
-                // We've found a meter with the autoconnect feature enabled, or it's in OAD mode
-                // which almost certainly means the user wants to do a firmware update
-                // Connect to it!
-                setStatus("Autoconnecting...");
-                /*if(should_automatically_connect_for_firmware_upload) {
-                    Toast.makeText(mInstance, "Found an out of date meter in bootloader mode, connecting", Toast.LENGTH_LONG).show();
-                }*/
-                stopScan();
-                // Why the crazy nesting?
-                // At this point there might be a few runnables on the main queue that need to run
-                // before we can toggle the connection state.
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Util.dispatch(new Runnable() {
-                            @Override
-                            public void run() {
-                                toggleConnectionState(m);
-                            }
-                        });
-                    }
-                });
-            }
-        }
-    }
-
-    /////////////////////////////
     // Listeners for GUI Events
     /////////////////////////////
 
     private boolean isScanning() {
-        return mScanCb != null;
+        return mBleManager.isScanning();
     }
 
     public synchronized void startScan() {
@@ -442,18 +410,13 @@ public class ScanActivity extends MyActivity {
         }
         refreshAllMeterTiles();
 
-        mScanCb = new MainScanCallback();
-
-        if( m_bleManager.startScan(new BleManager.DiscoveryListener()
+        if( mBleManager.startScan(new BleManager.DiscoveryListener()
         {
             @Override public void onEvent(DiscoveryEvent event)
             {
                 if( event.was(LifeCycle.DISCOVERED)
                  || event.was(LifeCycle.REDISCOVERED))
                 {
-
-                    //BLEDeviceBase m;
-                    //mScanCb.FilteredCallback(m);
                     ////////////////////////////////////////////////////////////
                     ////////////////////////////////////////////////////////////
                     ////////////////////////////////////////////////////////////
@@ -464,7 +427,6 @@ public class ScanActivity extends MyActivity {
                     final byte[] manu_data = d.getManufacturerData();
 
                     // Filter devices
-                    boolean is_meter = false;
                     boolean oad_mode = false;
                     int build_time = 0;
 
@@ -490,37 +452,54 @@ public class ScanActivity extends MyActivity {
                     }
                     m.mOADMode = oad_mode;
                     m.mBuildTime = build_time;
-                    mScanCb.FilteredCallback(m);
-
-                    /*
-                    */
-                    /*
-                    event.device().connect(new BleDevice.StateListener()
-                    {
-                        @Override public void onEvent(StateEvent event)
-                        {
-                            if( event.didEnter(BleDeviceState.INITIALIZED) )
-                            {
-                                Log.i("SweetBlueExample", event.device().getName_debug() + " just initialized!");
-
-                                event.device().read(Uuids.BATTERY_LEVEL, new BleDevice.ReadWriteListener()
-                                {
-                                    @Override public void onEvent(ReadWriteEvent result)
-                                    {
-                                        if( result.wasSuccess() )
-                                        {
-                                            Log.i("SweetBlueExample", "Battery level is " + result.data()[0] + "%");
-                                        }
-                                    }
-                                });
+                    if(findTileForMeter(m)==null) {
+                        final BLEDeviceBase wrapped = m;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                addDeviceToTileList(wrapped);
                             }
+                        });
+                    }
+                    final BLEDeviceBase inner_meter = m;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            refreshMeterTile((ViewGroup) findTileForMeter(inner_meter));
                         }
-                    });*/
+                    });
+                    /*boolean should_automatically_connect_for_firmware_upload =
+                        m.isInOADMode() && (m.mBuildTime < Util.getBundledFirmwareVersion());*/
+                        if(   m.getPreference(BLEDeviceBase.mPreferenceKeys.AUTOCONNECT)
+                   /*|| should_automatically_connect_for_firmware_upload*/ ) {
+                            // We've found a meter with the autoconnect feature enabled, or it's in OAD mode
+                            // which almost certainly means the user wants to do a firmware update
+                            // Connect to it!
+                            setStatus("Autoconnecting...");
+                    /*if(should_automatically_connect_for_firmware_upload) {
+                        Toast.makeText(mInstance, "Found an out of date meter in bootloader mode, connecting", Toast.LENGTH_LONG).show();
+                    }*/
+                            stopScan();
+                            // Why the crazy nesting?
+                            // At this point there might be a few runnables on the main queue that need to run
+                            // before we can toggle the connection state.
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Util.dispatch(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            toggleConnectionState(inner_meter);
+                                        }
+                                    });
+                                }
+                            });
+                        }
                 }
             }
         }) ) {
             updateScanningButton(true);
-            Util.postDelayed(new Runnable() {
+            Util.postDelayedToMain(new Runnable() {
                 @Override
                 public void run() {
                     stopScan();
@@ -543,8 +522,7 @@ public class ScanActivity extends MyActivity {
                 updateScanningButton(false);
             }
         });
-        m_bleManager.stopScan();
-        mScanCb = null;
+        mBleManager.stopScan();
     }
 
     public void onBtnScan(View view) {

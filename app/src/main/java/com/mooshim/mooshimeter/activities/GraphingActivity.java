@@ -354,12 +354,17 @@ public class GraphingActivity extends MyActivity implements GraphingActivityInte
         }
     }
 
-    public void setBufferModeOn(boolean on) {
+    public void setBufferModeOn(final boolean on) {
         this.bufferModeOn = on;
         axisValueHelpers[0].backing.clear();
         axisValueHelpers[1].backing.clear();
-        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH1,on);
-        mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,on);
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH1,on);
+                mMeter.setBufferMode(MooshimeterControlInterface.Channel.CH2,on);
+            }
+        });
         mRefreshButton.setVisibility(on?View.VISIBLE:View.GONE);
     }
 
