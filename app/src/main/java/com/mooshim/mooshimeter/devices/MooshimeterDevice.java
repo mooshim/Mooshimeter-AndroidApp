@@ -749,7 +749,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public String getName() {
         String rval = (String)tree.getValueAt("NAME");
         // Remove null termination
-        return rval.trim();
+        rval = rval.trim();
+        // Remove illegal characters
+        rval = rval.replaceAll("[^a-zA-Z0-9.\\-;]+", "");
+        return rval;
     }
 
     protected float getEnob(final Channel c) {

@@ -1268,7 +1268,9 @@ public class LegacyMooshimeterDevice extends MooshimeterDeviceBase {
 
     @Override
     public String getName() {
-        return meter_name.name;
+        String rval = meter_name.name;
+        rval = rval.replaceAll("[^a-zA-Z0-9.\\-;]+", "");
+        return rval;
     }
 
     @Override

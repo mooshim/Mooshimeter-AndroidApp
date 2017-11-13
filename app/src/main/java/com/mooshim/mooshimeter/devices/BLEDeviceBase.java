@@ -26,7 +26,6 @@ import android.util.Log;
 
 import com.idevicesinc.sweetblue.BleDevice;
 import com.mooshim.mooshimeter.activities.MyApplication;
-import com.mooshim.mooshimeter.common.Util;
 
 import java.util.Arrays;
 import java.util.List;
@@ -193,6 +192,9 @@ public class BLEDeviceBase {
         return mPwrap.getAddress();
     }
     public String getName() {
-        return mPwrap.getBLEDevice().getName_native();
+        String name = mPwrap.getBLEDevice().getName_native();
+        // Filter for alphanumeric and allowed punctuation
+        name = name.replaceAll("[^a-zA-Z0-9.\\-;]+", "");
+        return name;
     }
 }
