@@ -76,7 +76,8 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
             }
         });
 
-        
+        // Stay on
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @OnClick(R.id.share_button)
@@ -131,6 +132,8 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
                 }
             });
         }
+        // No longer need to hold screen on
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
