@@ -742,6 +742,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
 
     @Override
     public void setName(String name) {
+        // Add null terminator, because firmware doesn't
         tree.command("NAME "+name);
     }
 
@@ -749,6 +750,10 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public String getName() {
         String rval = (String)tree.getValueAt("NAME");
         // Remove null termination
+        int terminator = rval.indexOf("\0");
+        if(terminator != -1) {
+            rval = rval.substring(0,terminator);
+        }
         rval = rval.trim();
         // Remove illegal characters
         rval = rval.replaceAll("[^a-zA-Z0-9.\\-;]+", "");

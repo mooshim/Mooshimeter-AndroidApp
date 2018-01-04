@@ -192,9 +192,14 @@ public class BLEDeviceBase {
         return mPwrap.getAddress();
     }
     public String getName() {
-        String name = mPwrap.getBLEDevice().getName_native();
-        // Filter for alphanumeric and allowed punctuation
-        name = name.replaceAll("[^a-zA-Z0-9.\\-;]+", "");
-        return name;
+        String rval = mPwrap.getBLEDevice().getName_native();
+        int terminator = rval.indexOf("\0");
+        if(terminator != -1) {
+            rval = rval.substring(0,terminator);
+        }
+        rval = rval.trim();
+        // Remove illegal characters
+        rval = rval.replaceAll("[^a-zA-Z0-9.\\-;]+", "");
+        return rval;
     }
 }
