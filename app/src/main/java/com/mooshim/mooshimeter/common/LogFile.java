@@ -33,10 +33,14 @@ public class LogFile {
         }
     }
 
+    public String getFilePath() {
+        return mLogDir+getFileName();
+    }
+
     public String getFileName() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmm");
         String end_time_string = sdf.format(new Date(mEndTime*1000));
-        return mLogDir+mMeter.getName()+"-Log"+mIndex+"-"+end_time_string+".csv";
+        return mMeter.getName()+"-Log"+mIndex+"-"+end_time_string+".csv";
     }
 
     public File getFile() {
