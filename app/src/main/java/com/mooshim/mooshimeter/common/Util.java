@@ -498,7 +498,8 @@ public class Util {
         USE_FAHRENHEIT= "USE_FAHRENHEIT",
         BROADCAST_INTENTS= "BROADCAST_INTENTS",
         SIMULATED_METER= "SIMULATED_METER",
-        VIBRATION_ALERT= "VIBRATION_ALERT";
+        VIBRATION_ALERT= "VIBRATION_ALERT",
+        EKG_FILTER= "EKG_FILTER";
     }
 
     public static SharedPreferences getSharedPreferences(String name) {

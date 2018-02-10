@@ -47,6 +47,8 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     public LogFile mActiveLog = null;
     public Map<Integer,LogFile> mLogs = new ConcurrentHashMap<>();
 
+    private float last_voltage = 0.0f;
+
     ////////////////////////////////
     // CONFIG TREE
     ////////////////////////////////
@@ -219,11 +221,23 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     void handleSampleReceived(Channel c, double timestamp_utc, float val) {
-        MeterReading reading = wrapMeterReading(c,val);
         RangeDescriptor rd = getRangeDescriptorForChannel(c);
         if(rd.cb!=null) {
+            // These callbacks are used for the beep function
             rd.cb.execute(val);
         }
+        if(Util.getPreferenceBoolean(Util.preference_keys.EKG_FILTER)) {
+            // If this channel is measuring aux voltage dc
+            if( getSelectedDescriptor(c).name.equals("AUXILIARY VOLTAGE DC")) {
+                // Apply a differentiation filter
+                float diff = val - last_voltage;
+                last_voltage *= 0.9;
+                last_voltage += 0.1*val;
+                val = diff;
+                if(val > )
+            }
+        }
+        MeterReading reading = wrapMeterReading(c,val);
         delegate.onSampleReceived(timestamp_utc, c,reading);
         if(Util.getPreferenceBoolean(Util.preference_keys.BROADCAST_INTENTS)) {
             BroadcastIntentData.broadcastMeterReading(reading,c.name());

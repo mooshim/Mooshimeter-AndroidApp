@@ -68,6 +68,10 @@ public class GlobalPreferencesActivity extends PreferencesActivity {
                 startActivity(browserIntent);
             }
         }));
+
+        // Use EKG filter?
+        builder.add("Heart Rate Filter","Differentiates Aux VDC signal, increasing ECG visibility",
+                    makeSwitchForPreference(Util.preference_keys.EKG_FILTER));
 	}
 
 	@Override
