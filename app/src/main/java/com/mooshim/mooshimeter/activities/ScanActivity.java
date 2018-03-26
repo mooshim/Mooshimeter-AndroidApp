@@ -35,6 +35,7 @@ import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.idevicesinc.sweetblue.BleNodeConfig;
 import com.idevicesinc.sweetblue.BleStatuses;
@@ -520,6 +521,9 @@ public class ScanActivity extends MyActivity {
             @Override
             public void run() {
                 updateScanningButton(false);
+                if(getNDevices()==0) {
+                    Toast.makeText(Util.getRootContext(), "Is your meter in shipping mode?  Connect the Ω and C terminals to wake it.", Toast.LENGTH_LONG).show();
+                }
             }
         });
         mBleManager.stopScan();
