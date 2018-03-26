@@ -43,11 +43,10 @@ import java.util.List;
 
 import me.grantland.widget.AutofitHelper;
 
-enum minmaxmode_t {OFF, MIN, MAX};
-
 public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private static final String TAG = "DeviceActivity";
     public static final String AUTORANGE = "AUTORANGE";
+    enum minmaxmode_t {OFF, MIN, MAX};
 
     private static MooshimeterControlInterface.Channel chanEnum(int c) {
         return MooshimeterControlInterface.Channel.values()[c];
