@@ -560,12 +560,22 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         pushActivityToStack(mMeter,LoggingPreferencesActivity.class);
     }
     public void onZeroClick(final int c) {
-        MooshimeterControlInterface.Channel channel = chanEnum(c);
+        final MooshimeterControlInterface.Channel channel = chanEnum(c);
         float offset = mMeter.getOffset(channel).value;
         if(offset==0) {
-            mMeter.setOffset(channel, mMeter.getValue(channel).value);
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    mMeter.setOffset(channel, mMeter.getValue(channel).value);
+                }
+            });
         } else {
-            mMeter.setOffset(channel, 0);
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    mMeter.setOffset(channel, 0);
+                }
+            });
         }
     }
     public void onCh1ZeroClick (View v) {
