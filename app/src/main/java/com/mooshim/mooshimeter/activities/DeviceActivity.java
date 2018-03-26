@@ -88,10 +88,10 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
     private SpeaksOnLargeChange speaksOnLargeChange = new SpeaksOnLargeChange();
     private BroadcastIntentData broadcastIntentData = new BroadcastIntentData(); // added for broadcast intent
 
-    private TextView findAndAutofit(int id) {
+    private TextView findAndAutofit(int id, int maxlines) {
         TextView rval = (TextView)findViewById(id);
         AutofitHelper a = AutofitHelper.create(rval);
-        a.setMaxLines(1);
+        a.setMaxLines(maxlines);
         a.setEnabled(true);
         return rval;
     }
@@ -105,27 +105,27 @@ public class DeviceActivity extends MyActivity implements MooshimeterDelegate {
         setContentView(R.layout.activity_meter);
 
         // Bind the GUI elements
-        value_labels[0]        =         findAndAutofit(R.id.ch1_value_label);
-        value_labels[1]        =         findAndAutofit(R.id.ch2_value_label);
-        power_label            =         findAndAutofit(R.id.power_label);
+        value_labels[0]        =         findAndAutofit(R.id.ch1_value_label        , 1);
+        value_labels[1]        =         findAndAutofit(R.id.ch2_value_label        , 1);
+        power_label            =         findAndAutofit(R.id.power_label            , 1);
 
-        input_set_buttons  [0] = (Button)findAndAutofit(R.id.ch1_input_set_button);
-        range_buttons      [0] = (Button)findViewById(R.id.ch1_range_button);
-        zero_buttons       [0] = (Button)findAndAutofit(R.id.ch1_zero_button);
-        minmax_buttons     [0] = (Button)findAndAutofit(R.id.ch1_minmax_button);
-        sound_buttons      [0] = (Button)findAndAutofit(R.id.ch1_sound_button);
+        input_set_buttons  [0] = (Button)findAndAutofit(R.id.ch1_input_set_button   , 1);
+        range_buttons      [0] = (Button)findAndAutofit(R.id.ch1_range_button       , 2);
+        zero_buttons       [0] = (Button)findAndAutofit(R.id.ch1_zero_button        , 1);
+        minmax_buttons     [0] = (Button)findAndAutofit(R.id.ch1_minmax_button      , 1);
+        sound_buttons      [0] = (Button)findAndAutofit(R.id.ch1_sound_button       , 1);
 
-        input_set_buttons  [1] = (Button)findAndAutofit(R.id.ch2_input_set_button);
-        range_buttons      [1] = (Button)findViewById(R.id.ch2_range_button);
-        zero_buttons       [1] = (Button)findAndAutofit(R.id.ch2_zero_button);
-        minmax_buttons     [1] = (Button)findAndAutofit(R.id.ch2_minmax_button);
-        sound_buttons      [1] = (Button)findAndAutofit(R.id.ch2_sound_button);
+        input_set_buttons  [1] = (Button)findAndAutofit(R.id.ch2_input_set_button   , 1);
+        range_buttons      [1] = (Button)findAndAutofit(R.id.ch2_range_button       , 2);
+        zero_buttons       [1] = (Button)findAndAutofit(R.id.ch2_zero_button        , 1);
+        minmax_buttons     [1] = (Button)findAndAutofit(R.id.ch2_minmax_button      , 1);
+        sound_buttons      [1] = (Button)findAndAutofit(R.id.ch2_sound_button       , 1);
 
-        rate_button            = (Button)findViewById(R.id.rate_button);
-        depth_button           = (Button)findViewById(R.id.depth_button);
-        logging_button         = (Button)findAndAutofit(R.id.log_button);
-        graph_button           = (Button)findAndAutofit(R.id.graph_button);
-        power_button           = (Button)findAndAutofit(R.id.power_button);
+        rate_button            = (Button)findAndAutofit(R.id.rate_button            , 2);
+        depth_button           = (Button)findAndAutofit(R.id.depth_button           , 2);
+        logging_button         = (Button)findAndAutofit(R.id.log_button             , 2);
+        graph_button           = (Button)findAndAutofit(R.id.graph_button           , 1);
+        power_button           = (Button)findAndAutofit(R.id.power_button           , 1);
 
         minmax_trackers[0] = new MinMaxTracker();
         minmax_trackers[1] = new MinMaxTracker();
