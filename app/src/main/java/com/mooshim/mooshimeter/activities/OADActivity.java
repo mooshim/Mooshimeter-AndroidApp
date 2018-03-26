@@ -63,6 +63,7 @@ import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
@@ -163,8 +164,41 @@ public class OADActivity extends MyActivity {
             });
         }
 
-        updateStartButton();
+        if (mFirmwareFile == null) {
+            Util.dispatch(new Runnable() {
+                @Override
+                public void run() {
+                    dispatchToLog("Downloading latest firmware...\n");
+                    // This can take a while, so must be done in the background thread
+                    final FirmwareFile result = Util.downloadLatestFirmware();
 
+                    // This must wait until after the download is finished, so we dispatch it back. Nice.
+                    runOnUiThread(
+                            new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (result != null) {
+                                        dispatchToLog("Successfully downloaded newer firmware file!\n");
+                                    } else {
+                                        dispatchToLog("Download failed.\n");
+                                    }
+
+                                    dispatchToLog("Unpacking firmware...\n");
+                                    mFirmwareFile = Util.getLatestFirmware();
+                                    unpackFirmwareFileBuffer();
+
+                                }
+
+                            }
+
+                                 );
+                }
+            });
+        } else {
+            unpackFirmwareFileBuffer();
+        }
+
+        updateStartButton();
     }
 
     @Override
@@ -199,40 +233,6 @@ public class OADActivity extends MyActivity {
     @Override
     protected void onStart() {
         super.onStart();
-
-        if (mFirmwareFile == null) {
-            Util.dispatch(new Runnable() {
-                @Override
-                public void run() {
-                    dispatchToLog("Downloading latest firmware...\n");
-                    // This can take a while, so must be done in the background thread
-                    final FirmwareFile result = Util.downloadLatestFirmware();
-
-                    // This must wait until after the download is finished, so we dispatch it back. Nice.
-                    runOnUiThread(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (result != null) {
-                                        dispatchToLog("Successfully downloaded newer firmware file!\n");
-                                    } else {
-                                        dispatchToLog("Download failed.\n");
-                                    }
-
-                                    dispatchToLog("Unpacking firmware...");
-                                    mFirmwareFile = Util.getLatestFirmware();
-                                    unpackFirmwareFileBuffer();
-
-                                }
-
-                            }
-
-                    );
-                }
-            });
-        } else {
-            unpackFirmwareFileBuffer();
-        }
     }
 
     @Override
@@ -399,15 +399,15 @@ public class OADActivity extends MyActivity {
 
         addToLog("PRESS THE RESET BUTTON NOW\n");
 
-        Util.delay(500);  // VOODOO BULLSHIT
+        Util.delay(500);  // VOODOO
 
         if(null==(m=synchronousScan(m))) {
             return null;
         }
 
-        Util.delay(500);  // VOODOO BULLSHIT
+        Util.delay(500);  // VOODOO
 
-        addToLog("Waiting for device to reboot...");
+        addToLog("Waiting for device to reboot...\n");
         Util.delay(mOADDelayMs);
         if(null==(m=connectAndDiscover(m))) {
             return null;
@@ -492,6 +492,14 @@ public class OADActivity extends MyActivity {
             Log.e(TAG, "startProgramming called, but programming already underway!");
             return;
         }
+
+        // Keep the screen on
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        });
 
         // On meter builds later than 1454xxx there is a delayed reset command that allows us to reboot the meter
         // and reconnect in OAD mode.
@@ -629,6 +637,7 @@ public class OADActivity extends MyActivity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 mProgressInfo.setText("");
                 mProgressBar.setProgress(0);
             }
