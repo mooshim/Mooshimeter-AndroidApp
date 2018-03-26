@@ -234,7 +234,6 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 last_voltage *= 0.9;
                 last_voltage += 0.1*val;
                 val = diff;
-                if(val > )
             }
         }
         MeterReading reading = wrapMeterReading(c,val);
