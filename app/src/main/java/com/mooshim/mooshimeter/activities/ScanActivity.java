@@ -558,7 +558,11 @@ public class ScanActivity extends MyActivity {
         } else {
             startDeviceActivity(m);
         }*/
-            if (!m.getPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE) && m.mBuildTime < Util.getLatestFirmware().getVersion()) {
+            // Prompt user to update if they have 1475x or earlier firmware, since the 1477x firmware
+            // has all features and later updates are just minor bugfixes. TODO: Remove magic number
+            if (!m.getPreference(BLEDeviceBase.mPreferenceKeys.SKIP_UPGRADE)
+                    && m.mBuildTime < 1475000000) {
+                    //&& m.mBuildTime < Util.getLatestFirmware().getVersion()) {
                 String[] choices = {"Update now", "Continue without updating"};
                 int choice = Util.offerChoiceDialog(this, "Firmware update available", "A newer firmware version is available for this Mooshimeter, upgrading is recommended.", choices);
                 switch (choice) {
