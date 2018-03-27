@@ -41,6 +41,18 @@
 
         </LinearLayout>
 
+
+        <ImageButton
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:id="@+id/delete_button"
+            android:background="@drawable/trash"
+            android:layout_gravity="center" />
+
+        <Space
+            android:layout_width="25dp"
+            android:layout_height="wrap_content" />
+
         <ImageButton
             android:layout_width="50dp"
             android:layout_height="50dp"

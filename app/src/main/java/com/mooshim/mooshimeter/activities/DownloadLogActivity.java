@@ -95,6 +95,42 @@ public class DownloadLogActivity extends MyActivity implements MooshimeterDelega
         }
     }
 
+    @OnClick(R.id.delete_button)
+    public void deleteButtonClicked() {
+        if(mMeter.mBuildTime < 1520000000) {
+            Toast.makeText(this,"Not supported in this firmware version - update firmware.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        final Context context = this;
+        Util.dispatch(new Runnable() {
+            @Override
+            public void run() {
+                if(Util.offerYesNoDialog(context,"Delete log?", "This cannot be reversed.")) {
+                    mMeter.deleteLog(mLog.mIndex);
+                    Util.postToMain(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(context,"Deleting log...",Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    Util.dispatchDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            // Send a notification to the higher level that the log was deleted
+                            // so we don't have to resync from the Mooshimeter
+                            Intent data = new Intent();
+                            String text = "DELETED";
+                            data.setData(Uri.parse(text));
+                            data.putExtra("info_index",mLog.mIndex);
+                            setResult(RESULT_OK, data);
+                            finish();
+                        }
+                    }, 1000);
+                }
+            }
+        });
+    }
+
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		// Handle presses on the action bar items

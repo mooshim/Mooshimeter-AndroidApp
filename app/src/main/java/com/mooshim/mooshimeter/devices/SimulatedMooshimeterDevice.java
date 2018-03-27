@@ -352,6 +352,11 @@ public class SimulatedMooshimeterDevice extends MooshimeterDeviceBase{
     }
 
     @Override
+    public void deleteLog(int index) {
+
+    }
+
+    @Override
     public LogFile getLogInfo(int index) {
         return mLogs.get(index);
     }

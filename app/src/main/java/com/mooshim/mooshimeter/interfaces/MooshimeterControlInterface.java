@@ -88,6 +88,7 @@ public interface MooshimeterControlInterface {
     void pollLogInfo();
     void downloadLog(LogFile log);
     void cancelLogDownload();
+    void deleteLog(int index);
     LogFile getLogInfo(int index);
     void setLogOffset(int offset);
 }

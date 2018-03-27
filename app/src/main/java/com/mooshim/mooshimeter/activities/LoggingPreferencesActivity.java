@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 
 public class LoggingPreferencesActivity extends PreferencesActivity implements MooshimeterDelegate{
 	// BLE
@@ -135,6 +136,9 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
 	}
 
     private class FileListView extends LinearLayout {
+
+        private HashMap<Integer,LinearLayout> mLookup = new HashMap<>();
+
         public FileListView(Context context) {
             super(context);
             this.setOrientation(LinearLayout.VERTICAL);
@@ -183,6 +187,7 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
             LinearLayout row = addLine(""+info.mIndex,
                                            format.format(date),
                                            (info.mBytes/1024)+"kB");
+            mLookup.put(info.mIndex,row);
 
             row.setOnClickListener(new OnClickListener() {
                 @Override
@@ -193,6 +198,25 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
                     startActivityForResult(intent, 0);
                 }
             });
+        }
+        public void deleteFileLine(final int index) {
+            LinearLayout row = mLookup.getOrDefault(index,null);
+            if(row!=null) {
+                removeView(row);
+                mLookup.remove(index);
+            }
+        }
+    }
+
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 0) {
+            if (resultCode == RESULT_OK) {
+                String returnedResult = data.getData().toString();
+                if(returnedResult.equals("DELETED")) {
+                    int deleted_log_index = data.getIntExtra("info_index",-1);
+                    mLogView.deleteFileLine(deleted_log_index);
+                }
+            }
         }
     }
 

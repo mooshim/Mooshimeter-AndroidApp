@@ -870,6 +870,7 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
                 "INSUFFICIENT_SPACE",
                 "WRITE_ERROR",
                 "END_OF_FILE",
+                "READ_ERROR",
         };
         return messages[getLoggingStatus()];
     }
@@ -1017,6 +1018,11 @@ public class MooshimeterDevice extends MooshimeterDeviceBase{
     @Override
     public LogFile getLogInfo(int index) {
         return mLogs.get(index);
+    }
+
+    @Override
+    public void deleteLog(int index) {
+        tree.command("LOG:DELETE "+index);
     }
 
     private RangeDescriptor getRangeDescriptorForChannel(Channel c) {
