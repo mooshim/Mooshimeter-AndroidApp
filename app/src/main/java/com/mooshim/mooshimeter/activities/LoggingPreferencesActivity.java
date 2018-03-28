@@ -13,6 +13,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -36,6 +37,7 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
     private MooshimeterDeviceBase mMeter = null;
     private FileListView mLogView;
     private TextView mStatusMessage;
+    private Switch mLogEnableSwitch;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -60,17 +62,17 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
         mStatusMessage = (TextView)status_pane.findViewById(R.id.pref_descr);
 
         // Logging on
-        builder.add("Logging Enable","With logging enabled, logs will be written to SD card",
-            makeSwitch(mMeter.getLoggingOn(), new BooleanRunnable() {
-            @Override
-            public void run() {
-                Util.dispatch(new Runnable() {
-                    @Override
-                    public void run() {
-                        mMeter.setLoggingOn(arg);
-                    }
-                });
-            }}));
+        mLogEnableSwitch = makeSwitch(mMeter.getLoggingOn(), new BooleanRunnable() {
+                                          @Override
+                                          public void run() {
+                                              Util.dispatch(new Runnable() {
+                                                  @Override
+                                                  public void run() {
+                                                      mMeter.setLoggingOn(arg);
+                                                  }
+                                              });
+                                          }});
+        builder.add("Logging Enable","With logging enabled, logs will be written to SD card", mLogEnableSwitch);
 
         // Logging interval
         final Button log_interval_button = new Button(mContext);
@@ -273,10 +275,11 @@ public class LoggingPreferencesActivity extends PreferencesActivity implements M
     public void onBufferDepthChanged(int i, int buffer_depth) {}
 
     @Override
-    public void onLoggingStatusChanged(boolean on, int new_state, final String message) {
+    public void onLoggingStatusChanged(final boolean on, int new_state, final String message) {
         Util.postToMain(new Runnable() {
             @Override
             public void run() {
+                mLogEnableSwitch.setChecked(on);
                 mStatusMessage.setText(message);
             }
         });
