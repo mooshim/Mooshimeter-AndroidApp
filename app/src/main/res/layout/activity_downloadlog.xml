@@ -89,7 +89,7 @@
             android:lines="20"
             android:padding="5dp"
             android:scrollHorizontally="true"
-            android:text="Waiting for log data..."
+            android:text="Waiting for log data...                                                                 "
             android:singleLine="false"
             android:scrollIndicators="right" />
     </HorizontalScrollView>
